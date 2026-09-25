@@ -12,7 +12,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: pip install -e ".[test]"
-      - run: pytest tests/test_physics.py -q
+      - run: pytest -q -m "not octave"
   octave:
     runs-on: ubuntu-latest
     steps:
@@ -22,4 +22,4 @@ jobs:
           python-version: "3.12"
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends octave
       - run: pip install -e ".[test]"
-      - run: pytest tests/test_octave.py -q
+      - run: pytest -q -m octave
