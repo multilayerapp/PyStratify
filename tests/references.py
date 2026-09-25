@@ -111,20 +111,25 @@ def bhmie(x, m, nmax=None):
     return 2 * q_ext / x**2, 2 * q_sca / x**2
 
 
-def layered_decay_rates(radii, n, wavelength, r, orders, dps=150):
-    """Shell-normalised (total, radiative) rates, each [perp, par], of an electric dipole at
-    radius r in a lossless shell of a layered sphere (mu = 1), from the 2x2 transfer matrices of
+def layered_decay_rates(radii, n, wavelength, r, orders, dps=150, mu=None, dipole="electric"):
+    """Shell-normalised (total, radiative) rates, each [perp, par], of an electric or magnetic
+    dipole at radius r in a lossless shell of a layered sphere, from the 2x2 transfer matrices of
     Moroz (2005) in mpmath.  Direct products cancel like (R_out/R_in)^(2l) across a shell, so
     ``dps`` must exceed ~ 2 l log10 of the largest radius ratio plus the digits wanted.
 
-    With (A_r, B_r) the regular and (A_o, B_o) the outgoing (B = 1 in the host) coefficients in
-    the emitter's shell and W = A_r B_o - B_r A_o, the per-order Green's function is
-    u_reg u_out / W and the radiated amplitude u_reg / W.
+    With (A_r, B_r) the regular and (A_o, B_o) the outgoing (B = 1 in the host) coefficients of
+    the electric field in the emitter's shell and W = A_r B_o - B_r A_o, the per-order Green's
+    function is u_reg u_out / W and the radiated amplitude u_reg / W.  The radial electric
+    dipole couples to TM, the radial magnetic dipole to TE; the radiative factor is
+    n_d mu_d / (n_h mu_h) for both (energy conservation fixes it: total = radiative for a
+    lossless sphere).
     """
+    mu = [1.0] * len(n) if mu is None else mu
     with mp.workdps(dps):
         N = len(radii)
         R = [mp.mpf(v) for v in radii]
         nn = [mp.mpc(complex(v)) for v in n]
+        mm = [mp.mpc(complex(v)) for v in mu]
         k = [2 * mp.pi * v / mp.mpf(wavelength) for v in nn]
         top = orders + 1
 
@@ -138,46 +143,41 @@ def layered_decay_rates(radii, n, wavelength, r, orders, dps=150):
         d = sum(1 for Rj in radii if r >= Rj)
         X = k[d] * mp.mpf(r)
         pe, dpe, xe, dxe = funcs(X)
-        out = [mp.mpf(0)] * 4
+        radial, other = (False, True) if dipole == "electric" else (True, False)  # TE flag
+        tot, rad = [mp.mpf(0)] * 2, [mp.mpf(0)] * 2
         for l in range(1, orders + 1):
             G, Gd, F, Fd = {}, {}, {}, {}
             for te in (False, True):
                 mats = []
                 for j in range(N):
                     (p, dp, x, dx), (pt, dpt, xt, dxt) = iface[j]
-                    eta = nn[j] / nn[j + 1]
-                    a, b = (eta, 1) if te else (1, eta)
+                    eta, mr = nn[j] / nn[j + 1], mm[j] / mm[j + 1]
+                    a, b = (eta, mr) if te else (mr, eta)
                     mats.append(
-                        mp.matrix(
-                            [
-                                [dx[l] * pt[l] * a - x[l] * dpt[l] * b, dx[l] * xt[l] * a - x[l] * dxt[l] * b],
-                                [-dp[l] * pt[l] * a + p[l] * dpt[l] * b, -dp[l] * xt[l] * a + p[l] * dxt[l] * b],
-                            ]
-                        )
+                        [
+                            [dx[l] * pt[l] * a - x[l] * dpt[l] * b, dx[l] * xt[l] * a - x[l] * dxt[l] * b],
+                            [-dp[l] * pt[l] * a + p[l] * dpt[l] * b, -dp[l] * xt[l] * a + p[l] * dxt[l] * b],
+                        ]
                     )
-                reg = mp.matrix([[1], [0]])
-                for j in range(d):  # inner -> outer: v_{j+1} = M_j^{-1} v_j
+                A, B = mp.mpf(1), mp.mpf(0)
+                for j in range(d):  # inner -> outer through the inverse matrices
                     m = mats[j]
-                    reg = (
-                        mp.matrix([[m[1, 1], -m[0, 1]], [-m[1, 0], m[0, 0]]])
-                        * reg
-                        / (m[0, 0] * m[1, 1] - m[0, 1] * m[1, 0])
-                    )
-                outg = mp.matrix([[0], [1]])
+                    det = m[0][0] * m[1][1] - m[0][1] * m[1][0]
+                    A, B = (m[1][1] * A - m[0][1] * B) / det, (-m[1][0] * A + m[0][0] * B) / det
+                Ao, Bo = mp.mpf(0), mp.mpf(1)
                 for j in range(N - 1, d - 1, -1):
-                    outg = mats[j] * outg
-                Ar, Br, Ao, Bo = reg[0], reg[1], outg[0], outg[1]
-                W = Ar * Bo - Br * Ao
-                u, du = Ar * pe[l] + Br * xe[l], Ar * dpe[l] + Br * dxe[l]
+                    m = mats[j]
+                    Ao, Bo = m[0][0] * Ao + m[0][1] * Bo, m[1][0] * Ao + m[1][1] * Bo
+                W = A * Bo - B * Ao
+                u, du = A * pe[l] + B * xe[l], A * dpe[l] + B * dxe[l]
                 v, dv = Ao * pe[l] + Bo * xe[l], Ao * dpe[l] + Bo * dxe[l]
                 G[te], Gd[te], F[te], Fd[te] = u * v / W, du * dv / W, u / W, du / W
             cp, ct = l * (l + 1) * (2 * l + 1), 2 * l + 1
-            out[0] += cp * mp.re(G[False])
-            out[1] += ct * (mp.re(G[True]) + mp.re(Gd[False]))
-            out[2] += cp * abs(F[False]) ** 2
-            out[3] += ct * (abs(F[True]) ** 2 + abs(Fd[False]) ** 2)
-        f_rad = mp.re(nn[d] / nn[-1])
+            tot[0] += cp * mp.re(G[radial])
+            tot[1] += ct * (mp.re(G[other]) + mp.re(Gd[radial]))
+            rad[0] += cp * abs(F[radial]) ** 2
+            rad[1] += ct * (abs(F[other]) ** 2 + abs(Fd[radial]) ** 2)
+        f_rad = mp.re(nn[d] * mm[d] / (nn[-1] * mm[-1]))
         X = mp.re(X)
-        tp, tpar = 1.5 * out[0] / X**4, 0.75 * out[1] / X**2
-        rp, rpar = f_rad * 1.5 * out[2] / X**4, f_rad * 0.75 * out[3] / X**2
-        return [float(tp), float(tpar)], [float(rp), float(rpar)]
+        scale = [1.5 / X**4, 0.75 / X**2]
+        return [float(scale[i] * tot[i]) for i in range(2)], [float(f_rad * scale[i] * rad[i]) for i in range(2)]

@@ -309,6 +309,35 @@ def test_layered_decay_rates_against_transfer_matrices(radii, n, wavelength, rd,
     assert np.allclose(r.nonradiative[0], np.subtract(total, radiative), rtol=2e-10, atol=0)
 
 
+@pytest.mark.parametrize(
+    "radii, n, mu, wavelength, rd, orders, dps",
+    [
+        ([50.0], [0.093 + 4j, 1.0], [1, 1], 633.0, 51.0, 1250, 60),  # 1 nm from silver
+        ([50.0, 55.0], [1.45, AU, 1.33], [1, 1, 1], LAM, 49.5, 2400, 150),  # inside a nanoshell's core
+        ([50.0, 60.0], [AU, 1.45, 1.33], [1, 1, 1], LAM, 55.0, 400, 100),  # in the shell over a metal core
+        ([40.0, 45.0, 60.0], [1.45, AU, 2.0, 1.33], [1, 1, 2.0, 1], LAM, 50.0, 400, 120),  # mu = 2 spacer
+        ([100.0], [3.7 + 0.005j, 1.0], [1, 1], 800.0, 110.0, 350, 60),  # silicon, magnetic Mie mode
+    ],
+)
+def test_magnetic_dipole_rates_against_transfer_matrices(radii, n, mu, wavelength, rd, orders, dps):
+    total, radiative = layered_decay_rates(radii, n, wavelength, rd, orders, dps, mu=mu, dipole="magnetic")
+    r = ps.decay_rates(radii, n, wavelength, [rd], mu, dipole="magnetic", normalization="shell", tol=1e-10)
+    assert r.converged.all()
+    assert np.allclose(r.total[0], total, rtol=1e-11, atol=0)
+    assert np.allclose(r.radiative[0], radiative, rtol=1e-12, atol=0)
+    assert np.allclose(r.nonradiative[0], np.subtract(total, radiative), rtol=1e-10, atol=0)
+
+
+@pytest.mark.parametrize("dipole", ["electric", "magnetic"])
+@pytest.mark.parametrize("eps_s, mu_s", [(4.0, 2.0 + 0.3j), (4.0 + 0.8j, 1.2 + 0.5j)])
+def test_magnetic_losses_conserve_energy(dipole, eps_s, mu_s):
+    """Loss Im(mu)|H|^2 in a magnetically lossy shell (it was ignored: zero Ohmic loss with real eps)."""
+    n = [1.45, np.sqrt(eps_s * mu_s), 1.33]
+    r = ps.decay_rates([40.0, 50.0], n, LAM, [20.0, 50.5, 55.0], [1, mu_s, 1], dipole=dipole, tol=1e-10)
+    assert r.converged.all() and np.all(r.nonradiative > 0)
+    assert r.balance_error.max() < 1e-9
+
+
 @pytest.mark.parametrize("ref, mu, rd", CASES)
 def test_closed_form_absorption_equals_quadrature(ref, mu, rd):
     """Lommel boundary terms (the default) against Gauss-Legendre quadrature."""

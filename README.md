@@ -89,7 +89,8 @@ from a metal needs l ≈ 500–1000. PyStratify keeps the physics and changes th
   and Zhang (2025).
 * **Decay rates from the Green's function.** The radiative rate, the Ohmic loss and the total
   rate (LDOS) are three independent sums, and `DecayRates.balance_error` checks
-  total = radiative + nonradiative. Sums are truncated from the geometry and accepted only when
+  total = radiative + nonradiative. The loss includes magnetic loss, Im(μ)|H|², as well as
+  Im(ε)|E|². Sums are truncated from the geometry and accepted only when
   a remainder estimate meets `tol`; an unconverged position is flagged, never silently
   truncated.
 * **Ohmic loss from boundary terms.** The absorption in a shell, ∫|A j_l + B h_l|² r² dr, is
@@ -156,7 +157,8 @@ pytest
   the Rayleigh limit, plane-wave limits, field continuity and convergence far from the
   particle, quadrature, decay rates against the mpmath Mie sums of Majic & Le Ru and, for
   emitters inside and outside metal shells, against high-precision transfer matrices, closed-form
-  against quadrature Ohmic loss, and energy conservation of decay rates for electric and
+  against quadrature Ohmic loss, magnetic-dipole rates against transfer matrices (including
+  μ ≠ 1 and magnetically lossy shells), and energy conservation of decay rates for electric and
   magnetic dipoles, up to 17000 orders.
 
 `tests/references.py` holds the independent references (mpmath Mie decay rates and extinction,

@@ -16,7 +16,8 @@ and Delta = 1 - R S, the Green's function gives
 * field in an absorbing shell a: the regular (a < d) or outgoing (a > d)
   solution continued to shell a, times u_out(x)/Delta or u_in(x)/Delta.
 
-The total rate is computed independently of the radiative and Ohmic parts,
+Losses are Im(eps)|E|^2 + Im(mu)|H|^2 in every lossy shell.  The total rate
+is computed independently of the radiative and loss parts,
 and ``balance_error = |total - rad - nonrad| / total`` checks energy
 conservation.
 """
@@ -354,7 +355,11 @@ def _rates_one(sol: Solution, r, shells, normalization, dipole, tol, quadrature_
     k = sol.k[0]
     radial_pol, other_pol = (TM, TE) if dipole == "electric" else (TE, TM)
     integral_kind = {TM: 0, TE: 1}
-    absorbing = [a for a in range(N) if eps[a].imag > 0]
+    # Ohmic loss Im(eps)|E|^2 and magnetic loss Im(mu)|H|^2; in shell a, H = -i (n/mu) x (E of the
+    # other polarisation's radial form), so the magnetic loss uses the other integral kind, times |eps/mu|
+    loss_e = np.where(eps.imag > 0, eps.imag, 0.0)
+    loss_m = np.where(mu.imag > 0, mu.imag * np.abs(eps / mu), 0.0)
+    absorbing = [a for a in range(N) if loss_e[a] > 0 or loss_m[a] > 0]
     # The Ohmic-loss series converges like (r_< / r_>)^(2l) at the absorbing shell's
     # nearest boundary - usually far sooner than the LDOS series, which also feels
     # nearby dielectric interfaces.  Integrate only that many orders (checked below).
@@ -366,8 +371,8 @@ def _rates_one(sol: Solution, r, shells, normalization, dipole, tol, quadrature_
         l_abs = L
     cache, rules, boundaries = {}, {}, {}
 
-    def integral(a, side, pol, count):
-        key = (a, side, pol, count)
+    def integral(a, side, pol, count, kind):
+        key = (a, side, pol, count, kind)
         if key not in cache:
             if side == "below":  # regular solution in shell a, plane-wave normalisation
                 la, lb = sol.log_a[pol, a, 0], sol.log_b[pol, a, 0]
@@ -385,10 +390,21 @@ def _rates_one(sol: Solution, r, shells, normalization, dipole, tol, quadrature_
                 if (a, count) not in rules:
                     rules[a, count] = _quadrature_rule(sol, a, count, quadrature_nodes)
                 result = _log_absorption_integrals(sol, a, rules[a, count], la, lb)
-            v = np.full(L, -np.inf, dtype=complex)
-            v[:count] = result[integral_kind[pol]]
-            cache[key] = v
+            for which in (0, 1):
+                v = np.full(L, -np.inf, dtype=complex)
+                v[:count] = result[which]
+                cache[a, side, pol, count, which] = v
         return cache[key]
+
+    def log_loss(a, side, pol, count):
+        """log of the loss integral of shell a for polarisation pol, electric plus magnetic."""
+        kind = integral_kind[pol]
+        with np.errstate(divide="ignore"):
+            electric = np.log(loss_e[a]) + integral(a, side, pol, count, kind).real if loss_e[a] > 0 else None
+            magnetic = np.log(loss_m[a]) + integral(a, side, pol, count, 1 - kind).real if loss_m[a] > 0 else None
+        if electric is None:
+            return magnetic
+        return electric if magnetic is None else np.logaddexp(electric, magnetic)
 
     c_radial = l * (l + 1) * (2 * l + 1)
     c_tangential = 2 * l + 1
@@ -420,7 +436,7 @@ def _rates_one(sol: Solution, r, shells, normalization, dipole, tol, quadrature_
             out = np.zeros((idx.size, L, 2))
             kd3 = k[d].real ** 3
             for a in absorbing:
-                pre = kd3 * f_nonrad * eps[a].imag
+                pre = kd3 * f_nonrad
                 if a < d:  # regular solution in a, amplitude u_out(x)/Delta / A_d
                     side, amp, ref = "below", "u_out", "log_a"
                 else:  # outgoing solution in a, amplitude u_in(x)/Delta / B_out,d
@@ -428,8 +444,8 @@ def _rates_one(sol: Solution, r, shells, normalization, dipole, tol, quadrature_
                 c_e = e[amp] - e["log_delta"] - e[ref]
                 dc_e = e["d" + amp] - e["log_delta"] - e[ref]
                 c_m = m[amp] - m["log_delta"] - m[ref]
-                i_e = integral(a, side, radial_pol, count).real
-                i_m = integral(a, side, other_pol, count).real
+                i_e = log_loss(a, side, radial_pol, count)
+                i_m = log_loss(a, side, other_pol, count)
                 with np.errstate(under="ignore"):
                     out[:, :, 0] += 1.5 / xx**4 * pre * c_radial * np.exp(i_e + 2 * c_e.real)
                     out[:, :, 1] += (
