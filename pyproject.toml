@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pystratify"
+version = "0.2.0"
+description = "Light scattering by multilayered spheres: a verified Python port of STRATIFY"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24", "scipy>=1.10"]
+
+[project.optional-dependencies]
+test = ["pytest>=7", "mpmath>=1.3"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pystratify = ["data/*.csv"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["octave: compares against the original MATLAB code run in GNU Octave (skipped if unavailable)"]
