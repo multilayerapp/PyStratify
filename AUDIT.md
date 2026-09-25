@@ -201,7 +201,7 @@ arguments, with entries ~(x̃/x)^l. Two consequences:
 
 PyStratify's scaled formulation (README, "Numerics") satisfies the interface conditions to 1e-9
 at every order tested, including a 2-nm shell with |n| = 40 at l = 400, and gives decay rates
-that conserve energy to 1e-11 up to l = 1200.
+that conserve energy to 1e-11 up to l = 17000.
 
 ### M10 — weakly lossy shells in `nrg_tot.m`
 
@@ -227,14 +227,23 @@ estimated remainder t_L·r/(1 − r).
 
 ## Limits
 
-* Emitters within ~0.5 nm of a metal need more than the default cap of 1200 multipoles for
-  tol = 1e-8. PyStratify then reports the position as not converged (`DecayRates.converged`,
-  `notes`) and does not return a silently truncated value. At that distance classical
-  electrodynamics itself is questionable (nonlocality).
+* The l-sums need ~ (a/2d)·ln(1/tol) orders for an emitter a distance d from an interface of
+  radius a; the default cap is 20000 (d = 1 nm from a 1.3-µm sphere at tol = 1e-9). Beyond it
+  PyStratify reports the position as not converged (`DecayRates.converged`, `notes`) and does
+  not return a silently truncated value. Below ~0.5 nm classical electrodynamics itself is
+  questionable (nonlocality).
+* Near a lossless interface the total rate (LDOS) carries the rounding of the reactive near
+  field, ~eps × its size, which Majic & Le Ru (2020) also note: 5e-8 in `balance_error` 0.001
+  radii from the interface of a layered magnetic sphere. The radiative rate is unaffected.
 * The magnetic-dipole results (M4) are validated by energy balance only; OSAC does not publish
   them.
 * Running STRATIFY in Octave needed small shims for `rmmissing` and `max(...,'all')` (at
   `8800f0d`, `tests/octave_compat/`); they reproduce MATLAB semantics for the arrays used.
-* The papers Majic & Le Ru (2020), Zhang (2025) and Ladutenko et al. (2017) were consulted
-  through their abstracts. The formulation here is derived independently and verified
-  numerically, not transcribed from them.
+* Majic & Le Ru (2020) was read in full; its decay-rate series (Eqs. 34–37), summed in mpmath,
+  are a test reference. Zhang (2025) and Ladutenko et al. (2017) were consulted through their
+  abstracts. The formulation here is derived independently and verified numerically, not
+  transcribed from them. `benchmarks/RESULTS.md` also covers the cases of Wu & Wang (1991),
+  Wu et al. (1997) and Yuan, Zhu & Zhu (2023, 2024), whose renormalised and asymptotic
+  formulations solve the same over/underflow problem that the logarithmic representation here
+  avoids; the asymptotic formulas of the 2024 paper are approximations (errors of 2–28 % at the
+  switching threshold, their Table 3), so they are not used.

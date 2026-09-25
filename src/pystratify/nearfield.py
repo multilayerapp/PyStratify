@@ -7,6 +7,12 @@ Bohren-Huffman pi_l, tau_l, which are regular on both poles.  Expansion
 coefficients are applied in logarithmic form,
 A_l psi_l(kr) = exp(log A_l + log psi_l(kr)), so thin metal shells and high
 orders are accurate; special functions are evaluated once per distinct k r.
+
+In the host only the scattered field is summed; the incident plane wave is
+added in closed form.  Its multipole series would need l ~ k_h r terms, far
+more than the sphere's truncation away from the particle (with Wiscombe's
+l_max, |E|^2 two radii from a 50-nm gold sphere was off by a factor of two),
+whereas the scattered series converges with the sphere's orders at any r > R.
 """
 
 from __future__ import annotations
@@ -46,13 +52,23 @@ def _log_incident(orders):
     return np.log(1j**orders * np.sqrt((2 * orders + 1) * np.pi))
 
 
-def radial_functions(sol: Solution, wavelength_index: int, r, polarisations=(TM, TE), offsets=(0,), with_incident=True):
+def radial_functions(
+    sol: Solution,
+    wavelength_index: int,
+    r,
+    polarisations=(TM, TE),
+    offsets=(0,),
+    with_incident=True,
+    host_scattered_only=False,
+):
     """f_{l+o}(r) = A_l j_{l+o}(k r) + B_l h_{l+o}(k r) for each polarisation and offset ``o``.
 
     Returns ``({polarisation: [(len(r), L) array per offset]}, x = k r, shell
     index per point)``; the special functions are evaluated once for all
     polarisations.  Points exactly on an interface belong to the outer shell;
-    r must be > 0.
+    r must be > 0.  ``with_incident`` includes the plane-wave factor
+    i^l sqrt((2l + 1) pi); ``host_scattered_only`` drops the A_l j_l (incident)
+    part in the host.
     """
     r = np.asarray(r, dtype=float)
     l = sol.orders
@@ -64,6 +80,8 @@ def radial_functions(sol: Solution, wavelength_index: int, r, polarisations=(TM,
     with np.errstate(under="ignore", over="ignore"):
         for p in polarisations:
             la = sol.log_a[p, shell, wavelength_index] + incident
+            if host_scattered_only:
+                la = np.where((shell == sol.n_shells)[:, None], -np.inf, la)
             lb = sol.log_b[p, shell, wavelength_index] + incident
             out[p] = [(np.exp(la + log_psi[:, l + o]) + np.exp(lb + log_xi[:, l + o])) / x[:, None] for o in offsets]
     return out, x, shell
@@ -73,7 +91,10 @@ def near_field(sol: Solution, x, y, z, wavelength_index: int = 0, chunk: int = 4
     """Electric and magnetic near field at Cartesian points (x, y, z).
 
     Points at the origin are evaluated at r = 1e-9 R_0 (the field is
-    continuous there).
+    continuous there).  In the host the incident wave is exact and the
+    scattered series converges with the Solution's orders at any distance;
+    fields right at the surface converge more slowly, see
+    ``solve(..., regime='near')``.
     """
     x, y, z = np.broadcast_arrays(*(np.asarray(v, dtype=float) for v in (x, y, z)))
     shape = x.shape
@@ -85,7 +106,7 @@ def near_field(sol: Solution, x, y, z, wavelength_index: int = 0, chunk: int = 4
     w = wavelength_index
 
     radii, r_index = np.unique(r, return_inverse=True)
-    functions, kr, shell = radial_functions(sol, w, radii, offsets=(-1, 0))
+    functions, kr, shell = radial_functions(sol, w, radii, offsets=(-1, 0), host_scattered_only=True)
     radial = {}
     for p, (f_prev, f) in functions.items():
         g = f / kr[:, None]  # f_l / x
@@ -124,6 +145,16 @@ def near_field(sol: Solution, x, y, z, wavelength_index: int = 0, chunk: int = 4
         h[c] = h[c] * factor
 
     ct, st, cp, sp = np.cos(theta), np.sin(theta), np.cos(phi), np.sin(phi)
+    host = shell == sol.n_shells
+    if host.any():  # E_inc = x_hat exp(i k z), H_inc = (n/mu) y_hat exp(i k z)
+        wave = np.exp(1j * sol.k[w, -1] * z[host])
+        h0 = sol.n[w, -1] / sol.mu[w, -1] * wave
+        e["r"][host] += st[host] * cp[host] * wave
+        e["theta"][host] += ct[host] * cp[host] * wave
+        e["phi"][host] -= sp[host] * wave
+        h["r"][host] += st[host] * sp[host] * h0
+        h["theta"][host] += ct[host] * sp[host] * h0
+        h["phi"][host] += cp[host] * h0
 
     def cartesian(f):
         return {

@@ -57,8 +57,10 @@ def _amos(z, n0):
         log_psi = pre + np.log(j) + np.abs(zc.imag)
         log_xi = pre + np.log(h) + np.where(lower, 0, 1j * zc)
     bad_psi = ~np.isfinite(j) | (np.abs(j) < _TINY)
-    # psi has genuine zeros below the turning point; only underflow beyond it is a failure
-    bad_psi &= np.arange(n0 + 1) > np.abs(zc) + 1
+    # psi has genuine zeros only on the real axis and below the turning point; anywhere
+    # else a zero is underflow: off the axis jve underflows long before the turning point
+    # (at |z| = 3e4, Im z = 1e4 from order ~1.2e4), because |J| grows slower than exp|Im z|
+    bad_psi &= (np.arange(n0 + 1) > np.abs(zc) + 1) | (zc.imag != 0)
     bad_xi = ~np.isfinite(h) | (np.abs(h) > _HUGE) | (h == 0)
     return log_psi, log_xi, bad_psi, bad_xi
 
