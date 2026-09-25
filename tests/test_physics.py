@@ -13,7 +13,7 @@ from scipy.special import spherical_jn, spherical_yn
 
 import pystratify as ps
 
-from .references import sphere_decay_rates
+from .references import layered_decay_rates, sphere_decay_rates
 
 LAM = 614.0
 AU = 0.27 + 2.93j
@@ -288,6 +288,25 @@ def test_decay_rates_against_mie_reference(radius, gap):
     assert np.allclose(r.radiative[0], [rad_perp, rad_par], rtol=1e-12, atol=0)
     nonrad = np.array([total_perp - rad_perp, total_par - rad_par])
     assert np.allclose(r.nonradiative[0], nonrad, rtol=1e-9, atol=0)
+
+
+@pytest.mark.parametrize(
+    "radii, n, wavelength, rd, orders, dps",
+    [
+        ([50.0, 55.0], [1.45, AU, 1.33], LAM, 49.0, 1250, 110),  # SiO2@Au nanoshell, 1 nm inside the core
+        ([50.0, 55.0], [1.45, AU, 1.33], LAM, 56.0, 1400, 115),  # ... and 1 nm outside
+        ([50.0, 52.0], [1.45, AU, 1.33], LAM, 49.5, 2400, 100),  # 2-nm shell, 0.5 nm inside
+        ([10.0, 13.0, 36.0, 48.0], [1.45, 0.2 + 3.8j, 1.45, 0.25 + 3.5j, 1.33], 690.0, 14.0, 450, 240),  # matryoshka
+    ],
+)
+def test_layered_decay_rates_against_transfer_matrices(radii, n, wavelength, rd, orders, dps):
+    """Emitters inside and outside metal shells, against high-precision transfer matrices."""
+    total, radiative = layered_decay_rates(radii, n, wavelength, rd, orders, dps)
+    r = ps.decay_rates(radii, n, wavelength, [rd], normalization="shell", tol=1e-10)
+    assert r.converged.all()
+    assert np.allclose(r.total[0], total, rtol=2e-10, atol=0)
+    assert np.allclose(r.radiative[0], radiative, rtol=1e-12, atol=0)
+    assert np.allclose(r.nonradiative[0], np.subtract(total, radiative), rtol=2e-10, atol=0)
 
 
 @pytest.mark.parametrize("ref, mu, rd", CASES)

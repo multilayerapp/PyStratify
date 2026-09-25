@@ -133,7 +133,8 @@ Typical timings on one core:
 `python benchmarks/convergence.py` reruns the test cases of the multilayered-sphere literature
 against independent references and writes the report in
 [benchmarks/RESULTS.md](benchmarks/RESULTS.md): decay rates near silver and silicon spheres down
-to 0.25-nm gaps (Majic & Le Ru 2020), a dipole in a layered magnetic sphere and a Luneburg lens
+to 0.25-nm gaps (Majic & Le Ru 2020) and inside and outside gold nanoshells and a matryoshka
+(against high-precision transfer matrices), a dipole in a layered magnetic sphere and a Luneburg lens
 (Yuan, Zhu & Zhu 2023, 2024), 1000-layer spheres at x = 1000, a graded 250-µm droplet at the
 rainbow angle and the Cauchy profile (Wu & Wang 1991; Wu et al. 1997), absorbing spheres to
 x = 20000, and fields far from the particle.
@@ -153,12 +154,13 @@ pytest
 * `test_physics.py`: textbook Mie (SciPy's spherical Bessel functions), the Bohren–Huffman
   reference case, the optical theorem, energy conservation of lossless multilayers, passivity,
   the Rayleigh limit, plane-wave limits, field continuity and convergence far from the
-  particle, quadrature, decay rates against the mpmath Mie sums of Majic & Le Ru, closed-form
+  particle, quadrature, decay rates against the mpmath Mie sums of Majic & Le Ru and, for
+  emitters inside and outside metal shells, against high-precision transfer matrices, closed-form
   against quadrature Ohmic loss, and energy conservation of decay rates for electric and
   magnetic dipoles, up to 17000 orders.
 
 `tests/references.py` holds the independent references (mpmath Mie decay rates and extinction,
-BHMIE); nothing in it shares code with the package.
+layered-sphere decay rates from transfer matrices, BHMIE); nothing in it shares code with the package.
 
 ## Licence
 

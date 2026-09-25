@@ -7,6 +7,8 @@ Nothing here shares code with PyStratify:
   in mpmath, with Riccati-Bessel functions from exact top values and the
   stable recurrences (downward for psi, upward for xi), so any order is exact
   to the working precision;
+* :func:`layered_decay_rates` - the same for an emitter inside or outside a
+  layered sphere, from high-precision 2x2 transfer matrices;
 * :func:`bhmie` - Bohren & Huffman's BHMIE in NumPy (logarithmic derivative
   D_n(mx) by downward recurrence), the classic algorithm for large spheres.
   It is accurate to ~1e-13 for absorbing spheres; for weakly absorbing ones
@@ -107,3 +109,75 @@ def bhmie(x, m, nmax=None):
         q_ext += (2 * n + 1) * (a.real + b.real)
         psi0, psi1, chi0, chi1, xi1 = psi1, psi, chi1, chi, xi
     return 2 * q_ext / x**2, 2 * q_sca / x**2
+
+
+def layered_decay_rates(radii, n, wavelength, r, orders, dps=150):
+    """Shell-normalised (total, radiative) rates, each [perp, par], of an electric dipole at
+    radius r in a lossless shell of a layered sphere (mu = 1), from the 2x2 transfer matrices of
+    Moroz (2005) in mpmath.  Direct products cancel like (R_out/R_in)^(2l) across a shell, so
+    ``dps`` must exceed ~ 2 l log10 of the largest radius ratio plus the digits wanted.
+
+    With (A_r, B_r) the regular and (A_o, B_o) the outgoing (B = 1 in the host) coefficients in
+    the emitter's shell and W = A_r B_o - B_r A_o, the per-order Green's function is
+    u_reg u_out / W and the radiated amplitude u_reg / W.
+    """
+    with mp.workdps(dps):
+        N = len(radii)
+        R = [mp.mpf(v) for v in radii]
+        nn = [mp.mpc(complex(v)) for v in n]
+        k = [2 * mp.pi * v / mp.mpf(wavelength) for v in nn]
+        top = orders + 1
+
+        def funcs(z):
+            p, x = _psi_all(z, top), _xi_all(z, top)
+            dp = [None] + [p[l - 1] - l * p[l] / z for l in range(1, top + 1)]
+            dx = [None] + [x[l - 1] - l * x[l] / z for l in range(1, top + 1)]
+            return p, dp, x, dx
+
+        iface = [(funcs(k[j] * R[j]), funcs(k[j + 1] * R[j])) for j in range(N)]
+        d = sum(1 for Rj in radii if r >= Rj)
+        X = k[d] * mp.mpf(r)
+        pe, dpe, xe, dxe = funcs(X)
+        out = [mp.mpf(0)] * 4
+        for l in range(1, orders + 1):
+            G, Gd, F, Fd = {}, {}, {}, {}
+            for te in (False, True):
+                mats = []
+                for j in range(N):
+                    (p, dp, x, dx), (pt, dpt, xt, dxt) = iface[j]
+                    eta = nn[j] / nn[j + 1]
+                    a, b = (eta, 1) if te else (1, eta)
+                    mats.append(
+                        mp.matrix(
+                            [
+                                [dx[l] * pt[l] * a - x[l] * dpt[l] * b, dx[l] * xt[l] * a - x[l] * dxt[l] * b],
+                                [-dp[l] * pt[l] * a + p[l] * dpt[l] * b, -dp[l] * xt[l] * a + p[l] * dxt[l] * b],
+                            ]
+                        )
+                    )
+                reg = mp.matrix([[1], [0]])
+                for j in range(d):  # inner -> outer: v_{j+1} = M_j^{-1} v_j
+                    m = mats[j]
+                    reg = (
+                        mp.matrix([[m[1, 1], -m[0, 1]], [-m[1, 0], m[0, 0]]])
+                        * reg
+                        / (m[0, 0] * m[1, 1] - m[0, 1] * m[1, 0])
+                    )
+                outg = mp.matrix([[0], [1]])
+                for j in range(N - 1, d - 1, -1):
+                    outg = mats[j] * outg
+                Ar, Br, Ao, Bo = reg[0], reg[1], outg[0], outg[1]
+                W = Ar * Bo - Br * Ao
+                u, du = Ar * pe[l] + Br * xe[l], Ar * dpe[l] + Br * dxe[l]
+                v, dv = Ao * pe[l] + Bo * xe[l], Ao * dpe[l] + Bo * dxe[l]
+                G[te], Gd[te], F[te], Fd[te] = u * v / W, du * dv / W, u / W, du / W
+            cp, ct = l * (l + 1) * (2 * l + 1), 2 * l + 1
+            out[0] += cp * mp.re(G[False])
+            out[1] += ct * (mp.re(G[True]) + mp.re(Gd[False]))
+            out[2] += cp * abs(F[False]) ** 2
+            out[3] += ct * (abs(F[True]) ** 2 + abs(Fd[False]) ** 2)
+        f_rad = mp.re(nn[d] / nn[-1])
+        X = mp.re(X)
+        tp, tpar = 1.5 * out[0] / X**4, 0.75 * out[1] / X**2
+        rp, rpar = f_rad * 1.5 * out[2] / X**4, f_rad * 0.75 * out[3] / X**2
+        return [float(tp), float(tpar)], [float(rp), float(rpar)]
