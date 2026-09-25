@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pystratify"
-version = "0.2.0"
-description = "Light scattering by multilayered spheres: a verified Python port of STRATIFY"
+version = "0.3.0"
+description = "Light scattering by multilayered spheres, after the recursive transfer-matrix method of STRATIFY"
 readme = "README.md"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.10"
@@ -17,9 +17,12 @@ test = ["pytest>=7", "mpmath>=1.3"]
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[tool.setuptools.package-data]
-pystratify = ["data/*.csv"]
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["octave: compares against the original MATLAB code run in GNU Octave (skipped if unavailable)"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+# `l` is the multipole order throughout, as in the literature
+ignore = ["E741"]

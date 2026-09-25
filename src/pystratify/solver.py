@@ -1,35 +1,34 @@
 """Overflow-free recursive transfer-matrix solution for a multilayered sphere.
 
-STRATIFY multiplies the 2x2 transfer matrices of OSAC Eqs. (10)-(14)
-directly.  Their entries are products of psi_l and xi_l at different
-arguments and overflow once l exceeds the size parameter (AUDIT.md M9;
-Majic & Le Ru, Appl. Opt. 59, 1293 (2020)).  Here the same two-sided
-recursion is carried by scaled quantities that stay O(1), following the
-ratio formulations of Yang, Appl. Opt. 42, 1710 (2003), Pena & Pal, Comput.
-Phys. Commun. 180, 2348 (2009) and Ladutenko et al., Comput. Phys. Commun.
-214, 225 (2017), and - for the singularities of the logarithmic
-derivatives - the hybrid matching of Zhang, JQSRT (2025), arXiv:2409.10877.
+Theory: Moroz, Ann. Phys. 315, 352 (2005); Rasskazov, Carney & Moroz, OSA
+Continuum 3, 2290 (2020), Eqs. (10)-(18).  The 2x2 transfer matrices of that
+method are products of Riccati-Bessel functions at different arguments and
+overflow once the order exceeds the size parameter (Majic & Le Ru, Appl. Opt.
+59, 1293 (2020)).  Here the same two-sided recursion is carried by scaled
+quantities that stay O(1), after the ratio formulations of Yang, Appl. Opt.
+42, 1710 (2003), Pena & Pal, Comput. Phys. Commun. 180, 2348 (2009) and
+Ladutenko et al., Comput. Phys. Commun. 214, 225 (2017), with the hybrid
+value/derivative matching of Zhang, JQSRT (2025), arXiv:2409.10877.
 
-In shell n (1 <= n <= N+1, host = N+1) the radial function of multipole l,
-polarisation p is  A_n psi_l(k_n r) + B_n xi_l(k_n r).
+Shells are indexed 0..N (0 = core, N = host).  In shell s the radial function
+of order l and polarisation p is  A_s psi_l(k_s r) + B_s xi_l(k_s r).
 
-*Regular* solution (B_1 = 0), swept outwards with  rho = R xi/psi,
-R = B/A;  *outgoing* solution (A_{N+1} = 0), swept inwards with
-sigma = S psi/xi, S = A/B.  Across interface n (inner argument x = k_n r_n,
-outer x~ = k_{n+1} r_n) the field matching of OSAC Eqs. (10)-(13) reads
+* regular solution (B_0 = 0), swept outwards with rho = R xi/psi, R = B/A;
+* outgoing solution (A_N = 0), swept inwards with sigma = S psi/xi, S = A/B.
 
-    A  psi(x) (1 + rho)        = c_f A' psi(x~) (1 + rho')
-    A  psi(x) (D1 + rho D3)    = c_d A' psi(x~) (D1~ + rho' D3~)
+Across interface j (radius R_j; inner argument x = k_j R_j, outer x' =
+k_{j+1} R_j) the field matching reads
 
-with (c_f, c_d) = (eta~, mu~) for TE ("m", magnetic multipoles) and
-(mu~, eta~) for TM ("e").  The ratio of the two gives rho' from rho; the
-better-conditioned of the two gives the amplitude ratio.  Within a shell rho
-and sigma are propagated with ratios xi(k r_a)/xi(k r_b) etc., which decay
-for large l, so nothing overflows.  Amplitudes are kept as complex
-logarithms.
+    A psi(x) (1 + rho)      = c_f A' psi(x') (1 + rho')
+    A psi(x) (D1 + rho D3)  = c_d A' psi(x') (D1' + rho' D3')
 
-The result reproduces STRATIFY's t_mat.m products wherever those are
-representable (tests/test_solver.py) and keeps going for any l.
+with (c_f, c_d) = (mu_j/mu_{j+1}, n_j/n_{j+1}) for TM (electric multipoles)
+and the reverse for TE.  At high order D1 ~ (l+1)/x on both sides, so the
+mismatch f D1 - D1' (f = c_f/c_d) is a small difference of large numbers.
+It is therefore never formed by subtraction: with D1 = (l+1)/x - r and
+D3 = X - l/x (r = psi_{l+1}/psi_l, X = xi_{l-1}/xi_l, both small past the
+turning point) the large parts combine analytically into (l+1)(g-1)/x', and
+g - 1 is computed directly from the material contrast.
 """
 
 from __future__ import annotations
@@ -38,11 +37,13 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .riccati import log_derivatives, log_riccati
+from .convergence import truncation_order
+from .riccati import log_riccati
 
-__all__ = ["Solution", "solve"]
+__all__ = ["Solution", "solve", "TM", "TE"]
 
-POLS = ("e", "m")
+#: polarisation axis of every coefficient array: TM = electric multipoles (a_l), TE = magnetic (b_l)
+TM, TE = 0, 1
 
 
 def _log(a):
@@ -50,209 +51,260 @@ def _log(a):
         return np.log(a)
 
 
-def _mix(d1, d3, r):
-    """(d1 + r d3) / (1 + r), evaluated without overflow for any r."""
+def _log_add(log_x, log_y):
+    """log(exp(log_x) + exp(log_y)) for complex logarithms, exact for -inf."""
     with np.errstate(all="ignore"):
-        big = np.abs(r) > 1
-        rr = np.where(big, 1 / np.where(big, r, 1), 0)
-        return np.where(big, (d1 * rr + d3) / (rr + 1), (d1 + r * d3) / (1 + r))
+        m = np.maximum(log_x.real, log_y.real)
+        m = np.where(np.isfinite(m), m, 0.0)
+        return m + np.log(np.exp(log_x - m) + np.exp(log_y - m))
 
 
-def _solve_ratio(y, d1, d3):
-    """r such that (d1 + r d3)/(1 + r) = y, robust for |y| -> inf."""
-    with np.errstate(all="ignore"):
-        big = np.abs(y) > 1
-        yi = np.where(big, 1 / np.where(big, y, 1), 0)
-        return np.where(big, (1 - d1 * yi) / (d3 * yi - 1), (y - d1) / (d3 - y))
+#: |log t| below which t is a normal double, so the value arithmetic is exact
+_SAFE_LOG = 600.0
 
 
-def _amp_ratio(c_f, c_d, v_num, v_den, d_num, d_den):
-    """log of the amplitude ratio from the better-conditioned matching equation.
+def _log_transfer(num_small, num_big, den_small, den_big, log_t):
+    """log[(num_small + t num_big) / (den_small + t den_big)] with t = exp(log_t).
 
-    v_* are the 'value' factors (1 + rho), d_* the 'derivative' factors
-    (d1 + rho d3), each with its own scale for the conditioning test.
+    Evaluated with t as a value where it is a normal double, and as log-sums
+    where it would be subnormal or overflow, so t keeps full relative precision
+    however small or large it is - which matters when num_small -> 0
+    (index-matched layers).
     """
-    (vn, vn_s), (vd, vd_s) = v_num, v_den
-    (dn, dn_s), (dd, dd_s) = d_num, d_den
+    safe = np.abs(log_t.real) < _SAFE_LOG
     with np.errstate(all="ignore"):
-        cond_v = np.minimum(np.abs(vn) / vn_s, np.abs(vd) / vd_s)
-        cond_d = np.minimum(np.abs(dn) / dn_s, np.abs(dd) / dd_s)
-        use_v = cond_v >= cond_d
-        return np.where(use_v, _log(c_f * vn / vd), _log(c_d * dn / dd))
+        t = np.exp(np.where(safe, log_t, 0))
+        out = _log((num_small + t * num_big) / (den_small + t * den_big))
+    if not safe.all():
+        u = ~safe
+        out[u] = _log_add(_log(num_small[u]), log_t[u] + _log(num_big[u])) - _log_add(
+            _log(den_small[u]), log_t[u] + _log(den_big[u])
+        )
+    return out
 
 
-@dataclass
+def _amplitude_log_ratio(c_value, c_deriv, value, deriv):
+    """log(A_inner / A_outer) from the better-conditioned matching equation.
+
+    ``value`` and ``deriv`` are pairs (outer factor, inner factor), each a
+    tuple (value, scale) whose |value|/scale measures cancellation.
+    """
+    (v_out, v_out_scale), (v_in, v_in_scale) = value
+    (d_out, d_out_scale), (d_in, d_in_scale) = deriv
+    with np.errstate(all="ignore"):
+        cond_v = np.minimum(np.abs(v_out) / v_out_scale, np.abs(v_in) / v_in_scale)
+        cond_d = np.minimum(np.abs(d_out) / d_out_scale, np.abs(d_in) / d_in_scale)
+        return np.where(cond_v >= cond_d, _log(c_value * v_out / v_in), _log(c_deriv * d_out / d_in))
+
+
+@dataclass(frozen=True)
 class Solution:
-    """Scaled RTMM solution for a batch of wavelengths.
+    """Scaled solution for a batch of wavelengths.
 
-    Arrays have leading shape ``(W, L)`` (wavelength, multipole l = 1..L)
-    after the shell index where present.  Shell indices are 0-based here:
-    ``0`` = core, ``N`` = host.  Each per-polarisation field is a dict keyed
-    by ``'e'`` (TM, a_l) and ``'m'`` (TE, b_l).
+    Coefficient arrays have shape ``(2, N + 1, W, L)``: polarisation (:data:`TM`,
+    :data:`TE`), shell (0 = core, N = host), wavelength, order l = 1..L.  All
+    are complex logarithms; ``-inf`` stands for an exact zero.
+
+    ``log_a``, ``log_b``: regular solution normalised to A = 1 in the host
+    (the plane-wave expansion coefficients); ``log_r`` = log(B/A) of the
+    regular solution; ``log_b_out``: outgoing solution normalised to B = 1 in
+    the host; ``log_s`` = log(A/B) of the outgoing solution.
     """
 
-    rad: np.ndarray  # (N,)
-    ref: np.ndarray  # (W, N+1)
-    mu: np.ndarray  # (W, N+1)
-    lam: np.ndarray  # (W,)
-    l: np.ndarray  # (L,)
-    tpl: dict  # T_pl = B_{N+1}/A_{N+1}, OSAC Eq. 18, (W, L)
-    logA: dict  # plane-wave regular solution, A_{N+1} = 1: (N+1, W, L)
-    logB: dict
-    logR: dict  # log(B/A) of the regular solution per shell
-    logBo: dict  # outgoing solution with B_{N+1} = 1: log B per shell
-    logS: dict  # log(A/B) of the outgoing solution per shell
+    radii: np.ndarray  # (N,)
+    n: np.ndarray  # (W, N + 1), host last
+    mu: np.ndarray  # (W, N + 1)
+    wavelength: np.ndarray  # (W,)
+    orders: np.ndarray  # (L,)
+    log_t: np.ndarray  # (2, W, L): T = B_host / A_host
+    log_a: np.ndarray
+    log_b: np.ndarray
+    log_r: np.ndarray
+    log_b_out: np.ndarray
+    log_s: np.ndarray
 
     @property
     def n_shells(self) -> int:
-        return self.rad.size
+        """Number of interfaces N (the host is shell N)."""
+        return self.radii.size
 
     @property
     def k(self) -> np.ndarray:
-        return 2 * np.pi * self.ref / self.lam[:, None]
+        """Wavenumbers, shape (W, N + 1)."""
+        return 2 * np.pi * self.n / self.wavelength[:, None]
+
+    @property
+    def t(self) -> np.ndarray:
+        """T-matrix elements T = B_host / A_host, shape (2, W, L)."""
+        return np.exp(self.log_t)
 
     @property
     def a(self) -> np.ndarray:
-        """Bohren-Huffman a_l = -T_El, shape (W, L)."""
-        return -self.tpl["e"]
+        """Bohren-Huffman a_l = -T_TM, shape (W, L)."""
+        return -np.exp(self.log_t[TM])
 
     @property
     def b(self) -> np.ndarray:
-        return -self.tpl["m"]
+        """Bohren-Huffman b_l = -T_TE, shape (W, L)."""
+        return -np.exp(self.log_t[TE])
 
 
-def _as_batch(ref, mu, lam, nlayer):
-    lam = np.atleast_1d(np.asarray(lam, dtype=float))
-    ref = np.asarray(ref, dtype=complex)
-    mu = np.asarray(mu, dtype=complex)
-    if ref.ndim == 1:
-        ref = np.broadcast_to(ref, (lam.size, ref.size))
-    if mu.ndim == 1:
-        mu = np.broadcast_to(mu, (lam.size, mu.size))
-    if ref.shape != (lam.size, nlayer) or mu.shape != (lam.size, nlayer):
-        raise ValueError(f"ref and mu need shape ({nlayer},) or ({lam.size}, {nlayer}) (last = host)")
-    return np.ascontiguousarray(ref), np.ascontiguousarray(mu), lam
-
-
-def solve(rad, ref, mu, lam, l_max: int) -> Solution:
-    """Solve the multilayered sphere for multipoles l = 1..l_max.
-
-    ``rad`` (N,) outer radii; ``ref``/``mu`` (N+1,) or (W, N+1) complex
-    refractive index / permeability, host last; ``lam`` scalar or (W,)
-    vacuum wavelength(s), same length unit as ``rad``.  Vectorised over the
-    wavelength batch and over l.
-    """
-    rad = np.atleast_1d(np.asarray(rad, dtype=float))
-    if rad.ndim != 1 or rad.size == 0 or rad[0] <= 0 or np.any(np.diff(rad) <= 0):
-        raise ValueError("radii must be positive and strictly increasing")
-    N = rad.size
-    ref, mu, lam = _as_batch(ref, mu, lam, N + 1)
-    if np.any(ref == 0) or np.any(mu == 0):
+def _batch(n, mu, wavelength, layers):
+    wavelength = np.atleast_1d(np.asarray(wavelength, dtype=float))
+    if wavelength.ndim != 1 or np.any(~np.isfinite(wavelength)) or np.any(wavelength <= 0):
+        raise ValueError("wavelengths must be positive and finite")
+    n = np.asarray(n, dtype=complex)
+    mu = np.ones(layers, dtype=complex) if mu is None else np.asarray(mu, dtype=complex)
+    shape = (wavelength.size, layers)
+    try:
+        n = np.broadcast_to(n, shape)
+        mu = np.broadcast_to(mu, shape)
+    except ValueError:
+        raise ValueError(f"n and mu need shape ({layers},) or ({wavelength.size}, {layers}), host last") from None
+    if not (np.all(np.isfinite(n)) and np.all(np.isfinite(mu))):
+        raise ValueError("refractive indices and permeabilities must be finite")
+    if np.any(n == 0) or np.any(mu == 0):
         raise ValueError("refractive indices and permeabilities must be nonzero")
+    return np.ascontiguousarray(n), np.ascontiguousarray(mu), wavelength
+
+
+def _side(x, log_psi, log_xi, orders):
+    """Per-order functions on one side of every interface: logs, r, X, D1, D3."""
+    lp, lx = log_psi[..., orders], log_xi[..., orders]
+    xx = x[..., None]
+    with np.errstate(all="ignore"):
+        r = np.exp(log_psi[..., orders + 1] - lp)  # psi_{l+1} / psi_l
+        big_x = np.exp(log_xi[..., orders - 1] - lx)  # xi_{l-1} / xi_l
+    d1 = (orders + 1) / xx - r
+    d3 = big_x - orders / xx
+    return lp, lx, r, big_x, d1, d3
+
+
+def solve(radii, n, wavelength, mu=None, l_max=None) -> Solution:
+    """Solve the multilayered sphere for multipole orders l = 1..l_max.
+
+    Parameters
+    ----------
+    radii : (N,) outer radii of the core and shells, strictly increasing.
+    n : (N + 1,) or (W, N + 1) complex refractive indices, host last.
+    wavelength : scalar or (W,) vacuum wavelength(s), same unit as ``radii``.
+    mu : like ``n``, relative permeabilities (default 1).
+    l_max : truncation order; default :func:`truncation_order` (Wiscombe) for
+        the shortest wavelength.
+
+    Vectorised over wavelengths and orders; Python loops only over interfaces.
+    """
+    radii = np.atleast_1d(np.asarray(radii, dtype=float))
+    if radii.ndim != 1 or radii.size == 0 or not np.all(np.isfinite(radii)):
+        raise ValueError("radii must be a non-empty 1-D array of finite values")
+    if radii[0] <= 0 or np.any(np.diff(radii) <= 0):
+        raise ValueError("radii must be positive and strictly increasing")
+    N = radii.size
+    n, mu, wavelength = _batch(n, mu, wavelength, N + 1)
+    if l_max is None:
+        l_max = max(truncation_order(radii[-1], abs(v), lam) for v, lam in zip(n[:, -1], wavelength))
     l_max = int(l_max)
     if l_max < 1:
         raise ValueError("l_max must be >= 1")
-    l = np.arange(1, l_max + 1)
-    W = lam.size
-    k = 2 * np.pi * ref / lam[:, None]  # (W, N+1)
-    x_in = k[:, :N] * rad  # (W, N): x_n = k_n r_n
-    x_out = k[:, 1:] * rad  # (W, N): x~_n = k_{n+1} r_n
-    lp_in, lx_in = log_riccati(x_in, l_max)  # (W, N, l_max+1)
-    lp_out, lx_out = log_riccati(x_out, l_max)
-    d1_in, d3_in = log_derivatives(lp_in, lx_in, x_in, l)
-    d1_out, d3_out = log_derivatives(lp_out, lx_out, x_out, l)
-    LPi, LXi, LPo, LXo = (a[..., l] for a in (lp_in, lx_in, lp_out, lx_out))  # (W, N, L)
-    eta = (ref[:, :N] / ref[:, 1:])[..., None]  # (W, N, 1)
-    mur = (mu[:, :N] / mu[:, 1:])[..., None]
+    orders = np.arange(1, l_max + 1)
+    W = wavelength.size
 
-    tpl, logA, logB, logR, logBo, logS = {}, {}, {}, {}, {}, {}
-    for p in POLS:
-        c_f, c_d = (eta, mur) if p == "m" else (mur, eta)
+    k = 2 * np.pi * n / wavelength[:, None]
+    x_in = k[:, :N] * radii  # (W, N): k_j R_j
+    x_out = k[:, 1:] * radii  # (W, N): k_{j+1} R_j
+    lp_in, lx_in, r_in, X_in, d1_in, d3_in = _side(x_in, *log_riccati(x_in, l_max + 1), orders)
+    lp_out, lx_out, r_out, X_out, d1_out, d3_out = _side(x_out, *log_riccati(x_out, l_max + 1), orders)
 
-        # ---- regular solution, outward
-        rho_in = np.zeros((W, N, l_max), dtype=complex)
-        rho_out = np.zeros((W, N, l_max), dtype=complex)
+    n_in, n_out, mu_in, mu_out = n[:, :N], n[:, 1:], mu[:, :N], mu[:, 1:]
+    eta = (n_in / n_out)[..., None]
+    mu_ratio = (mu_in / mu_out)[..., None]
+    # g - 1 with g = f x'/x, from the contrast directly (no cancellation for similar media)
+    g_minus_1 = {
+        TM: ((mu_in * (n_out - n_in) * (n_out + n_in) + n_in**2 * (mu_in - mu_out)) / (mu_out * n_in**2))[..., None],
+        TE: ((mu_out - mu_in) / mu_in)[..., None],
+    }
+    lead_psi = (orders + 1) / x_out[..., None]
+    lead_xi = orders / x_out[..., None]
+
+    shape = (2, N + 1, W, l_max)
+    log_t = np.empty((2, W, l_max), dtype=complex)
+    log_a, log_r, log_b_out, log_s = (np.empty(shape, dtype=complex) for _ in range(4))
+
+    for p in (TM, TE):
+        c_value, c_deriv = (mu_ratio, eta) if p == TM else (eta, mu_ratio)
+        f = c_value / c_deriv
+        m11 = lead_psi * g_minus_1[p] - (f * r_in - r_out)  # f D1 - D1'
+        m33 = (f * X_in - X_out) - lead_xi * g_minus_1[p]  # f D3 - D3'
+        f_d1_minus_d3 = f * d1_in - d3_out
+        d1_minus_f_d3 = d1_out - f * d3_in
+
+        # regular solution, outwards: rho' = [m11 + rho (f D3 - D1')] / [(D3' - f D1) - rho m33]
+        log_rho_in = np.full((W, N, l_max), -np.inf, dtype=complex)
+        log_rho_out = np.empty((W, N, l_max), dtype=complex)
         for j in range(N):
             if j:
-                with np.errstate(all="ignore"):
-                    rho_in[:, j] = np.exp(
-                        _log(rho_out[:, j - 1]) + LXi[:, j] - LXo[:, j - 1] + LPo[:, j - 1] - LPi[:, j]
-                    )
-            y = _mix(d1_in[:, j], d3_in[:, j], rho_in[:, j]) * (c_f[:, j] / c_d[:, j])
-            rho_out[:, j] = _solve_ratio(y, d1_out[:, j], d3_out[:, j])
-        with np.errstate(all="ignore"):
-            log_tpl = _log(rho_out[:, -1]) + LPo[:, -1] - LXo[:, -1]  # kept as a log: T_pl underflows at high l
-            tpl[p] = np.exp(log_tpl)
+                log_rho_in[:, j] = (
+                    log_rho_out[:, j - 1] + lx_in[:, j] - lx_out[:, j - 1] + lp_out[:, j - 1] - lp_in[:, j]
+                )
+            log_rho_out[:, j] = _log_transfer(
+                m11[:, j], -d1_minus_f_d3[:, j], -f_d1_minus_d3[:, j], -m33[:, j], log_rho_in[:, j]
+            )
 
-        # ---- outgoing solution, inward
-        sig_in = np.zeros((W, N, l_max), dtype=complex)
-        sig_out = np.zeros((W, N, l_max), dtype=complex)
+        # outgoing solution, inwards: sigma = [-m33 + sigma' (D1' - f D3)] / [(f D1 - D3') + sigma' m11]
+        log_sig_out = np.full((W, N, l_max), -np.inf, dtype=complex)
+        log_sig_in = np.empty((W, N, l_max), dtype=complex)
         for j in range(N - 1, -1, -1):
             if j < N - 1:
-                with np.errstate(all="ignore"):
-                    sig_out[:, j] = np.exp(
-                        _log(sig_in[:, j + 1]) + LPo[:, j] - LPi[:, j + 1] + LXi[:, j + 1] - LXo[:, j]
-                    )
-            # (sigma d1 + d3)/(sigma + 1) == _mix(d3, d1, 1/sigma); write it directly
-            with np.errstate(all="ignore"):
-                s = sig_out[:, j]
-                small = np.abs(s) <= 1
-                zz = np.where(
-                    small, (s * d1_out[:, j] + d3_out[:, j]) / (s + 1), (d1_out[:, j] + d3_out[:, j] / s) / (1 + 1 / s)
+                log_sig_out[:, j] = (
+                    log_sig_in[:, j + 1] + lp_out[:, j] - lp_in[:, j + 1] + lx_in[:, j + 1] - lx_out[:, j]
                 )
-            zin = zz * (c_d[:, j] / c_f[:, j])
-            # sigma_in solves (sigma d1 + d3)/(sigma + 1) = zin
-            with np.errstate(all="ignore"):
-                big = np.abs(zin) > 1
-                zi = np.where(big, 1 / np.where(big, zin, 1), 0)
-                sig_in[:, j] = np.where(
-                    big, (1 - d3_in[:, j] * zi) / (d1_in[:, j] * zi - 1), (zin - d3_in[:, j]) / (d1_in[:, j] - zin)
-                )
+            log_sig_in[:, j] = _log_transfer(
+                -m33[:, j], d1_minus_f_d3[:, j], f_d1_minus_d3[:, j], m11[:, j], log_sig_out[:, j]
+            )
+        with np.errstate(under="ignore", over="ignore"):
+            rho_in, rho_out = np.exp(log_rho_in), np.exp(log_rho_out)
+            sig_in, sig_out = np.exp(log_sig_in), np.exp(log_sig_out)
 
-        # ---- amplitudes (logs)
-        la = np.empty((N + 1, W, l_max), dtype=complex)
+        # amplitudes, as logarithms, from the host inwards
+        la, lbo = log_a[p], log_b_out[p]
         la[N] = 0.0
-        lbo = np.empty((N + 1, W, l_max), dtype=complex)
         lbo[N] = 0.0
         for j in range(N - 1, -1, -1):
-            a1, a3 = d1_in[:, j], d3_in[:, j]
-            b1, b3 = d1_out[:, j], d3_out[:, j]
-            ri, ro = rho_in[:, j], rho_out[:, j]
-            si, so = sig_in[:, j], sig_out[:, j]
+            a1, a3, b1, b3 = d1_in[:, j], d3_in[:, j], d1_out[:, j], d3_out[:, j]
+            ri, ro, si, so = rho_in[:, j], rho_out[:, j], sig_in[:, j], sig_out[:, j]
             with np.errstate(all="ignore"):
-                # regular: A_j psi(x)(..) = c A_{j+1} psi(x~)(..)
-                lr = _amp_ratio(
-                    c_f[:, j],
-                    c_d[:, j],
-                    (1 + ro, 1 + np.abs(ro)),
-                    (1 + ri, 1 + np.abs(ri)),
-                    (b1 + ro * b3, np.abs(b1) + np.abs(ro * b3)),
-                    (a1 + ri * a3, np.abs(a1) + np.abs(ri * a3)),
+                ratio = _amplitude_log_ratio(
+                    c_value[:, j],
+                    c_deriv[:, j],
+                    ((1 + ro, 1 + np.abs(ro)), (1 + ri, 1 + np.abs(ri))),
+                    ((b1 + ro * b3, np.abs(b1) + np.abs(ro * b3)), (a1 + ri * a3, np.abs(a1) + np.abs(ri * a3))),
                 )
-                la[j] = la[j + 1] + lr + LPo[:, j] - LPi[:, j]
-                # outgoing: B_j xi(x)(sigma + 1) = c B_{j+1} xi(x~)(sigma' + 1)
-                lo = _amp_ratio(
-                    c_f[:, j],
-                    c_d[:, j],
-                    (1 + so, 1 + np.abs(so)),
-                    (1 + si, 1 + np.abs(si)),
-                    (so * b1 + b3, np.abs(so * b1) + np.abs(b3)),
-                    (si * a1 + a3, np.abs(si * a1) + np.abs(a3)),
+                la[j] = la[j + 1] + ratio + lp_out[:, j] - lp_in[:, j]
+                ratio = _amplitude_log_ratio(
+                    c_value[:, j],
+                    c_deriv[:, j],
+                    ((1 + so, 1 + np.abs(so)), (1 + si, 1 + np.abs(si))),
+                    ((so * b1 + b3, np.abs(so * b1) + np.abs(b3)), (si * a1 + a3, np.abs(si * a1) + np.abs(a3))),
                 )
-                lbo[j] = lbo[j + 1] + lo + LXo[:, j] - LXi[:, j]
+                lbo[j] = lbo[j + 1] + ratio + lx_out[:, j] - lx_in[:, j]
 
-        lr_ = np.empty_like(la)
-        ls_ = np.empty_like(la)
-        with np.errstate(all="ignore"):
-            lr_[0] = -np.inf
-            for n in range(1, N):
-                lr_[n] = _log(rho_in[:, n]) + LPi[:, n] - LXi[:, n]
-            lr_[N] = log_tpl
-            for n in range(N):
-                ls_[n] = _log(sig_in[:, n]) + LXi[:, n] - LPi[:, n]
-            ls_[N] = -np.inf
-        logA[p], logR[p], logBo[p], logS[p] = la, lr_, lbo, ls_
-        logB[p] = la + lr_
+        log_t[p] = log_rho_out[:, -1] + lp_out[:, -1] - lx_out[:, -1]
+        log_r[p, 0] = -np.inf
+        log_r[p, 1:N] = np.moveaxis(log_rho_in[:, 1:] + lp_in[:, 1:] - lx_in[:, 1:], 1, 0)
+        log_r[p, N] = log_t[p]
+        log_s[p, :N] = np.moveaxis(log_sig_in + lx_in - lp_in, 1, 0)
+        log_s[p, N] = -np.inf
+
     return Solution(
-        rad=rad, ref=ref, mu=mu, lam=lam, l=l, tpl=tpl, logA=logA, logB=logB, logR=logR, logBo=logBo, logS=logS
+        radii=radii,
+        n=n,
+        mu=mu,
+        wavelength=wavelength,
+        orders=orders,
+        log_t=log_t,
+        log_a=log_a,
+        log_b=log_a + log_r,
+        log_r=log_r,
+        log_b_out=log_b_out,
+        log_s=log_s,
     )

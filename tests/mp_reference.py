@@ -1,70 +1,84 @@
-"""60-digit reference transfer matrices (STRATIFY's direct products, OSAC Eqs. 10-14) in mpmath.
+"""Extended-precision references (mpmath), used only in tests.
 
-Used only in tests: extended precision absorbs the overflow and cancellation
-that limit the double-precision products."""
+Precision grows with |Im z| and the order, so the cancellation in
+H^(1) = J + iY and the size of high-order values are absorbed.
+"""
 
 import mpmath as mp
 
-mp.mp.dps = 60
+
+def _dps(z, n):
+    return int(40 + abs(complex(z).imag) + n / 3)
 
 
-def psi(n, z):
+def log_psi_xi(n, z):
+    """(log psi_n(z), log xi_n(z)) as Python complex numbers."""
+    with mp.workdps(_dps(z, n)):
+        zz = mp.mpc(complex(z).real, complex(z).imag)
+        f = zz * mp.sqrt(mp.pi / (2 * zz))
+        return complex(mp.log(f * mp.besselj(n + 0.5, zz))), complex(mp.log(f * mp.hankel1(n + 0.5, zz)))
+
+
+def _psi(n, z):
     return z * mp.sqrt(mp.pi / (2 * z)) * mp.besselj(n + mp.mpf(1) / 2, z)
 
 
-def xi(n, z):
+def _xi(n, z):
     return z * mp.sqrt(mp.pi / (2 * z)) * mp.hankel1(n + mp.mpf(1) / 2, z)
 
 
-def dpsi(n, z):
-    return psi(n - 1, z) - n * psi(n, z) / z
+def _dpsi(n, z):
+    return _psi(n - 1, z) - n * _psi(n, z) / z
 
 
-def dxi(n, z):
-    return xi(n - 1, z) - n * xi(n, z) / z
+def _dxi(n, z):
+    return _xi(n - 1, z) - n * _xi(n, z) / z
 
 
-def coeffs(rad, ref, mu, lam, n, pol):
-    """plane-wave (A_{N+1}=1) and outgoing (B_{N+1}=1) coefficients per shell, exact"""
-    rad = [mp.mpf(r) for r in rad]
-    ref = [mp.mpc(complex(v)) for v in ref]
-    mu = [mp.mpc(complex(v)) for v in mu]
-    N = len(rad)
-    k = [2 * mp.pi * v / mp.mpf(lam) for v in ref]
-    Tb = []
-    for j in range(N):
-        x = k[j] * rad[j]
-        xt = k[j + 1] * rad[j]
-        eta = ref[j] / ref[j + 1]
-        m = mu[j] / mu[j + 1]
-        a, b = (eta, m) if pol == "m" else (m, eta)
-        M = mp.matrix(
-            [
-                [
-                    dxi(n, x) * psi(n, xt) * a - xi(n, x) * dpsi(n, xt) * b,
-                    dxi(n, x) * xi(n, xt) * a - xi(n, x) * dxi(n, xt) * b,
-                ],
-                [
-                    -dpsi(n, x) * psi(n, xt) * a + psi(n, x) * dpsi(n, xt) * b,
-                    -dpsi(n, x) * xi(n, xt) * a + psi(n, x) * dxi(n, xt) * b,
-                ],
-            ]
-        ) * (-1j)
-        Tb.append(M)
-    # regular: start core (1,0), apply inverse of T- going out
-    v = mp.matrix([[1], [0]])
-    reg = [v]
-    for j in range(N):
-        M = Tb[j]
-        det = M[0, 0] * M[1, 1] - M[0, 1] * M[1, 0]
-        Mi = mp.matrix([[M[1, 1], -M[0, 1]], [-M[1, 0], M[0, 0]]]) / det
-        v = Mi * v
-        reg.append(v)
-    scale = reg[-1][0]
-    reg = [r / scale for r in reg]  # A_{N+1}=1
-    w = mp.matrix([[0], [1]])
-    out = [w]
-    for j in range(N - 1, -1, -1):
-        w = Tb[j] * w
-        out.insert(0, w)
-    return [(r[0], r[1]) for r in reg], [(o[0], o[1]) for o in out]
+def coefficients(radii, n_list, mu_list, wavelength, order, te):
+    """Exact per-shell coefficients (A, B) of order ``order``, 60 digits.
+
+    Returns (regular with A_host = 1, outgoing with B_host = 1), each a list
+    over shells of (A, B), from the 2x2 transfer matrices of Moroz (2005).
+    """
+    with mp.workdps(60):
+        radii = [mp.mpf(r) for r in radii]
+        n_list = [mp.mpc(complex(v)) for v in n_list]
+        mu_list = [mp.mpc(complex(v)) for v in mu_list]
+        N = len(radii)
+        k = [2 * mp.pi * v / mp.mpf(wavelength) for v in n_list]
+        matrices = []
+        for j in range(N):
+            x, xt = k[j] * radii[j], k[j + 1] * radii[j]
+            eta, mr = n_list[j] / n_list[j + 1], mu_list[j] / mu_list[j + 1]
+            a, b = (eta, mr) if te else (mr, eta)
+            n_ = order
+            matrices.append(
+                mp.matrix(
+                    [
+                        [
+                            _dxi(n_, x) * _psi(n_, xt) * a - _xi(n_, x) * _dpsi(n_, xt) * b,
+                            _dxi(n_, x) * _xi(n_, xt) * a - _xi(n_, x) * _dxi(n_, xt) * b,
+                        ],
+                        [
+                            -_dpsi(n_, x) * _psi(n_, xt) * a + _psi(n_, x) * _dpsi(n_, xt) * b,
+                            -_dpsi(n_, x) * _xi(n_, xt) * a + _psi(n_, x) * _dxi(n_, xt) * b,
+                        ],
+                    ]
+                )
+                * (-1j)
+            )
+        v = mp.matrix([[1], [0]])
+        regular = [v]
+        for m in matrices:
+            det = m[0, 0] * m[1, 1] - m[0, 1] * m[1, 0]
+            v = mp.matrix([[m[1, 1], -m[0, 1]], [-m[1, 0], m[0, 0]]]) / det * v
+            regular.append(v)
+        scale = regular[-1][0]
+        regular = [(c[0] / scale, c[1] / scale) for c in regular]
+        w = mp.matrix([[0], [1]])
+        outgoing = [w]
+        for m in reversed(matrices):
+            w = m * w
+            outgoing.insert(0, w)
+        return regular, [(c[0], c[1]) for c in outgoing]

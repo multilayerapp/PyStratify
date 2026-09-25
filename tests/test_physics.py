@@ -9,16 +9,32 @@ import numpy as np
 import pytest
 from scipy.integrate import trapezoid
 
+from scipy.special import spherical_jn, spherical_yn
+
 import pystratify as ps
-from pystratify.legacy import ric_h, ric_h_d, ric_j, ric_j_d
 
 LAM = 614.0
 AU = 0.27 + 2.93j
 
 
-def _sol(rad, ref, mu=None, lam=LAM, L=20):
-    mu = [1] * len(ref) if mu is None else mu
-    return ps.solve(rad, ref, mu, lam, L)
+def _sol(radii, n, mu=None, wavelength=LAM, L=20):
+    return ps.solve(radii, n, wavelength, mu, l_max=L)
+
+
+def _drude_gold(wavelength_nm):
+    """A Drude-Lorentz-free gold stand-in: enough to exercise a dispersive metal."""
+    model = ps.DRUDE["Au_Ord"]
+    w = model.plasma_wavelength / np.asarray(wavelength_nm)
+    return np.sqrt(9.5 - 1 / (w * (w + 1j * model.damping_ratio)))
+
+
+def _riccati(l, z, derivative=False):
+    """psi, xi (or derivatives) from scipy's spherical Bessel functions."""
+    j, y = spherical_jn(l, z), spherical_yn(l, z)
+    if not derivative:
+        return z * j, z * (j + 1j * y)
+    jd, yd = spherical_jn(l, z, derivative=True), spherical_yn(l, z, derivative=True)
+    return j + z * jd, (j + 1j * y) + z * (jd + 1j * yd)
 
 
 # ------------------------------------------------------------------ far field
@@ -28,8 +44,8 @@ def _mie_ab(m, x, lmax):
     """Bohren & Huffman Eq. 4.53, written independently."""
     l = np.arange(1, lmax + 1)
     mx = m * x
-    psi, dpsi, xi, dxi = ric_j(l, x), ric_j_d(l, x), ric_h(l, x), ric_h_d(l, x)
-    psim, dpsim = ric_j(l, mx), ric_j_d(l, mx)
+    (psi, xi), (dpsi, dxi) = _riccati(l, x), _riccati(l, x, True)
+    psim, dpsim = _riccati(l, mx)[0], _riccati(l, mx, True)[0]
     a = (m * psim * dpsi - psi * dpsim) / (m * psim * dxi - xi * dpsim)
     b = (psim * dpsi - m * psi * dpsim) / (psim * dxi - m * xi * dpsim)
     return a, b
@@ -39,7 +55,7 @@ def _mie_ab(m, x, lmax):
 def test_homogeneous_sphere_equals_mie(m, x):
     nh = 1.33
     r = x * LAM / (2 * np.pi * nh)
-    L = ps.l_max(r, nh, LAM, "far") + 5
+    L = ps.truncation_order(r, nh, LAM) + 5
     S = _sol([r], [m * nh, nh], L=L)
     a, b = _mie_ab(m, x, L)
     assert np.allclose(S.a[0], a, rtol=1e-10, atol=1e-15)
@@ -54,7 +70,7 @@ def test_bohren_huffman_reference_values():
     cs = ps.cross_sections(S)
     assert cs.q_ext[0] == pytest.approx(3.10543, abs=1e-5)
     assert cs.q_abs[0] == pytest.approx(0, abs=1e-12)
-    l = S.l
+    l = S.orders
     q_back = np.abs(np.sum((2 * l + 1) * (-1) ** l * (S.a[0] - S.b[0]))) ** 2 / x**2
     assert q_back == pytest.approx(2.92534, abs=1e-5)
 
@@ -82,10 +98,10 @@ def test_optical_theorem_and_backscattering():
 
 def test_wavelength_batch_is_vectorised():
     lam = np.linspace(500, 900, 81)
-    ref = np.stack([np.full(lam.size, 1.45), ps.refractive_index("Au_JC", lam), np.ones(lam.size)], 1)
-    S = ps.solve([50, 55], ref, [1, 1, 1], lam, 12)
+    n = np.stack([np.full(lam.size, 1.45), _drude_gold(lam), np.ones(lam.size)], 1)
+    S = ps.solve([50, 55], n, lam, l_max=12)
     cs = ps.cross_sections(S)
-    single = ps.cross_sections(ps.solve([50, 55], ref[40], [1, 1, 1], lam[40], 12))
+    single = ps.cross_sections(ps.solve([50, 55], n[40], lam[40], l_max=12))
     assert cs.q_ext.shape == (81,) and cs.q_ext[40] == pytest.approx(single.q_ext[0], rel=1e-13)
 
 
@@ -99,9 +115,9 @@ def test_near_field_without_sphere_is_plane_wave():
     X, Z = np.meshgrid(g, g)
     f = ps.near_field(S, X, 0 * X + 7.0, Z)
     k = 2 * np.pi * nh / LAM
-    assert np.allclose(f.E["x"], np.exp(1j * k * Z), atol=1e-9)
-    assert np.allclose(f.E["y"], 0, atol=1e-9) and np.allclose(f.E["z"], 0, atol=1e-9)
-    assert np.allclose(f.H["y"], nh * np.exp(1j * k * Z), atol=1e-9)
+    assert np.allclose(f.e["x"], np.exp(1j * k * Z), atol=1e-9)
+    assert np.allclose(f.e["y"], 0, atol=1e-9) and np.allclose(f.e["z"], 0, atol=1e-9)
+    assert np.allclose(f.h["y"], nh * np.exp(1j * k * Z), atol=1e-9)
 
 
 def test_near_field_regular_on_both_poles_and_at_origin():
@@ -109,9 +125,9 @@ def test_near_field_regular_on_both_poles_and_at_origin():
     z = np.array([-70.0, -70.0, -45.0, -45.0, 70.0, 70.0, 0.0, 1e-6])
     x = np.array([0.0, 1e-7, 0.0, 1e-7, 0.0, 1e-7, 0.0, 0.0])
     f = ps.near_field(S, x, 0 * x, z)
-    mag = np.abs(f.E["x"][0::2])
+    mag = np.abs(f.e["x"][0::2])
     for c in "xyz":
-        assert np.all(np.abs(f.E[c][0::2] - f.E[c][1::2]) < 1e-6 * mag)
+        assert np.all(np.abs(f.e[c][0::2] - f.e[c][1::2]) < 1e-6 * mag)
 
 
 def test_tangential_fields_continuous_across_interfaces():
@@ -122,11 +138,11 @@ def test_tangential_fields_continuous_across_interfaces():
         rr = np.array([r0 * (1 - 1e-10), r0 * (1 + 1e-10)])
         X, Y, Z = rr * np.sin(th) * np.cos(ph), rr * np.sin(th) * np.sin(ph), rr * np.cos(th)
         f = ps.near_field(S, X, Y, Z)
-        for c in ("th", "ph"):
-            assert f.E[c][0] == pytest.approx(f.E[c][1], rel=1e-7)
-            assert f.H[c][0] == pytest.approx(f.H[c][1], rel=1e-7)
+        for c in ("theta", "phi"):
+            assert f.e[c][0] == pytest.approx(f.e[c][1], rel=1e-7)
+            assert f.h[c][0] == pytest.approx(f.h[c][1], rel=1e-7)
         eps = np.array(ref) ** 2 / np.array(mu)
-        assert eps[i] * f.E["r"][0] == pytest.approx(eps[i + 1] * f.E["r"][1], rel=1e-7)
+        assert eps[i] * f.e["r"][0] == pytest.approx(eps[i + 1] * f.e["r"][1], rel=1e-7)
 
 
 # --------------------------------------------------------------------- energy
@@ -146,15 +162,15 @@ def test_energy_density_equals_angular_average_of_near_field():
     S = _sol(rad, ref, L=16)
     for r in (10.0, 36.0, 80.0):
         ed = ps.energy_density(S, [r])
-        avgE = _sphere_average(lambda X, Y, Z: ps.near_field(S, X, Y, Z).intensity_E, r)
-        avgH = _sphere_average(lambda X, Y, Z: ps.near_field(S, X, Y, Z).intensity_H, r)
-        assert ed.I_e[0] == pytest.approx(avgE, rel=1e-9)
-        assert ed.I_m[0] == pytest.approx(avgH, rel=1e-9)
+        avgE = _sphere_average(lambda X, Y, Z: ps.near_field(S, X, Y, Z).intensity_e, r)
+        avgH = _sphere_average(lambda X, Y, Z: ps.near_field(S, X, Y, Z).intensity_h, r)
+        assert ed.intensity_e[0] == pytest.approx(avgE, rel=1e-9)
+        assert ed.intensity_h[0] == pytest.approx(avgH, rel=1e-9)
 
 
 def test_energy_density_without_sphere_is_one():
     ed = ps.energy_density(_sol([30, 60], [1.5] * 3, L=40), np.linspace(1, 200, 9))
-    assert np.allclose(ed.w_e, 1) and np.allclose(ed.w_m, 1) and np.allclose(ed.I_e, 1)
+    assert np.allclose(ed.density_e, 1) and np.allclose(ed.density_h, 1) and np.allclose(ed.intensity_e, 1)
 
 
 @pytest.mark.parametrize(
@@ -165,11 +181,11 @@ def test_energy_density_without_sphere_is_one():
         [1.45 + 1e-7j, AU, 1.5 + 1e-5j, 1.2 + 2e-4j, 1.0],  # weakly lossy shells
     ],
 )
-def test_total_energy_lommel_equals_quadrature(ref):
+def test_shell_energy_lommel_equals_quadrature(ref):
     S = _sol([10.0, 13.0, 36.0, 48.0], ref, L=16)
-    auto = ps.total_energy(S)
-    quad = ps.total_energy(S, method="quadrature")
-    assert np.allclose(auto.e, quad.e, rtol=1e-9) and np.allclose(auto.m, quad.m, rtol=1e-9)
+    auto = ps.shell_energy(S)
+    quad = ps.shell_energy(S, method="quadrature")
+    assert np.allclose(auto.electric, quad.electric, rtol=1e-9) and np.allclose(auto.magnetic, quad.magnetic, rtol=1e-9)
 
 
 def test_weak_loss_lommel_is_ill_conditioned_and_avoided():
@@ -177,20 +193,23 @@ def test_weak_loss_lommel_is_ill_conditioned_and_avoided():
     lossy form then loses ~1e-17/Im(n) relative accuracy (2e-2 at Im n = 1e-14)."""
     ref = [1.5 + 1e-14j, 1.0]
     S = _sol([200.0], ref, L=30)
-    good = ps.total_energy(S, method="quadrature").e[0]
-    lossless = ps.total_energy(_sol([200.0], [1.5, 1.0], L=30)).e[0]
-    naive = ps.total_energy(S, method="lommel").e[0]
+    good = ps.shell_energy(S, method="quadrature").electric[0]
+    lossless = ps.shell_energy(_sol([200.0], [1.5, 1.0], L=30)).electric[0]
+    naive = ps.shell_energy(S, method="lommel").electric[0]
     assert good == pytest.approx(lossless, rel=1e-6)
-    assert ps.total_energy(S).e[0] == pytest.approx(good, rel=1e-12)
+    assert ps.shell_energy(S).electric[0] == pytest.approx(good, rel=1e-12)
     assert abs(naive / good - 1) > 1e-3
 
 
 def test_loudon_energy_prefactor():
-    p = ps.DRUDE["Au_Ord"]
+    model = ps.DRUDE["Au_Ord"]
     lam = 600.0
-    w, g, wp = 1 / lam, 1 / p["lam_gamma"], 1 / p["lam_p"]
+    w, g, wp = 1 / lam, 1 / model.damping_wavelength, 1 / model.plasma_wavelength
     eps = 1 - wp**2 / (w**2 + 1j * g * w)
-    assert ps.g_electric(eps, lam, p["lam_gamma"]) == pytest.approx(1 + wp**2 / (w**2 + g**2), rel=1e-12)
+    exact = 1 + wp**2 / (w**2 + g**2)
+    assert ps.electric_prefactor(eps, lam, model.damping_wavelength) == pytest.approx(exact, rel=1e-12)
+    g_e, g_m = ps.energy_prefactors([1.5, np.sqrt(eps), 1.0], [1, 1, 1], lam, [None, "Au_Ord", None])
+    assert g_e == pytest.approx([2.25, exact, 1.0], rel=1e-12) and np.all(g_m == 1)
 
 
 def test_free_path_correction_limits():
@@ -214,19 +233,19 @@ CASES = [
 @pytest.mark.parametrize("ref, mu, rd", CASES)
 def test_decay_energy_balance(ref, mu, rd, dipole):
     """radiated power + Ohmic loss == total rate from the Green's function."""
-    r = ps.decay_rates([50, 70, 90], ref, mu, LAM, rd, dipole=dipole, norm="shell", tol=1e-9)
+    r = ps.decay_rates([50, 70, 90], ref, LAM, rd, mu, dipole=dipole, normalization="shell", tol=1e-9)
     assert r.converged.all()
     assert r.balance_error.max() < 1e-11
 
 
 def test_decay_close_to_metal_needs_and_gets_high_orders():
-    r = ps.decay_rates([50.0], [AU, 1.33], [1, 1], LAM, [50.5, 51.0], tol=1e-6)
-    assert r.converged.all() and r.l_used.min() > 400
+    r = ps.decay_rates([50.0], [AU, 1.33], LAM, [50.5, 51.0], tol=1e-6)
+    assert r.converged.all() and r.orders_used.min() > 400
     assert r.balance_error.max() < 1e-10
 
 
 def test_decay_free_space_is_one():
-    r = ps.decay_rates([50, 70], [1.4, 1.4, 1.4], [1, 1, 1], LAM, [10, 60, 100])
+    r = ps.decay_rates([50, 70], [1.4, 1.4, 1.4], LAM, [10, 60, 100])
     assert np.allclose(r.radiative, 1, atol=1e-12) and np.allclose(r.nonradiative, 0)
     assert np.allclose(r.total, 1, atol=1e-12)
 
@@ -234,16 +253,49 @@ def test_decay_free_space_is_one():
 def test_decay_host_vs_shell_normalisation():
     ref, mu = [1.45, AU, 1.6, 1.33], [1, 1, 1.2, 1]
     for dip, ratio in (("electric", 1.6 * 1.2 / 1.33), ("magnetic", 1.6 * (1.6**2 / 1.2) / 1.33**3)):
-        h = ps.decay_rates([50, 70, 90], ref, mu, LAM, [80], dipole=dip, norm="host")
-        s = ps.decay_rates([50, 70, 90], ref, mu, LAM, [80], dipole=dip, norm="shell")
+        h = ps.decay_rates([50, 70, 90], ref, LAM, [80], mu, dipole=dip, normalization="host")
+        s = ps.decay_rates([50, 70, 90], ref, LAM, [80], mu, dipole=dip, normalization="shell")
         for a, b in ((h.radiative, s.radiative), (h.nonradiative, s.nonradiative), (h.total, s.total)):
             assert np.allclose(a / b, ratio)
 
 
 def test_decay_rejects_bad_input():
     with pytest.raises(ValueError):
-        ps.decay_rates([50, 70], [1.45, AU, 1.33], [1, 1, 1], LAM, [60])  # inside metal
+        ps.decay_rates([50, 70], [1.45, AU, 1.33], LAM, [60])  # inside metal
     with pytest.raises(ValueError):
-        ps.decay_rates([50, 70], [1.45, AU, 1.33 + 0.1j], [1, 1, 1], LAM, [100])  # lossy host
+        ps.decay_rates([50, 70], [1.45, AU, 1.33 + 0.1j], LAM, [100])  # lossy host
     with pytest.raises(ValueError):
-        ps.decay_rates([50, 70], [1.45, AU, 1.33], [1, 1, 1], LAM, [0.0])
+        ps.decay_rates([50, 70], [1.45, AU, 1.33], LAM, [0.0])
+    with pytest.raises(ValueError):
+        ps.decay_rates([50, 70], [1.45, 1.6 - 0.01j, 1.33], LAM, [60])  # inside a gain shell
+
+
+# ------------------------------------------------------------ conservation
+
+
+@pytest.mark.parametrize("size", [0.5, 20.0, 300.0])
+def test_lossless_multilayers_absorb_nothing(size):
+    """Energy conservation of the scattering solution: Q_abs = 0 to rounding."""
+    rng = np.random.default_rng(int(size * 10))
+    radii = np.sort(rng.uniform(0.05, 1.0, 8)) * size * LAM / (2 * np.pi)
+    n = np.r_[rng.uniform(1.2, 3.5, 8), 1.33]
+    cs = ps.cross_sections(ps.solve(radii, n, LAM))
+    assert abs(cs.q_abs[0]) < 1e-12 * cs.q_ext[0]
+
+
+def test_absorbing_shells_absorb_and_gain_shells_emit():
+    rng = np.random.default_rng(7)
+    for _ in range(20):
+        radii = np.sort(rng.uniform(5, 150, 4))
+        n = np.r_[rng.uniform(1.2, 3.0, 4) + 1j * rng.uniform(0, 3, 4), 1.0]
+        cs = ps.cross_sections(ps.solve(radii, n, LAM))
+        assert np.all(cs.abs_by_order >= -1e-15 * cs.ext.max())
+    gain = ps.cross_sections(ps.solve([60.0], [2.0 - 0.05j, 1.0], LAM))
+    assert gain.q_abs[0] < 0
+
+
+def test_rayleigh_limit():
+    m, x = 1.5 + 0.2j, 1e-4
+    radius = x * LAM / (2 * np.pi)
+    a1 = ps.solve([radius], [m, 1.0], LAM, l_max=3).a[0, 0]
+    assert a1 == pytest.approx(-2j * x**3 / 3 * (m**2 - 1) / (m**2 + 2), rel=1e-7)

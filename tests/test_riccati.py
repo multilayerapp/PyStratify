@@ -1,68 +1,90 @@
-"""Log-form Riccati-Bessel functions against 50-digit mpmath."""
+"""Log-form Riccati-Bessel functions against extended-precision mpmath."""
 
-import mpmath as mp
 import numpy as np
 import pytest
 
-from pystratify.riccati import log_derivatives, log_riccati
+from pystratify.riccati import ANCHOR_MARGIN, log_derivatives, log_riccati
 
-mp.mp.dps = 50
-
-
-def _ref(n, z):
-    z = mp.mpc(z.real, z.imag)
-    f = z * mp.sqrt(mp.pi / (2 * z))
-    return mp.log(f * mp.besselj(n + 0.5, z)), mp.log(f * mp.hankel1(n + 0.5, z))
+from .mp_reference import log_psi_xi
 
 
-def _err(ref, got):
-    d = complex(ref) - got
-    return abs(d.real) + abs(np.exp(1j * d.imag) - 1)  # relative error of the value
+def relative_error(reference, got):
+    d = reference - got
+    return abs(d.real) + abs(np.exp(1j * d.imag) - 1)
 
 
-ARGS = [1e-3, 0.5, 3.0, 30.0, 150 + 2j, 0.4 + 3j, 5 + 60j, 1.47 + 0.046j, 0.05 + 0.02j, 2.0 - 0.5j, 40 - 3j]
+def tolerance(reference):
+    """1e-11, widened by the float spacing of the logarithm itself (|log| ~ 2e4 at l = 1500)."""
+    return 1e-11 + 1e-14 * abs(reference)
 
 
-@pytest.mark.parametrize("z", ARGS)
-def test_log_riccati_all_orders(z):
-    nmax = 300
+ARGUMENTS = [
+    1e-3,
+    0.5,
+    3.0,
+    30.0,
+    150 + 2j,
+    0.4 + 3j,
+    5 + 60j,
+    1.47 + 0.046j,
+    0.05 + 0.02j,
+    12 + 125j,  # thick metal shell
+    50 + 700j,  # extreme absorber: J and Y cancel across 1400 e-folds in H^(1)
+    3000.0,  # large dielectric sphere
+    2.0 - 1.5j,  # gain media
+    800 - 2j,
+    30 - 0.5j,
+]
+
+
+@pytest.mark.parametrize("z", ARGUMENTS)
+def test_every_regime_to_1e_11(z):
+    nmax = 1500
     lp, lx = log_riccati(np.array([z]), nmax)
-    for n in list(range(0, 12)) + list(range(12, nmax + 1, 7)):
-        rp, rx = _ref(n, z)
-        assert _err(rp, lp[0, n]) < 1e-11, (z, n)
-        assert _err(rx, lx[0, n]) < 1e-11, (z, n)
+    assert np.all(np.isfinite(lp)) and np.all(np.isfinite(lx))
+    turning = int(abs(z))
+    orders = {0, 1, 2, 7, 60, 300, nmax}
+    orders |= {
+        o for o in (turning - 1, turning, turning + ANCHOR_MARGIN, turning + ANCHOR_MARGIN + 1) if 0 <= o <= nmax
+    }
+    for n in sorted(orders):
+        try:
+            ref_psi, ref_xi = log_psi_xi(n, z)
+        except ValueError:  # mpmath cannot resolve psi ~ 10^-15000; covered by test_asymptotic_orders
+            continue
+        assert relative_error(ref_psi, lp[0, n]) < tolerance(ref_psi), ("psi", z, n)
+        assert relative_error(ref_xi, lx[0, n]) < tolerance(ref_xi), ("xi", z, n)
 
 
-def test_values_where_representable_match_direct():
-    z = np.array([0.7, 4.0 + 0.3j])
-    lp, lx = log_riccati(z, 20)
-    from pystratify.legacy import ric_h, ric_j
-
-    n = np.arange(21)
-    assert np.allclose(np.exp(lp), ric_j(n, z[:, None]), rtol=1e-12)
-    assert np.allclose(np.exp(lx), ric_h(n, z[:, None]), rtol=1e-12)
-
-
-def test_extreme_orders_stay_finite():
+def test_asymptotic_orders():
     lp, lx = log_riccati(np.array([0.01, 1.0 + 0.5j]), 2000)
     assert np.all(np.isfinite(lp)) and np.all(np.isfinite(lx))
-    # psi_n ~ z^(n+1)/(2n+1)!!, xi_n ~ -i (2n-1)!!/z^n at large n
-    n = 2000
-    z = 0.01
-    lpsi_asym = (n + 1) * np.log(z) - mp.log(mp.fac2(2 * n + 1))
-    assert lp[0, n].real == pytest.approx(float(lpsi_asym), rel=1e-6)
+    n = 2000  # psi_n(z) ~ z^(n+1) / (2n+1)!!
+    log_double_factorial = np.sum(np.log(np.arange(1, 2 * n + 2, 2)))
+    assert lp[0, n].real == pytest.approx((n + 1) * np.log(0.01) - log_double_factorial, rel=1e-10)
+
+
+def test_batched_shapes_and_mixed_magnitudes():
+    z = np.array([[0.2, 40 + 1j], [3 - 0.1j, 700 + 5j]])
+    lp, lx = log_riccati(z, 900)
+    assert lp.shape == lx.shape == (2, 2, 901)
+    for idx in np.ndindex(z.shape):
+        single_p, single_x = log_riccati(np.array([z[idx]]), 900)
+        for batched, single in ((lp[idx], single_p[0]), (lx[idx], single_x[0])):
+            d = batched - single  # logs may differ by 2 pi i
+            assert np.max(np.abs(d.real) + np.abs(np.exp(1j * d.imag) - 1)) < 1e-10
 
 
 def test_log_derivatives_and_wronskian():
-    z = np.array([2.0 + 0.1j, 9.0])
-    lp, lx = log_riccati(z, 40)
-    l = np.arange(1, 41)
-    d1, d3 = log_derivatives(lp, lx, z[:, None][:, 0], l)
-    # W[psi, xi] = psi xi (D3 - D1) = i
-    w = np.exp(lp[:, l] + lx[:, l]) * (d3 - d1)
-    assert np.allclose(w, 1j, atol=1e-10)
+    z = np.array([2.0 + 0.1j, 9.0, 40 - 0.3j])
+    lp, lx = log_riccati(z, 60)
+    orders = np.arange(1, 61)
+    d_psi, d_xi = log_derivatives(lp, lx, z, orders)
+    wronskian = np.exp(lp[:, orders] + lx[:, orders]) * (d_xi - d_psi)  # psi xi' - psi' xi = i
+    assert np.allclose(wronskian, 1j, atol=1e-10)
 
 
-def test_zero_argument_rejected():
+@pytest.mark.parametrize("bad", [0.0, np.nan, np.inf])
+def test_rejects_unusable_arguments(bad):
     with pytest.raises(ValueError):
-        log_riccati(np.array([0.0]), 5)
+        log_riccati(np.array([bad]), 5)

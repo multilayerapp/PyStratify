@@ -1,18 +1,12 @@
-"""Near fields for plane-wave illumination (OSAC Eqs. 6-7, 25-26).
+"""Near fields for plane-wave illumination.
 
-Replaces STRATIFY ``field/near_fld.m``.  The incident wave is
-``E0 = x_hat exp(i k_h z)`` (|E0| = 1) propagating along +z; magnetic fields
-use STRATIFY's Gaussian normalisation, H = -i (n/mu) sum(...), so |H0| = n_h/mu_h.
-
-Differences from near_fld.m:
-
-* the m = +-1 vector harmonics are combined analytically into the
-  Bohren-Huffman pi_l, tau_l, regular at both poles (AUDIT.md M6);
-* expansion coefficients come from the overflow-free solver and are applied
-  in logarithmic form, A_l psi_l(kr) = exp(log A_l + log psi_l(kr)), so
-  thin metal shells and high orders are accurate (AUDIT.md M9);
-* special functions are evaluated once per unique k*r, and the sum over l is
-  a matrix product over chunks of points.
+The incident wave is E0 = x_hat exp(i k_h z), |E0| = 1, propagating along +z;
+magnetic fields are in Gaussian units, H = -i (n/mu) sum(...), so |H0| = n_h/mu_h.
+The m = +-1 vector spherical harmonics are combined analytically into the
+Bohren-Huffman pi_l, tau_l, which are regular on both poles.  Expansion
+coefficients are applied in logarithmic form,
+A_l psi_l(kr) = exp(log A_l + log psi_l(kr)), so thin metal shells and high
+orders are accurate; special functions are evaluated once per distinct k r.
 """
 
 from __future__ import annotations
@@ -23,123 +17,122 @@ import numpy as np
 
 from .farfield import angular_functions
 from .riccati import log_riccati
-from .solver import Solution
+from .solver import TE, TM, Solution
 
 __all__ = ["NearField", "near_field", "radial_functions"]
 
 
-@dataclass
+@dataclass(frozen=True)
 class NearField:
-    """Complex field components on the requested points (shape of X).
-    ``E``/``H`` dicts hold Cartesian (x, y, z) and spherical (r, th, ph) parts."""
+    """Complex field components on the requested points (shape of the inputs).
 
-    E: dict
-    H: dict
+    ``e`` and ``h`` map ``'x', 'y', 'z'`` (Cartesian) and ``'r', 'theta',
+    'phi'`` (spherical) to arrays.
+    """
+
+    e: dict
+    h: dict
 
     @property
-    def intensity_E(self) -> np.ndarray:
-        return sum(np.abs(self.E[c]) ** 2 for c in "xyz")
+    def intensity_e(self) -> np.ndarray:
+        return sum(np.abs(self.e[c]) ** 2 for c in "xyz")
 
     @property
-    def intensity_H(self) -> np.ndarray:
-        return sum(np.abs(self.H[c]) ** 2 for c in "xyz")
+    def intensity_h(self) -> np.ndarray:
+        return sum(np.abs(self.h[c]) ** 2 for c in "xyz")
 
 
-def _log_incident(l):
-    return np.log(1j**l * np.sqrt((2 * l + 1) * np.pi))
+def _log_incident(orders):
+    return np.log(1j**orders * np.sqrt((2 * orders + 1) * np.pi))
 
 
-def radial_functions(sol: Solution, w: int, r, pol: str, orders=(0,), with_incident=True):
-    """f_{l+o}(r) = A_l j_{l+o}(k r) + B_l h_{l+o}(k r) for offsets ``o``.
+def radial_functions(sol: Solution, wavelength_index: int, r, polarisations=(TM, TE), offsets=(0,), with_incident=True):
+    """f_{l+o}(r) = A_l j_{l+o}(k r) + B_l h_{l+o}(k r) for each polarisation and offset ``o``.
 
-    Also returns x = k r and the shell index of every point.  Shape of each
-    f: ``(len(r), L)``.  Points exactly on an interface belong to the outer
-    shell.  r must be > 0.
+    Returns ``({polarisation: [(len(r), L) array per offset]}, x = k r, shell
+    index per point)``; the special functions are evaluated once for all
+    polarisations.  Points exactly on an interface belong to the outer shell;
+    r must be > 0.
     """
     r = np.asarray(r, dtype=float)
-    l = sol.l
-    shell = np.searchsorted(sol.rad, r, side="right")
-    k = sol.k[w]
-    x = k[shell] * r
-    L = l.size
-    omax = max(orders)
-    lp, lx = log_riccati(x, L + omax)
-    la = sol.logA[pol][shell, w]  # (M, L)
-    lb = sol.logB[pol][shell, w]
-    if with_incident:
-        c = _log_incident(l)
-        la, lb = la + c, lb + c
-    out = []
-    with np.errstate(all="ignore"):
-        for o in orders:
-            v = np.exp(la + lp[:, l + o]) + np.exp(lb + lx[:, l + o])
-            out.append(v / x[:, None])
+    l = sol.orders
+    shell = np.searchsorted(sol.radii, r, side="right")
+    x = sol.k[wavelength_index][shell] * r
+    log_psi, log_xi = log_riccati(x, l.size + max(max(offsets), 1))
+    incident = _log_incident(l) if with_incident else 0.0
+    out = {}
+    with np.errstate(under="ignore", over="ignore"):
+        for p in polarisations:
+            la = sol.log_a[p, shell, wavelength_index] + incident
+            lb = sol.log_b[p, shell, wavelength_index] + incident
+            out[p] = [(np.exp(la + log_psi[:, l + o]) + np.exp(lb + log_xi[:, l + o])) / x[:, None] for o in offsets]
     return out, x, shell
 
 
-def near_field(sol: Solution, X, Y, Z, w: int = 0, chunk: int = 4096) -> NearField:
-    """Electric and magnetic near field at Cartesian points (X, Y, Z).
+def near_field(sol: Solution, x, y, z, wavelength_index: int = 0, chunk: int = 4096) -> NearField:
+    """Electric and magnetic near field at Cartesian points (x, y, z).
 
-    ``w`` selects the wavelength of a batched solution.  Points at the origin
-    are moved to r = 1e-9 r_1 (the field is continuous there).
+    Points at the origin are evaluated at r = 1e-9 R_0 (the field is
+    continuous there).
     """
-    X, Y, Z = np.broadcast_arrays(np.asarray(X, float), np.asarray(Y, float), np.asarray(Z, float))
-    shape = X.shape
-    x, y, z = X.ravel(), Y.ravel(), Z.ravel()
-    r = np.sqrt(x**2 + y**2 + z**2)
-    r = np.maximum(r, 1e-9 * sol.rad[0])
-    th = np.arctan2(np.hypot(x, y), z)
-    ph = np.arctan2(y, x)
-    l = sol.l
-    nmu = sol.ref[w] / sol.mu[w]
+    x, y, z = np.broadcast_arrays(*(np.asarray(v, dtype=float) for v in (x, y, z)))
+    shape = x.shape
+    x, y, z = x.ravel(), y.ravel(), z.ravel()
+    r = np.maximum(np.sqrt(x**2 + y**2 + z**2), 1e-9 * sol.radii[0])
+    theta = np.arctan2(np.hypot(x, y), z)
+    phi = np.arctan2(y, x)
+    l = sol.orders
+    w = wavelength_index
 
-    # special functions on unique radii
-    ur, r_idx = np.unique(r, return_inverse=True)
-    fields = {}
-    for p in ("e", "m"):
-        (f_m1, f0), xx, shell_u = radial_functions(sol, w, ur, p, orders=(-1, 0))
-        g = f0 / xx[:, None]  # f_l / x
-        d = f_m1 - l * g  # (1/x) d(x f_l)/dx = f_{l-1} - l f_l / x
-        fields[p] = (f0, g, d)
-    shell = shell_u[r_idx]
+    radii, r_index = np.unique(r, return_inverse=True)
+    functions, kr, shell = radial_functions(sol, w, radii, offsets=(-1, 0))
+    radial = {}
+    for p, (f_prev, f) in functions.items():
+        g = f / kr[:, None]  # f_l / x
+        radial[p] = (f, g, f_prev - l * g)  # (1/x) d(x f_l)/dx = f_{l-1} - l f_l / x
+    shell = shell[r_index]
 
-    ucos, c_idx = np.unique(np.round(np.cos(th), 14), return_inverse=True)
-    pi_u, tau_u = angular_functions(l, np.arccos(np.clip(ucos, -1, 1)))
-    mepl = 1j * np.sqrt((2 * l + 1) / (4 * np.pi)) / (l * (l + 1))
-    me2, op2 = 2 * mepl, 2 * mepl * l * (l + 1)  # factors of the combined harmonics
+    cosines, c_index = np.unique(np.round(np.cos(theta), 14), return_inverse=True)
+    pi_u, tau_u = angular_functions(l, np.arccos(np.clip(cosines, -1, 1)))
+    pi_u, tau_u = pi_u.T, tau_u.T  # (n_cos, L)
+    m = 2j * np.sqrt((2 * l + 1) / (4 * np.pi)) / (l * (l + 1))
+    m_radial = m * l * (l + 1)
 
-    E = {c: np.empty(r.size, complex) for c in ("r", "th", "ph")}
-    H = {c: np.empty(r.size, complex) for c in ("r", "th", "ph")}
-    fe, ge, de = fields["e"]
-    fm, gm, dm = fields["m"]
-    for s in range(0, r.size, chunk):
-        sl = slice(s, s + chunk)
-        ri, ci = r_idx[sl], c_idx[sl]
-        p_, t_ = pi_u[:, ci].T, tau_u[:, ci].T  # (M, L)
-        cph, sph, st = np.cos(ph[sl]), np.sin(ph[sl]), np.sin(th[sl])
-        with np.errstate(invalid="ignore"):
-            a_de, a_fm, a_ge = de[ri] * me2, fm[ri] * me2, ge[ri] * op2
-            a_fe, a_dm, a_gm = fe[ri] * me2, dm[ri] * me2, gm[ri] * op2
-            E["ph"][sl] = sph * np.sum(a_de * p_ + 1j * a_fm * t_, 1)
-            E["th"][sl] = -cph * np.sum(a_de * t_ + 1j * a_fm * p_, 1)
-            E["r"][sl] = -st * cph * np.sum(a_ge * p_, 1)
-            H["ph"][sl] = cph * np.sum(a_fe * t_ - 1j * a_dm * p_, 1)
-            H["th"][sl] = sph * np.sum(a_fe * p_ - 1j * a_dm * t_, 1)
-            H["r"][sl] = -1j * st * sph * np.sum(a_gm * p_, 1)
-    fac = -1j * nmu[shell]
-    for c in H:
-        H[c] = H[c] * fac
+    fe, ge, de = radial[TM]
+    fm, gm, dm = radial[TE]
+    e = {c: np.empty(r.size, complex) for c in ("r", "theta", "phi")}
+    h = {c: np.empty(r.size, complex) for c in ("r", "theta", "phi")}
 
-    ct, st, cp, sp = np.cos(th), np.sin(th), np.cos(ph), np.sin(ph)
+    def dot(a, b):
+        return np.einsum("ij,ij->i", a, b)
 
-    def cart(F):
+    for start in range(0, r.size, chunk):
+        s = slice(start, start + chunk)
+        ri, ci = r_index[s], c_index[s]
+        p_, t_ = pi_u[ci], tau_u[ci]
+        cp, sp, st = np.cos(phi[s]), np.sin(phi[s]), np.sin(theta[s])
+        a_de, a_fm, a_ge = de[ri] * m, fm[ri] * m, ge[ri] * m_radial
+        a_fe, a_dm, a_gm = fe[ri] * m, dm[ri] * m, gm[ri] * m_radial
+        e["phi"][s] = sp * (dot(a_de, p_) + 1j * dot(a_fm, t_))
+        e["theta"][s] = -cp * (dot(a_de, t_) + 1j * dot(a_fm, p_))
+        e["r"][s] = -st * cp * dot(a_ge, p_)
+        h["phi"][s] = cp * (dot(a_fe, t_) - 1j * dot(a_dm, p_))
+        h["theta"][s] = sp * (dot(a_fe, p_) - 1j * dot(a_dm, t_))
+        h["r"][s] = -1j * st * sp * dot(a_gm, p_)
+    factor = -1j * (sol.n[w] / sol.mu[w])[shell]
+    for c in h:
+        h[c] = h[c] * factor
+
+    ct, st, cp, sp = np.cos(theta), np.sin(theta), np.cos(phi), np.sin(phi)
+
+    def cartesian(f):
         return {
-            "x": (-sp * F["ph"] + ct * cp * F["th"] + st * cp * F["r"]).reshape(shape),
-            "y": (cp * F["ph"] + ct * sp * F["th"] + st * sp * F["r"]).reshape(shape),
-            "z": (-st * F["th"] + ct * F["r"]).reshape(shape),
-            "r": F["r"].reshape(shape),
-            "th": F["th"].reshape(shape),
-            "ph": F["ph"].reshape(shape),
+            "x": (-sp * f["phi"] + ct * cp * f["theta"] + st * cp * f["r"]).reshape(shape),
+            "y": (cp * f["phi"] + ct * sp * f["theta"] + st * sp * f["r"]).reshape(shape),
+            "z": (-st * f["theta"] + ct * f["r"]).reshape(shape),
+            "r": f["r"].reshape(shape),
+            "theta": f["theta"].reshape(shape),
+            "phi": f["phi"].reshape(shape),
         }
 
-    return NearField(E=cart(E), H=cart(H))
+    return NearField(e=cartesian(e), h=cartesian(h))

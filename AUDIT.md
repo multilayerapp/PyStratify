@@ -1,6 +1,6 @@
 # Audit of STRATIFY (MATLAB) against its papers
 
-**Scope.** The STRATIFY v1.1 MATLAB sources (`reference/stratify-matlab/`, unmodified) were
+**Scope.** The STRATIFY v1.1 MATLAB sources (<https://gitlab.com/iliarasskazov/stratify>) were
 checked line by line against
 
 * **[OSAC]** I. L. Rasskazov, P. S. Carney, A. Moroz, *STRATIFY: a comprehensive and versatile
@@ -9,46 +9,21 @@ checked line by line against
   outside a stratified sphere*, Ann. Phys. **315**, 352 (2005), the theory the decay-rate code
   implements.
 
-**Method.** Reading the code against the papers only finds disagreements. It can't tell which
-side is right. So every finding below is decided numerically, in two independent ways:
+**Method.** Reading code against a paper only finds disagreements; it cannot say which side is
+right. Every finding below was therefore decided numerically, in two independent ways:
 
-1. **The original code runs in GNU Octave** (`tests/octave.py`). For each deviation,
-   `tests/test_octave.py` pins down STRATIFY's actual output. Where possible it also patches the
-   one suspect line in a temporary copy and shows the discrepancy disappears, which proves the
-   root cause.
-2. **Physics decides who is right** (`tests/test_physics.py`), with no reference to either
-   implementation. The checks are:
-   * **Energy conservation for decay rates.** The total decay rate is computed a third way, from
-     the Green's function at the emitter (the local density of states, LDOS). It must equal
-     radiated power plus Ohmic loss. PyStratify satisfies this to 1e-9 for electric and magnetic
-     dipoles, with μ ≠ 1, in cores, shells and the host.
-   * **Textbook Mie theory.**
-   * **The Bohren & Huffman reference case.** Q_ext = 3.10543 and Q_back = 2.92534 are
-     reproduced exactly.
-   * **The optical theorem.**
-   * **Plane-wave limits.**
-   * **Interface continuity.**
-   * **Brute-force quadrature** of energy densities and absorption integrals.
-
-**Numerical formulation.** PyStratify is not a line-by-line transcription. The direct
-transfer-matrix products of `t_mat.m` over- and underflow once l exceeds the size parameter, and
-lose accuracy well before that inside thin metal shells (M9). So the same recursive
-transfer-matrix method is carried by scaled, O(1) quantities:
-
-* the Riccati–Bessel functions are held as complex logarithms;
-* the regular solution is swept outwards through ρ = Rξ/ψ, and the outgoing solution inwards
-  through σ = Sψ/ξ;
-* amplitudes are kept as logarithms.
-
-This follows the ratio formulations of Yang, Appl. Opt. 42, 1710 (2003), Peña & Pal, Comput.
-Phys. Commun. 180, 2348 (2009) and Ladutenko et al., Comput. Phys. Commun. 214, 225 (2017)
-(near fields). The emitter-close-to-a-sphere regime uses the prefactor extraction of Majic &
-Le Ru, Appl. Opt. 59, 1293 (2020). The value- or derivative-matching equation is chosen per
-element, which avoids the log-derivative singularities addressed by Zhang, JQSRT (2025),
-arXiv:2409.10877. `tests/test_solver.py` checks the amplitudes against a 60-digit mpmath
-evaluation of STRATIFY's own products up to l = 160. It also checks the interface conditions to
-1e-9 at every order to l = 200, and a size parameter of 1000. The direct products are kept in
-`pystratify.legacy`, only to talk to the MATLAB code in the tests.
+1. **The original code was run in GNU Octave.** For each deviation, STRATIFY's actual output was
+   pinned down and, where possible, the one suspect line was patched in a temporary copy to show
+   the discrepancy disappears, which proves the root cause. That harness (`tests/test_octave.py`,
+   `audit/impact.py` and the unmodified MATLAB sources under `reference/`) is in commit
+   `8800f0d`; it was removed when the package dropped everything MATLAB-shaped, and
+   `git checkout 8800f0d` restores it.
+2. **Physics decides who is right**, with no reference to either implementation, and these
+   checks remain in `tests/test_physics.py`: energy conservation of decay rates (the total rate
+   from the Green's function must equal radiated plus absorbed power, to 1e-9, for electric and
+   magnetic dipoles, μ ≠ 1, in cores, shells and the host), textbook Mie theory, the Bohren &
+   Huffman reference case (Q_ext = 3.10543, Q_back = 2.92534), the optical theorem, plane-wave
+   limits, interface continuity and brute-force quadrature.
 
 **Result in one line.** The sphere solver itself is correct. That covers the transfer matrices,
 cross sections, far field, near field, energy density and stored energy. **The decay-rate code
@@ -59,33 +34,33 @@ of **8–39 % in decay rates** and **5–11× in stored energy inside metal shel
 
 ## Summary
 
-| ID | File | Severity | What | Who is wrong | Test |
+| ID | File | Severity | What | Who is wrong | Evidence |
 |---|---|---|---|---|---|
-| **M1** | `decay/edcy.m`, `mdcy.m` | **high** | `'host'` and `'shell'` radiative normalisations are swapped | code **and** OSAC Eq. 29 **and** AoP Eqs. 126, 129–130 | `test_deviation_M1_*` |
-| **M2** | `decay/I_abs.m` | **high** | absorption integrals use the **cylindrical** Hankel function `besselh(l,x)` instead of the spherical h_l | code (AoP Eq. 116 and OSAC Eq. 32 are right) | `test_deviation_M2_*` |
-| **M3** | `decay/edcy.m`, `mdcy.m` | **high** near metals | when any Im(n) > 1, Γ_nrad is taken at an arbitrary partial sum; the `tol` argument is never used | code (OSAC §2.5 says the accuracy is set) | `test_deviation_M3_*` |
-| **M4** | `decay/mdcy.m` | medium | magnetic dipole normalised with the *electric* dipole's free-space rate | code | `test_deviation_M4_*` |
-| **M5** | `energy/G_prefac.m` | **high** for metals | Drude energy factor uses ω_p/γ instead of ω/γ, and the Drude ε instead of the shell's ε | code (OSAC Eq. 23 is right) | `test_deviation_M5_*` |
-| **M6** | `field/far_fld.m`, `near_fld.m` | low | θ = π: far field is NaN; near field on the −z axis takes the θ = 0 limit (wrong sign for even l) | code | `test_deviation_M6_*` |
-| **M7** | `bessel/sbesselj.m` | low | `sbesselj(1:L, 0)` returns j₁(0) = 1, which enters the core absorption integral | code | `test_deviation_M7_*`, `test_same_decay_*` |
-| **M8** | `materials/Ag_P.mat` | **high** if used | the "Palik Ag" table is not silver (n ≈ 1.000, k ≈ 10⁻⁵ at 124–2066 nm) | data | — (not shipped) |
-| **M9** | `util/t_mat.m` and every user of its products | medium–high | the composite matrices are products of ψ_l, ξ_l: they overflow for l ≫ x, and differences like M₁₁ + M₁₂T₂₁/T₁₁ cancel catastrophically. Interface conditions are violated by ~50 % at l = 14 inside the 3-nm Au shell of OSAC Fig. 2(b); Γ_nrad drifts with l_max | code (numerics) | `test_deviation_M9_*`, `test_direct_products_lose_*` |
-| M10 | `energy/nrg_tot.m` | low | lossy/lossless Lommel formula chosen by `imag(n) == 0`; the lossy form loses ~1e-17/Im(n) relative accuracy (2 % at Im n = 1e-14) | code (numerics) | `test_weak_loss_*` |
-| M11 | `decay/edcy.m` | medium | convergence of the l-sums judged by the last terms only; for a series with ratio q² → 1 the neglected tail is ~1/(1−q²) times larger | code (numerics) | `test_decay_close_to_metal_*` |
+| **M1** | `decay/edcy.m`, `mdcy.m` | **high** | `'host'` and `'shell'` radiative normalisations are swapped | code **and** OSAC Eq. 29 **and** AoP Eqs. 126, 129–130 | Octave; `test_decay_host_vs_shell_normalisation`, `test_decay_energy_balance` |
+| **M2** | `decay/I_abs.m` | **high** | absorption integrals use the **cylindrical** Hankel function `besselh(l,x)` instead of the spherical h_l | code (AoP Eq. 116 and OSAC Eq. 32 are right) | Octave (line patched); `test_decay_energy_balance` |
+| **M3** | `decay/edcy.m`, `mdcy.m` | **high** near metals | when any Im(n) > 1, Γ_nrad is taken at an arbitrary partial sum; the `tol` argument is never used | code (OSAC §2.5 says the accuracy is set) | Octave; `test_decay_close_to_metal_needs_and_gets_high_orders` |
+| **M4** | `decay/mdcy.m` | medium | magnetic dipole normalised with the *electric* dipole's free-space rate | code | Octave; `test_decay_energy_balance[magnetic]` |
+| **M5** | `energy/G_prefac.m` | **high** for metals | Drude energy factor uses ω_p/γ instead of ω/γ, and the Drude ε instead of the shell's ε | code (OSAC Eq. 23 is right) | Octave; `test_loudon_energy_prefactor` |
+| **M6** | `field/far_fld.m`, `near_fld.m` | low | θ = π: far field is NaN; near field on the −z axis takes the θ = 0 limit (wrong sign for even l) | code | Octave; `test_near_field_regular_on_both_poles_and_at_origin` |
+| **M7** | `bessel/sbesselj.m` | low | `sbesselj(1:L, 0)` returns j₁(0) = 1, which enters the core absorption integral | code | Octave (line patched) |
+| **M8** | `materials/Ag_P.mat` | **high** if used | the "Palik Ag" table is not silver (n ≈ 1.000, k ≈ 10⁻⁵ at 124–2066 nm) | data | inspection |
+| **M9** | `util/t_mat.m` and every user of its products | medium–high | the composite matrices are products of ψ_l, ξ_l: they overflow for l ≫ x, and differences like M₁₁ + M₁₂T₂₁/T₁₁ cancel catastrophically. Interface conditions are violated by ~50 % at l = 14 inside the 3-nm Au shell of OSAC Fig. 2(b); Γ_nrad drifts with l_max | code (numerics) | Octave; `test_interface_conditions_hold_at_every_order` |
+| M10 | `energy/nrg_tot.m` | low | lossy/lossless Lommel formula chosen by `imag(n) == 0`; the lossy form loses ~1e-17/Im(n) relative accuracy (2 % at Im n = 1e-14) | code (numerics) | `test_weak_loss_lommel_is_ill_conditioned_and_avoided` |
+| M11 | `decay/edcy.m` | medium | convergence of the l-sums judged by the last terms only; for a series with ratio q² → 1 the neglected tail is ~1/(1−q²) times larger | code (numerics) | `test_decay_close_to_metal_needs_and_gets_high_orders` |
 | T1 | OSAC Eqs. 30, 31 | typo | n_d = 1 case divides by M₂₁(1); AoP Eq. 71 and the code use M₂₂(1) | paper | energy balance |
 | T2 | OSAC Eq. 31 | typo | n_a < n_d case reads M₂₂ψ + M₁₂ζ; correct (and coded) is M₁₂ψ + M₂₂ζ | paper | energy balance |
 
 Everything not listed was verified correct: `t_mat.m`, `crs_sec.m`, `far_fld.m` (θ < π),
 `near_fld.m` (off the −z axis), `nrg_dns.m`, `nrg_tot.m` (given correct G), `F_lossy.m`,
-`F_lossless.m`, `el_fr_pth.m`, `l_conv.m`, the Bessel helpers apart from M7, `pln_fres.m`,
-PyStratify reproduces all of these to ≤ 1e-10 (see `test_same_*`). The planar `1D/` folder is
+`F_lossless.m`, `el_fr_pth.m`, `l_conv.m`, the Bessel helpers apart from M7, `pln_fres.m`;
+PyStratify reproduced all of these to ≤ 1e-10 in the Octave comparison. The planar `1D/` folder is
 not part of the sphere solver and is not ported. For the record, reading it showed two problems:
 `pln_get_abs_tmm.m` passes a wavenumber (µm⁻¹) where `pln_abcd.m` expects a wavelength, and
 `pln_abcd_incoh.m`'s "incoherent" last layer only discards a phase.
 
 ## Impact on STRATIFY's own configurations
 
-Produced by `python audit/impact.py`. Orientation-averaged rates (Γ⊥ + 2Γ∥)/3, host
+Produced by `audit/impact.py` at commit `8800f0d` (STRATIFY in Octave against PyStratify). Orientation-averaged rates (Γ⊥ + 2Γ∥)/3, host
 normalisation, λ = 614 nm, Au from Johnson & Christy. The Au@SiO₂ rows are the `tst_dcy.m` /
 OSAC Fig. 2(c) set-up (l = 1:100, `rin` = 200).
 
@@ -148,7 +123,7 @@ AoP Eq. 116 and OSAC Eq. 32 use the spherical h_l⁽¹⁾. The error vanishes wh
 shell is the core (B = 0), which is the case the paper benchmarked. For every absorbing *shell*
 (nanoshells, matryoshkas) Γ_nrad is wrong: 34–39 % low in the nanoshell rows above, and up to
 2× in `test_physics` configurations. Replacing the two calls with `sbesselh`/`dsbesselh` makes
-STRATIFY agree with PyStratify to trapezoid accuracy (`test_deviation_M2_*`).
+STRATIFY agree with PyStratify to trapezoid accuracy (Octave (line patched); `test_decay_energy_balance`).
 
 ### M3 — ad-hoc truncation of the nonradiative sum (`edcy.m`, `mdcy.m`)
 
@@ -163,7 +138,7 @@ index ⌈K/10⌉ among the K partial sums whose relative increment is below 1 %.
 depends on the `l` the caller passes, and it is not converged. Near a metal surface the series
 converges slowly, so Γ_nrad comes out too low (−10.6 % at 2 nm from the Au core in the
 `tst_dcy.m` set-up). The documented `tol` argument is never read. PyStratify sums until the last
-three terms are below `tol`·|sum| and flags positions that do not converge.
+terms leave an estimated remainder below `tol`·|sum| (M11) and flags positions that do not converge.
 
 ### M4 — magnetic-dipole host normalisation (`mdcy.m`)
 
@@ -186,8 +161,8 @@ G.e(i) = real(eps) + 2*imag(eps)*lam_g/lam_p;   % lam_g/lam_p = omega_p/gamma, s
 
 That is 5–11× too large for gold across 500–900 nm (table above), so the electric energy stored
 in any metal shell is overstated by that factor. G_prefac also evaluates ε from the Drude fit
-rather than the shell's actual (e.g. tabulated) ε. PyStratify's `g_electric` implements Eq. 23
-with the shell's ε; the Loudon identity is a unit test.
+rather than the shell's actual (e.g. tabulated) ε. PyStratify's `electric_prefactor` implements
+Eq. 23 with the shell's ε; the Loudon identity is a unit test.
 
 ### M6 — θ = π
 
@@ -207,8 +182,8 @@ agree with PyStratify to 1e-7.
 ### M8 — `materials/Ag_P.mat`
 
 n = 0.997–1.003 and k = 1.3e-6 … 2.7e-3 over 124–2066 nm is not silver: silver is a metal with
-k ≈ 2–14 from 400 to 2000 nm (compare `Ag_JC.mat` in the same folder). The table is not shipped with PyStratify. The other tables are
-converted to CSV unchanged.
+k ≈ 2–14 from 400 to 2000 nm (compare `Ag_JC.mat` in the same folder). PyStratify ships no
+tabulated optical constants at all; n, k come from the caller (e.g. refractiveindex.info).
 
 ### M9 — direct transfer-matrix products (`t_mat.m` and its users)
 
@@ -218,14 +193,15 @@ arguments, with entries ~(x̃/x)^l. Two consequences:
 * Differences of large products cancel. Two examples: the absorbing-shell coefficient
   M₁₁ + M₁₂·T₂₁/T₁₁ of OSAC Eq. 33, and the internal plane-wave coefficients of Eqs. 25–26.
   Inside the 3-nm Au shell of the OSAC Fig. 2(b) matryoshka, the interface conditions are
-  already violated by 30–80 % at l = 13–14 (`test_direct_products_lose_the_boundary_conditions`).
-  For an emitter 5 nm outside a lossy shell, Γ_nrad changes by ~1e-3 between l_max = 50 and 70
-  even after M2 is fixed (`test_deviation_M9_*`), and `tst_dcy.m` uses l = 1:100.
+  already violated by 30–80 % at l = 13–14. For an emitter 5 nm outside a lossy shell, Γ_nrad
+  changes by ~1e-3 between l_max = 50 and 70 even after M2 is fixed, and `tst_dcy.m` uses
+  l = 1:100.
 * They overflow for l ≫ x, which is why STRATIFY cannot reach the l ~ 500–1000 needed for
   emitters within a few nm of a metal (Majic & Le Ru 2020).
 
-PyStratify's scaled formulation (see the top of this file) satisfies the interface conditions to
-1e-9 at every order tested. It gives decay rates that conserve energy to 1e-11 up to l = 1200.
+PyStratify's scaled formulation (README, "Numerics") satisfies the interface conditions to 1e-9
+at every order tested, including a 2-nm shell with |n| = 40 at l = 400, and gives decay rates
+that conserve energy to 1e-11 up to l = 1200.
 
 ### M10 — weakly lossy shells in `nrg_tot.m`
 
@@ -257,8 +233,8 @@ estimated remainder t_L·r/(1 − r).
   electrodynamics itself is questionable (nonlocality).
 * The magnetic-dipole results (M4) are validated by energy balance only; OSAC does not publish
   them.
-* STRATIFY's `rmmissing` and `max(...,'all')` calls needed small Octave shims
-  (`tests/octave_compat/`); they reproduce MATLAB semantics for the numeric arrays used.
+* Running STRATIFY in Octave needed small shims for `rmmissing` and `max(...,'all')` (at
+  `8800f0d`, `tests/octave_compat/`); they reproduce MATLAB semantics for the arrays used.
 * The papers Majic & Le Ru (2020), Zhang (2025) and Ladutenko et al. (2017) were consulted
   through their abstracts. The formulation here is derived independently and verified
   numerically, not transcribed from them.

@@ -1,57 +1,42 @@
 """PyStratify: light scattering by multilayered (stratified) spheres.
 
-A Python re-implementation of STRATIFY (Rasskazov, Carney & Moroz, OSA
-Continuum 3, 2290 (2020)) on an overflow-free formulation of its recursive
-transfer-matrix method, with the corrections listed in AUDIT.md.
-
 Quick start::
 
     import numpy as np
     import pystratify as ps
 
-    lam = np.linspace(500, 900, 401)                      # nm
-    rad = [50, 55]                                        # nm; SiO2 core, Au shell
-    ref = np.stack([np.full(lam.size, 1.45),
-                    ps.refractive_index("Au_JC", lam),
-                    np.ones(lam.size)], axis=1)          # (W, N+1), host last
-    sol = ps.solve(rad, ref, [1, 1, 1], lam, l_max=ps.l_max(55, 1.0, lam))
-    cs = ps.cross_sections(sol)                           # vectorised over lam
-    print(cs.q_ext.max())
+    wavelength = np.linspace(500, 900, 401)              # nm
+    radii = [50, 55]                                     # nm: SiO2 core, Au shell
+    n_au = ...                                           # (401,) complex, e.g. from refractiveindex.info
+    n = np.stack([np.full(401, 1.45), n_au, np.full(401, 1.33)], axis=1)   # host last
+    sol = ps.solve(radii, n, wavelength)
+    ps.cross_sections(sol).q_ext                         # (401,)
 """
 
-from .convergence import l_max
+from .convergence import truncation_order
 from .decay import DecayRates, decay_rates, locate_shell
+from .drude import DRUDE, DrudeModel, free_path_correction, surface_damping_wavelength
 from .energy import (
     EnergyDensity,
     ShellEnergy,
+    electric_prefactor,
     energy_density,
-    g_electric,
-    g_prefactors,
-    total_energy,
+    energy_prefactors,
+    shell_energy,
 )
-from .farfield import (
-    CrossSections,
-    angular_functions,
-    cross_sections,
-    scattering_amplitudes,
-)
-from .materials import (
-    DRUDE,
-    TABULATED,
-    free_path_correction,
-    list_materials,
-    refractive_index,
-)
+from .farfield import CrossSections, angular_functions, cross_sections, scattering_amplitudes
 from .nearfield import NearField, near_field
 from .riccati import log_riccati
-from .solver import Solution, solve
+from .solver import TE, TM, Solution, solve
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "solve",
     "Solution",
-    "l_max",
+    "TM",
+    "TE",
+    "truncation_order",
     "cross_sections",
     "CrossSections",
     "scattering_amplitudes",
@@ -60,17 +45,16 @@ __all__ = [
     "NearField",
     "energy_density",
     "EnergyDensity",
-    "total_energy",
+    "shell_energy",
     "ShellEnergy",
-    "g_electric",
-    "g_prefactors",
+    "electric_prefactor",
+    "energy_prefactors",
     "decay_rates",
     "DecayRates",
     "locate_shell",
-    "refractive_index",
-    "free_path_correction",
-    "list_materials",
-    "log_riccati",
     "DRUDE",
-    "TABULATED",
+    "DrudeModel",
+    "free_path_correction",
+    "surface_damping_wavelength",
+    "log_riccati",
 ]
