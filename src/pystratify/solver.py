@@ -148,6 +148,19 @@ class Solution:
         """Bohren-Huffman b_l = -T_TE, shape (W, L)."""
         return -np.exp(self.log_t[TE])
 
+    @property
+    def t_matrix(self) -> np.ndarray:
+        """T-matrix blocks, shape (W, L, 2, 2), in the (TM, TE) basis: [out, in].
+
+        Diagonal for an achiral sphere; :class:`~pystratify.ChiralSolution` has
+        the same property with the TM-TE coupling of chiral shells.
+        """
+        out = np.zeros(self.log_t.shape[1:] + (2, 2), dtype=complex)
+        with np.errstate(under="ignore"):
+            out[..., TM, TM] = np.exp(self.log_t[TM])
+            out[..., TE, TE] = np.exp(self.log_t[TE])
+        return out
+
 
 def _batch(n, mu, wavelength, layers):
     wavelength = np.atleast_1d(np.asarray(wavelength, dtype=float))

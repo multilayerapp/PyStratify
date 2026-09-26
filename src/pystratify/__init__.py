@@ -13,9 +13,11 @@ Quick start::
     ps.cross_sections(sol).q_ext                         # (401,)
 """
 
+from .chiral import ChiralSolution, solve_chiral
 from .convergence import truncation_order
 from .decay import DecayRates, decay_rates, locate_shell
 from .drude import DRUDE, DrudeModel, free_path_correction, surface_damping_wavelength
+from .emission import EmissionPattern, dipole_far_field
 from .energy import (
     EnergyDensity,
     ShellEnergy,
@@ -24,22 +26,43 @@ from .energy import (
     energy_prefactors,
     shell_energy,
 )
-from .farfield import CrossSections, angular_functions, cross_sections, scattering_amplitudes
+from .farfield import (
+    CrossSections,
+    HelicityCrossSections,
+    ScatteringPattern,
+    amplitude_matrix,
+    angular_functions,
+    cross_sections,
+    helicity_cross_sections,
+    mueller_matrix,
+    scattering_amplitudes,
+    scattering_pattern,
+)
 from .nearfield import NearField, near_field
 from .riccati import log_riccati
 from .solver import TE, TM, Solution, solve
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __all__ = [
     "solve",
     "Solution",
+    "solve_chiral",
+    "ChiralSolution",
     "TM",
     "TE",
     "truncation_order",
     "cross_sections",
     "CrossSections",
+    "helicity_cross_sections",
+    "HelicityCrossSections",
     "scattering_amplitudes",
+    "amplitude_matrix",
+    "mueller_matrix",
+    "scattering_pattern",
+    "ScatteringPattern",
+    "dipole_far_field",
+    "EmissionPattern",
     "angular_functions",
     "near_field",
     "NearField",

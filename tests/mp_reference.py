@@ -82,3 +82,51 @@ def coefficients(radii, n_list, mu_list, wavelength, order, te):
             w = m * w
             outgoing.insert(0, w)
         return regular, [(c[0], c[1]) for c in outgoing]
+
+
+def chiral_t_matrix(radii, n_list, kappa_list, mu_list, wavelength, order, dps=80):
+    """Logarithms of the exact host T-matrix block (helicity basis [out, in]) of a sphere with chiral layers.
+
+    Direct 4x4 transfer matrices in extended precision, independent of the
+    solver's scaled recursion.  In layer s the field of order ``order`` is
+    sum_c alpha_c W_c^(1) + beta_c W_c^(3), W_c = M + c N at k_c = k0 (n + c kappa);
+    the continuous quantities at radius r are (E_X, E_Z, H_X, H_Z) with
+    E_X = v_+ + v_-, E_Z = d_+ - d_-, i Z H_X = v_+ - v_-, i Z H_Z = d_+ + d_-,
+    v_c = u_c(x_c)/x_c, d_c = u_c'(x_c)/x_c.
+    """
+    with mp.workdps(dps):
+        k0 = 2 * mp.pi / mp.mpf(wavelength)
+        layers = [
+            (
+                [k0 * (mp.mpc(complex(n)) + c * mp.mpc(complex(k))) for c in (1, -1)],
+                mp.mpc(complex(m)) / mp.mpc(complex(n)),
+            )
+            for n, k, m in zip(n_list, kappa_list, mu_list)
+        ]
+
+        def boundary(s, r):
+            """Columns divided by their E_X value (psi, xi span hundreds of decades), and those values."""
+            ks, z = layers[s]
+            rows = [[mp.mpc(0)] * 4 for _ in range(4)]
+            scale = [mp.mpc(0)] * 4
+            for c, sign in enumerate((1, -1)):
+                x = ks[c] * mp.mpf(r)
+                for col, (f, df) in ((c, (_psi, _dpsi)), (c + 2, (_xi, _dxi))):
+                    value = f(order, x)
+                    scale[col] = value / x
+                    d = df(order, x) / value
+                    rows[0][col] = 1
+                    rows[1][col] = sign * d
+                    rows[2][col] = sign / (1j * z)
+                    rows[3][col] = d / (1j * z)
+            return mp.matrix(rows), scale
+
+        g = mp.eye(4)
+        for j, r in enumerate(radii):
+            (inner, s_in), (outer, s_out) = boundary(j, r), boundary(j + 1, r)
+            m = mp.inverse(outer) * inner
+            g = mp.matrix([[m[a, b] * s_in[b] / s_out[a] for b in range(4)] for a in range(4)]) * g
+        top = mp.matrix([[g[0, 0], g[0, 1]], [g[1, 0], g[1, 1]]])
+        bottom = mp.matrix([[g[2, 0], g[2, 1]], [g[3, 0], g[3, 1]]])
+        t = bottom * mp.inverse(top)
+        return [[complex(mp.log(t[i, j])) if t[i, j] != 0 else complex(-mp.inf) for j in range(2)] for i in range(2)]
