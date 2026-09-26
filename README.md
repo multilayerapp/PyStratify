@@ -20,6 +20,8 @@ the MATLAB code are fixed ([AUDIT.md](AUDIT.md)).
 | radiative / nonradiative / total decay rates | `decay_rates` → `DecayRates` |
 | thin-shell electron free-path correction | `free_path_correction`, `DRUDE` |
 | multipole truncation | `truncation_order` |
+| decay rates from normalized quantities (reference formulation) | `normalized_decay_rates` |
+| extended-precision and classical references | `pystratify.references` |
 
 No optical constants are shipped: pass n + ik from a database such as
 [refractiveindex.info](https://refractiveindex.info). The Drude fits in `DRUDE` exist only for
@@ -147,6 +149,9 @@ pip install -e ".[test]"
 pytest
 ```
 
+* `test_normalized.py`: the normalized formulation (`normalized.py`: ψ'/ψ, ψξ and normalized j̄ only,
+  reflection ratios swept outwards and inwards) against the solver, extended precision and the
+  unnormalized formulas.
 * `test_riccati.py`: special functions against mpmath in every regime above, and the
   Wronskian for |x| up to 8·10⁴.
 * `test_solver.py`: coefficients against 60-digit transfer matrices (including a 1-nm film,
@@ -161,7 +166,7 @@ pytest
   μ ≠ 1 and magnetically lossy shells), and energy conservation of decay rates for electric and
   magnetic dipoles, up to 17000 orders.
 
-`tests/references.py` holds the independent references (mpmath Mie decay rates and extinction,
+`pystratify.references` holds the independent references (mpmath Mie decay rates and extinction,
 layered-sphere decay rates from transfer matrices, BHMIE); nothing in it shares code with the package.
 
 ## Licence

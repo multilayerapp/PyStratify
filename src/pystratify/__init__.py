@@ -26,6 +26,7 @@ from .energy import (
 )
 from .farfield import CrossSections, angular_functions, cross_sections, scattering_amplitudes
 from .nearfield import NearField, near_field
+from .normalized import NormalizedRates, normalized_decay_rates
 from .riccati import log_riccati
 from .solver import TE, TM, Solution, solve
 
@@ -57,4 +58,6 @@ __all__ = [
     "free_path_correction",
     "surface_damping_wavelength",
     "log_riccati",
+    "normalized_decay_rates",
+    "NormalizedRates",
 ]

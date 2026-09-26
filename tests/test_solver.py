@@ -9,7 +9,7 @@ from pystratify import TE, TM
 from pystratify.riccati import log_riccati
 
 from .mp_reference import coefficients
-from .references import bhmie
+from pystratify.references import bhmie
 
 WAVELENGTH = 690.0
 MATRYOSHKA = ([10.0, 13.0, 36.0, 48.0], [1.45, 0.2 + 3.8j, 1.45, 0.25 + 3.5j, 1.33])  # 3-nm Au shell

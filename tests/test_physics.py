@@ -13,7 +13,7 @@ from scipy.special import spherical_jn, spherical_yn
 
 import pystratify as ps
 
-from .references import layered_decay_rates, sphere_decay_rates
+from pystratify.references import layered_decay_rates, sphere_decay_rates
 
 LAM = 614.0
 AU = 0.27 + 2.93j
