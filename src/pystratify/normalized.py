@@ -14,6 +14,11 @@ inwards), carried across a shell by the propagator
     G(r_a, r_b) = (r_a/r_b)^(2l+2) [jbar(k r_a)/jbar(k r_b)]^2 P(k r_b)/P(k r_a),
 
 and across an interface by Moebius maps of logarithmic derivatives.  The
+maps are written with the mismatch terms m11 = (l+1)(g-1)/x~ - (f r_in - r_out)
+and m33 = (f X_in - X_out) - l(g-1)/x~, where r = psi_{l+1}/psi_l,
+X = xi_{l-1}/xi_l and g - 1 is the material contrast (exactly zero for TE at
+non-magnetic interfaces), so no difference of nearly equal logarithmic
+derivatives is ever formed.  The
 total rate is 1 + sum Re[P (rho + sigma + 2 rho sigma)/(1 - rho sigma)] (shell
 normalization) and the radiated amplitude carries the single explicit factor
 (k_h r)^(l+1)/(2l+1)!!.  Nothing is computed that can overflow; only the
@@ -103,6 +108,11 @@ class NormalizedRates:
         return self.total - self.radiative
 
 
+def _args(k, radii, outer_side):
+    """Arguments k_n r_n (inner side) or k_{n+1} r_n (outer side) of every interface."""
+    return [(k[j + 1] if outer_side else k[j]) * radii[j] for j in range(radii.size)]
+
+
 def _propagator(a, b, r_a, r_b, l):
     """[xi/psi](b)/[xi/psi](a) for arguments of one shell at radii r_a < r_b."""
     with np.errstate(under="ignore", over="ignore", invalid="ignore"):
@@ -133,11 +143,34 @@ def normalized_decay_rates(radii, n, wavelength, r, l_max, mu=None, dipole="elec
     x = k[d].real * r
     emit = auxiliary(x + 0j, L + 1)
     eta, mr = n[:-1] / n[1:], mu[:-1] / mu[1:]
+    n_in, n_out, mu_in, mu_out = n[:-1], n[1:], mu[:-1], mu[1:]
+    # g - 1 (g = f x~/x) from the material contrast: exact for similar media and exactly 0 for the
+    # TE terms of nonmagnetic interfaces, where the leading (l+1)/x parts of the mismatch cancel
+    g_minus_1 = {
+        TM: (mu_in * (n_out - n_in) * (n_out + n_in) + n_in**2 * (mu_in - mu_out)) / (mu_out * n_in**2),
+        TE: (mu_out - mu_in) / mu_in,
+    }
+    # the small ratios r = psi_{l+1}/psi_l = 1/(A_{l+1} + (l+1)/z) and X = xi_{l-1}/xi_l = 1/(l/z - B_{l-1})
+    small = []
+    for side in (inner, outer):
+        small.append(
+            [
+                (1 / (a[0][l + 1] + (l + 1) / z), 1 / (l / z - a[1][l - 1]))
+                for a, z in zip(side, _args(k, radii, side is outer))
+            ]
+        )
     res = {}
     for p in (TM, TE):
         c_v, c_d = (mr, eta) if p == TM else (eta, mr)
         f = c_v / c_d
-        # outward sweep: rho at the outer radius of each shell (rho_out) and just outside it (rho_t)
+        # interface mismatches without cancellation: m11 = f A - A~, m33 = f B - B~
+        m11, m33 = [], []
+        for j in range(N):
+            (r_in, X_in), (r_out, X_out) = small[0][j], small[1][j]
+            xt = k[j + 1] * radii[j]
+            m11.append((l + 1) * g_minus_1[p][j] / xt - (f[j] * r_in - r_out))
+            m33.append((f[j] * X_in - X_out) - l * g_minus_1[p][j] / xt)
+        # outward sweep: rho just outside each interface (rho_t)
         rho_t = np.zeros((N, L), complex)
         rho = np.zeros(L, complex)
         with np.errstate(all="ignore"):
@@ -146,8 +179,7 @@ def normalized_decay_rates(radii, n, wavelength, r, l_max, mu=None, dipole="elec
                     rho = rho_t[j - 1] * _propagator(outer[j - 1], inner[j], radii[j - 1], radii[j], l)
                 A, B = inner[j][0][l], inner[j][1][l]
                 At, Bt = outer[j][0][l], outer[j][1][l]
-                D = f[j] * (A + rho * B) / (1 + rho)
-                rho_t[j] = (D - At) / (Bt - D)
+                rho_t[j] = (m11[j] + rho * (f[j] * B - At)) / ((Bt - f[j] * A) - rho * m33[j])
             # inward sweep: sigma just outside interface j (sig_t) and on its inner side (sig_in)
             sig_in, sig_t = np.zeros((N, L), complex), np.zeros((N, L), complex)
             sig = np.zeros(L, complex)
@@ -157,8 +189,7 @@ def normalized_decay_rates(radii, n, wavelength, r, l_max, mu=None, dipole="elec
                 sig_t[j] = sig
                 A, B = inner[j][0][l], inner[j][1][l]
                 At, Bt = outer[j][0][l], outer[j][1][l]
-                D = (sig * At + Bt) / (1 + sig) / f[j]
-                sig_in[j] = (D - B) / (A - D)
+                sig_in[j] = (-m33[j] + sig * (At - f[j] * B)) / ((f[j] * A - Bt) + sig * m11[j])
             rho_e = rho_t[d - 1] * _propagator(outer[d - 1], emit, radii[d - 1], r, l) if d else np.zeros(L, complex)
             sig_e = sig_in[d] * _propagator(emit, inner[d], r, radii[d], l) if d < N else np.zeros(L, complex)
             a, b, P = emit[0][l], emit[1][l], emit[2][l]
