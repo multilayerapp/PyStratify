@@ -199,3 +199,37 @@ def test_achiral_functions_refuse_chiral_solutions():
         ps.cross_sections(sol)
     with pytest.raises(TypeError):
         ps.scattering_amplitudes(sol, [0.1])
+
+
+@pytest.mark.parametrize(
+    "eps, mu, chi",
+    [(4.0, 1.0, 0.1), (-4.0 + 0.3j, 1.0, 0.05), (6.0, 1.2, 0.15), (2.25 + 0.1j, 0.9, -0.08), (-2.2 + 0.1j, 1.0, 0.1)],
+)
+def test_small_chiral_sphere_matches_published_polarisabilities(eps, mu, chi):
+    """Quasi-static polarisabilities of Klimov, Guzatov & Ducloy, EPL 97, 47004 (2012), Eq. 48, for the
+    Drude-Born-Fedorov medium D = eps (E + eta curl E), B = mu (H + eta curl H), chi = k0 eta.  In Pasteur
+    form eps_P = eps/s, mu_P = mu/s, kappa = n^2 chi/s with s = 1 - n^2 chi^2 (same impedance, n +- kappa =
+    n/(1 -+ n chi) = their k_L, k_R), and the dipole block is T = (2i/3) k^3 [[a_EE, -i a_EH], [-i a_EH, a_HH]]."""
+    k = 2 * np.pi / 600.0
+    a = 1e-3 / k
+    den = (eps + 2) * (mu + 2) - 4 * chi**2 * eps * mu
+    a_ee = a**3 * ((eps - 1) * (mu + 2) + 2 * chi**2 * eps * mu) / den
+    a_hh = a**3 * ((mu - 1) * (eps + 2) + 2 * chi**2 * eps * mu) / den
+    a_eh = a**3 * 3j * chi * eps * mu / den
+    n2 = eps * mu
+    s = 1 - n2 * chi**2
+    n_p = np.sqrt(n2) / s
+    n_p = -n_p if n_p.imag < 0 else n_p
+    t = ps.solve_chiral([a], [n_p, 1.0], [n2 * chi / s, 0], 600.0, [mu / s, 1.0], l_max=3).t_matrix[0, 0]
+    c = 2j * k**3 / 3
+    # (k a)^2 = 1e-6 dynamic corrections, resonantly enhanced near (eps + 2)(mu + 2) = 4 chi^2 eps mu
+    assert t[0, 0] == pytest.approx(c * a_ee, rel=1e-4)
+    assert t[1, 1] == pytest.approx(c * a_hh, rel=1e-4)
+    assert t[0, 1] == pytest.approx(-1j * c * a_eh, rel=1e-4) and t[1, 0] == pytest.approx(t[0, 1], rel=1e-12)
+
+
+def test_chiral_metal_with_negative_real_part_of_n_minus_kappa():
+    """Re(n - kappa) < 0 is fine inside the particle (psi and xi are only a basis there)."""
+    sol = ps.solve_chiral([50.0], [0.2 + 3.0j, 1.33], [0.5 + 0.01j, 0], LAM)
+    hc = ps.helicity_cross_sections(sol)
+    assert np.all(np.isfinite(hc.ext)) and np.all(hc.abs > 0) and abs(hc.g_ext[0]) > 1e-4

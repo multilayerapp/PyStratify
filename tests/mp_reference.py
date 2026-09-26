@@ -5,6 +5,7 @@ H^(1) = J + iY and the size of high-order values are absorbed.
 """
 
 import mpmath as mp
+import numpy as np
 
 
 def _dps(z, n):
@@ -84,7 +85,7 @@ def coefficients(radii, n_list, mu_list, wavelength, order, te):
         return regular, [(c[0], c[1]) for c in outgoing]
 
 
-def chiral_t_matrix(radii, n_list, kappa_list, mu_list, wavelength, order, dps=80):
+def chiral_t_matrix(radii, n_list, kappa_list, mu_list, wavelength, order, dps=80, amplitudes_only=False):
     """Logarithms of the exact host T-matrix block (helicity basis [out, in]) of a sphere with chiral layers.
 
     Direct 4x4 transfer matrices in extended precision, independent of the
@@ -93,6 +94,9 @@ def chiral_t_matrix(radii, n_list, kappa_list, mu_list, wavelength, order, dps=8
     the continuous quantities at radius r are (E_X, E_Z, H_X, H_Z) with
     E_X = v_+ + v_-, E_Z = d_+ - d_-, i Z H_X = v_+ - v_-, i Z H_Z = d_+ + d_-,
     v_c = u_c(x_c)/x_c, d_c = u_c'(x_c)/x_c.
+
+    With ``amplitudes_only`` returns, per layer, (log alpha, log beta) as 2x2
+    arrays [channel, incident helicity] for unit incident waves in the host.
     """
     with mp.workdps(dps):
         k0 = 2 * mp.pi / mp.mpf(wavelength)
@@ -122,11 +126,27 @@ def chiral_t_matrix(radii, n_list, kappa_list, mu_list, wavelength, order, dps=8
             return mp.matrix(rows), scale
 
         g = mp.eye(4)
+        cumulative = [g]
         for j, r in enumerate(radii):
             (inner, s_in), (outer, s_out) = boundary(j, r), boundary(j + 1, r)
             m = mp.inverse(outer) * inner
             g = mp.matrix([[m[a, b] * s_in[b] / s_out[a] for b in range(4)] for a in range(4)]) * g
+            cumulative.append(g)
         top = mp.matrix([[g[0, 0], g[0, 1]], [g[1, 0], g[1, 1]]])
+        core = mp.inverse(top)  # core amplitudes giving a unit incident wave of each helicity
+        layers = []
+        for c in cumulative:
+            amplitudes = c * mp.matrix([[core[0, 0], core[0, 1]], [core[1, 0], core[1, 1]], [0, 0], [0, 0]])
+            layers.append(
+                [
+                    [[complex(mp.log(v)) if v != 0 else complex(-mp.inf) for v in (amplitudes[i, 0], amplitudes[i, 1])]]
+                    for i in range(4)
+                ]
+            )
+        if amplitudes_only:
+            return [
+                (np.array([row[0] for row in layer[:2]]), np.array([row[0] for row in layer[2:]])) for layer in layers
+            ]
         bottom = mp.matrix([[g[2, 0], g[2, 1]], [g[3, 0], g[3, 1]]])
         t = bottom * mp.inverse(top)
         return [[complex(mp.log(t[i, j])) if t[i, j] != 0 else complex(-mp.inf) for j in range(2)] for i in range(2)]

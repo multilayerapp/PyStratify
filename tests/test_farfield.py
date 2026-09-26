@@ -248,8 +248,8 @@ def test_chiral_particle_emission():
     # circular dipoles of opposite handedness radiate differently next to a chiral particle
     powers = [ps.dipole_far_field(radii, n, LAM, [0, 0, 75.0], [1, s * 1j, 0], 0.0, kappa=kappa).power for s in (1, -1)]
     assert abs(powers[0] - powers[1]) > 1e-3 * powers[0]
-    with pytest.raises(NotImplementedError):
-        ps.dipole_far_field(radii, n, LAM, [0, 0, 60.0], [1, 0, 0], 0.0, kappa=kappa)
+    inside = ps.dipole_far_field(radii, n, LAM, [0, 0, 60.0], [1, 0, 0], 0.0, kappa=kappa)  # in the chiral shell
+    assert inside.shell == 2 and inside.converged and inside.power > 0
 
 
 def test_dipole_input_validation():

@@ -45,7 +45,7 @@ from .convergence import truncation_order
 from .riccati import log_riccati
 from .solver import _batch, _side
 
-__all__ = ["ChiralSolution", "solve_chiral", "HELICITY_TO_TMTE"]
+__all__ = ["ChiralSolution", "solve_chiral", "HELICITY_TO_TMTE", "log_matmul"]
 
 #: (TM, TE) = (N, M) amplitudes of W_+ = M + N and W_- = M - N, as columns
 HELICITY_TO_TMTE = np.array([[1.0, -1.0], [1.0, 1.0]])
@@ -74,6 +74,14 @@ def _log_add(log_x, log_y):
         return m + np.log(np.exp(log_x - m) + np.exp(log_y - m))
 
 
+def log_matmul(log_a, log_b):
+    """log(A @ B) for stacks of 2x2 matrices given as element-wise complex logarithms."""
+    return _log_add(
+        log_a[..., :, 0, None] + log_b[..., None, 0, :],
+        log_a[..., :, 1, None] + log_b[..., None, 1, :],
+    )
+
+
 @dataclass(frozen=True)
 class ChiralSolution:
     """T-matrix of a multilayered sphere with chiral layers, for a batch of wavelengths.
@@ -82,6 +90,12 @@ class ChiralSolution:
     block in the helicity basis [out, in] (index 0 = +1, 1 = -1) for the
     waves W_s = M + s N; ``t_matrix`` is the same block in the (TM, TE)
     basis used by the far-field functions.
+
+    Internal fields, shape ``(W, N + 1, L, 2, 2)`` [layer, ..., channel, incident
+    helicity]: in layer j the regular solution excited by a unit incident wave
+    W_h in the host is sum_c (alpha_ch psi_l(k_jc r) + beta_ch xi_l(k_jc r)) W_c,
+    with ``log_alpha`` = log alpha (the identity in the host) and ``log_r`` =
+    log R, beta = R alpha (zero in the core, T in the host).
     """
 
     radii: np.ndarray
@@ -91,6 +105,8 @@ class ChiralSolution:
     wavelength: np.ndarray  # (W,)
     orders: np.ndarray  # (L,)
     log_t_helicity: np.ndarray  # (W, L, 2, 2)
+    log_alpha: np.ndarray  # (W, N + 1, L, 2, 2)
+    log_r: np.ndarray  # (W, N + 1, L, 2, 2)
 
     @property
     def n_shells(self) -> int:
@@ -149,7 +165,8 @@ def _interface_matrices(l, x_in, x_out, diff, side_in, side_out, delta):
 
 
 def _log_moebius(n0, n1, d0, d1, log_rho):
-    """log[(N0 + N1 rho)(D0 + D1m rho)^-1] element-wise, rho = exp(log_rho), for any magnitude of rho.
+    """log[(N0 + N1 rho)(D0 + D1m rho)^-1] element-wise, rho = exp(log_rho), for any magnitude of rho,
+    and log[(D0 + D1m rho)^-1] (the inverse amplitude transfer up to Lambda).
 
     Where every element of rho is below e^-600, rho = e^s rho_hat and the result
     is N0 D0^-1 + e^s N1 rho_hat D0^-1: the neglected terms are e^-600 relative to
@@ -163,12 +180,14 @@ def _log_moebius(n0, n1, d0, d1, log_rho):
     shift = np.where(np.isfinite(s) & (s > _SAFE_LOG), s - _SAFE_LOG, 0.0)[..., None, None]
     with np.errstate(all="ignore"):
         rho = np.exp(np.where(tiny[..., None, None], -np.inf, log_rho - shift))
-        out = _log((n0 + n1 @ rho) @ _inv2(d0 + d1 @ rho))
+        den_inv = _inv2(d0 + d1 @ rho)
+        out = _log((n0 + n1 @ rho) @ den_inv)
+        log_den_inv = _log(den_inv) - shift
     if tiny.any():
         rho_hat = np.exp(log_rho[tiny] - s[tiny][:, None, None])
         inv = _inv2(d0[tiny])
         out[tiny] = _log_add(_log(n0[tiny] @ inv), s[tiny][:, None, None] + _log(n1[tiny] @ rho_hat @ inv))
-    return out
+    return out, log_den_inv
 
 
 def solve_chiral(radii, n, kappa, wavelength, mu=None, l_max=None) -> ChiralSolution:
@@ -179,8 +198,8 @@ def solve_chiral(radii, n, kappa, wavelength, mu=None, l_max=None) -> ChiralSolu
     radii : (N,) outer radii of the core and shells, strictly increasing.
     n : (N + 1,) or (W, N + 1) refractive indices n = sqrt(eps mu), host last.
     kappa : like ``n``, Pasteur chirality parameters (dimensionless, complex
-        for a lossy chiral response); the host's must be 0, and Re(n +- kappa)
-        > 0 in every layer.
+        for a lossy chiral response); the host's must be 0, and n +- kappa must
+        not be zero or negative real.
     wavelength : scalar or (W,) vacuum wavelength(s), same unit as ``radii``.
     mu : like ``n``, relative permeabilities (default 1).
     l_max : truncation order; default :func:`truncation_order` (Wiscombe) for
@@ -205,8 +224,10 @@ def solve_chiral(radii, n, kappa, wavelength, mu=None, l_max=None) -> ChiralSolu
     if np.any(kappa[:, -1] != 0):
         raise ValueError("the host must be achiral (kappa = 0 in the last entry)")
     helicity_n = n[..., None] + _SIGN * kappa[..., None]
-    if np.any(helicity_n.real <= 0):
-        raise ValueError("Re(n +- kappa) must be positive in every layer")
+    if np.any(helicity_n == 0) or np.any((helicity_n.imag == 0) & (helicity_n.real < 0)):
+        raise ValueError(
+            "n +- kappa must not be zero or negative real (a lossless backward-wave helicity is not supported)"
+        )
     if l_max is None:
         l_max = max(truncation_order(radii[-1], abs(v), lam) for v, lam in zip(n[:, -1], wavelength))
     l_max = int(l_max)
@@ -228,6 +249,8 @@ def solve_chiral(radii, n, kappa, wavelength, mu=None, l_max=None) -> ChiralSolu
     diff_n = (n_i - n_o)[..., None] + _SIGN * (kappa[:, :N] - kappa[:, 1:])[..., None]  # (W, N, 2)
 
     log_rho = np.full((W, l_max, 2, 2), -np.inf, dtype=complex)
+    log_rho_out = np.empty((N, W, l_max, 2, 2), dtype=complex)
+    log_transfer_inv = np.empty((N, W, l_max, 2, 2), dtype=complex)  # a = K^-1 a' at interface j
     for j in range(N):
         if j:  # carry rho across shell j: rho_ce *= [xi_c(o)/xi_c(i)] [psi_e(i)/psi_e(o)]
             grow_xi = np.moveaxis(lx_in[:, j] - lx_out[:, j - 1], 1, -1)  # (W, L, 2)
@@ -242,10 +265,34 @@ def solve_chiral(radii, n, kappa, wavelength, mu=None, l_max=None) -> ChiralSolu
             (r_out[:, j], big_out[:, j]),
             delta[:, j],
         )
-        log_m = _log_moebius(*mats, log_rho)
+        log_m, log_den_inv = _log_moebius(*mats, log_rho)
         # similarity with Lambda = diag(-i / (psi xi)) at the outer arguments
         lam = np.moveaxis(lp_out[:, j] + lx_out[:, j], 1, -1)  # (W, L, 2): log(psi xi)
         log_rho = log_m + lam[..., :, None] - lam[..., None, :]
-    host = np.moveaxis(lp_out[:, -1] - lx_out[:, -1], 1, -1)  # (W, L, 2), equal channels in the host
-    log_t = log_rho + host[..., None, :]
-    return ChiralSolution(radii=radii, n=n, mu=mu, kappa=kappa, wavelength=wavelength, orders=l, log_t_helicity=log_t)
+        log_rho_out[j] = log_rho
+        log_transfer_inv[j] = log_den_inv + (np.log(-1j) - lam)[..., None, :]  # (D0 + D1m rho)^-1 Lambda
+
+    # amplitudes from the host inwards: scaled a = diag(psi/x) alpha, a_inner = K^-1 a_outer
+    log_x_in, log_x_out = np.log(x_in), np.log(x_out)  # (W, N, 2)
+    log_alpha = np.empty((W, N + 1, l_max, 2, 2), dtype=complex)
+    log_r = np.full((W, N + 1, l_max, 2, 2), -np.inf, dtype=complex)
+    log_alpha[:, N] = _log(np.eye(2) + 0j)
+    for j in range(N - 1, -1, -1):
+        outer = np.moveaxis(lp_out[:, j], 1, -1) - log_x_out[:, j, None, :]  # (W, L, 2): log(psi/x)
+        inner = np.moveaxis(lp_in[:, j], 1, -1) - log_x_in[:, j, None, :]
+        scaled = log_matmul(log_transfer_inv[j], log_alpha[:, j + 1] + outer[..., :, None])
+        log_alpha[:, j] = scaled - inner[..., :, None]
+        # R of layer j + 1 from rho at its inner boundary: R_ce = rho_ce (x_c / xi_c) (psi_e / x_e)
+        to_r_rows = log_x_out[:, j, None, :] - np.moveaxis(lx_out[:, j], 1, -1)
+        log_r[:, j + 1] = log_rho_out[j] + to_r_rows[..., :, None] + outer[..., None, :]
+    return ChiralSolution(
+        radii=radii,
+        n=n,
+        mu=mu,
+        kappa=kappa,
+        wavelength=wavelength,
+        orders=l,
+        log_t_helicity=log_r[:, N],
+        log_alpha=log_alpha,
+        log_r=log_r,
+    )

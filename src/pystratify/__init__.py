@@ -17,7 +17,7 @@ from .chiral import ChiralSolution, solve_chiral
 from .convergence import truncation_order
 from .decay import DecayRates, decay_rates, locate_shell
 from .drude import DRUDE, DrudeModel, free_path_correction, surface_damping_wavelength
-from .emission import EmissionPattern, dipole_far_field
+from .emission import EmissionPattern, dipole_far_field, source_covariance
 from .energy import (
     EnergyDensity,
     ShellEnergy,
@@ -42,7 +42,7 @@ from .nearfield import NearField, near_field
 from .riccati import log_riccati
 from .solver import TE, TM, Solution, solve
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 __all__ = [
     "solve",
@@ -63,6 +63,7 @@ __all__ = [
     "ScatteringPattern",
     "dipole_far_field",
     "EmissionPattern",
+    "source_covariance",
     "angular_functions",
     "near_field",
     "NearField",
