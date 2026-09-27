@@ -19,8 +19,11 @@ that in the homogeneous host F = (n x p) x n exp(-i k_h n.r0) - (n_h/mu_h)
 (n x m) exp(-i k_h n.r0).  A magnetic dipole alone (``dipole='magnetic'``)
 keeps its own normalisation E_far = (k_h^2 / n_h) exp(i k_h R)/R F with
 F = -(n x m) exp(-i k_h n.r0).  m is the dual of p (Moroz 2005, as in
-:func:`~pystratify.decay_rates`); for an emitter in a medium with mu_d != 1 a
-current-loop moment m_A enters as m = mu_d m_A.  In SI pass m / c.
+:func:`~pystratify.decay_rates`); ``magnetic_convention='current'`` takes a
+current-loop moment m_A, which acts as mu_d m_A plus the electric dipole
+i kappa_d m_A in a layer with mu_d, kappa_d.  In SI pass m / c.  Sources with an
+electric quadrupole are synthesised from the Green's function instead
+(:mod:`pystratify.rates`), in the same normalisation.
 
 ``power`` is the radiated power over that of the same source in the
 homogeneous host (the host-normalised radiative rate); it and the helicity-
@@ -81,6 +84,7 @@ class EmissionPattern:
     orders_used: int
     converged: bool
     notes: tuple = field(default_factory=tuple)
+    quadrupole: np.ndarray | None = None
 
     @property
     def intensity(self) -> np.ndarray:
@@ -362,6 +366,45 @@ def _starting_order(radii, n, wavelength):
     return int(x + 4 * x ** (1 / 3) + 2) + 8
 
 
+def _with_quadrupole(
+    radii, n, wavelength, position, moment, theta, phi, mu, kappa, l_max, tol, l_cap, warn,
+    magnetic_moment, orientation, sheets, magnetic_convention, quadrupole,
+):  # fmt: skip
+    """dipole_far_field for sources with an electric quadrupole, via the Green's function route."""
+    from .rates import _emission
+
+    theta, phi = np.broadcast_arrays(np.asarray(theta, dtype=float), np.asarray(phi, dtype=float))
+    kappa = None if kappa is None else np.atleast_1d(np.asarray(kappa, dtype=complex))
+    rates, pattern = _emission(
+        radii, n, wavelength, position, moment, magnetic_moment, orientation, mu, kappa, "electric", "host",
+        l_max, tol, l_cap, None, warn, sheets, magnetic_convention, quadrupole,
+        directions=(theta.ravel(), phi.ravel()),
+    )  # fmt: skip
+    fields = pattern["fields"]  # (D, K, 2)
+    coherency = np.einsum("dka,dkb->dab", fields, np.conj(fields)).reshape(theta.shape + (2, 2))
+    fixed = rates.orientation == "fixed"
+    return EmissionPattern(
+        theta=theta,
+        phi=phi,
+        coherency=coherency,
+        e_theta=fields[:, 0, 0].reshape(theta.shape) if fixed else None,
+        e_phi=fields[:, 0, 1].reshape(theta.shape) if fixed else None,
+        power=float(rates.radiative),
+        helicity_power=(float(rates.radiative_helicity[0]), float(rates.radiative_helicity[1])),
+        reference=pattern["reference"],
+        position=position,
+        moment=moment,
+        magnetic_moment=magnetic_moment,
+        dipole="electric",
+        orientation=rates.orientation,
+        shell=int(rates.shell),
+        orders_used=int(rates.orders_used),
+        converged=bool(rates.converged),
+        notes=rates.notes,
+        quadrupole=np.asarray(quadrupole, dtype=complex),
+    )
+
+
 def dipole_far_field(
     radii,
     n,
@@ -379,6 +422,9 @@ def dipole_far_field(
     warn=True,
     magnetic_moment=None,
     orientation="fixed",
+    sheets=None,
+    magnetic_convention="dual",
+    quadrupole=None,
 ) -> EmissionPattern:
     """Far-field emission pattern, directivity, radiated power and helicity content of a dipole source.
 
@@ -401,6 +447,19 @@ def dipole_far_field(
     kappa : chirality parameters per shell (host 0), see :func:`~pystratify.solve_chiral`.
     l_max : truncation; ``None`` starts from the particle's size and doubles
         until the power in the last orders is below ``tol`` (up to ``l_cap``).
+    sheets : 2D materials on interfaces, ``{j: Sheet(...)}`` (see :mod:`pystratify.sheets`).
+    magnetic_convention : ``'dual'`` (default) - m is the dual moment, the magnetic
+        current -i omega m of the Maxwell equations - or ``'current'`` - m is a
+        current-loop (Amperian) moment m_A, which in a layer with mu_d, kappa_d acts as
+        the dual moment mu_d m_A plus the electric dipole i kappa_d m_A (D = eps E +
+        i kappa H).  The two differ only where mu != 1 or kappa != 0; the reference
+        power is that of the same physical source in the host.
+    quadrupole : (3, 3) electric quadrupole moment (Jackson's Q; see
+        :func:`~pystratify.emission_rates`), emitted coherently with ``moment`` and
+        ``magnetic_moment``.  The pattern is then synthesised from the outgoing host
+        amplitudes of the Green's function (same normalisation; the route agrees with the
+        reciprocity route above to ~1e-15 for dipoles) and the emitter must sit in a
+        lossless layer.
     """
     radii = np.atleast_1d(np.asarray(radii, dtype=float))
     n = np.atleast_1d(np.asarray(n, dtype=complex))
@@ -423,35 +482,58 @@ def dipole_far_field(
         raise ValueError("position must be a finite 3-vector")
     if moment.shape != (3,) or not np.all(np.isfinite(moment)):
         raise ValueError("moment must be a finite 3-vector")
-    if not (np.any(moment) or (magnetic_moment is not None and np.any(magnetic_moment))):
+    if not (np.any(moment) or (magnetic_moment is not None and np.any(magnetic_moment)) or quadrupole is not None):
         raise ValueError("the source must have a nonzero moment")
     if n[-1].imag != 0 or mu[-1].imag != 0 or n[-1].real <= 0:
         raise ValueError("the host must be lossless for a far field to exist")
     chiral = kappa is not None and np.any(np.asarray(kappa) != 0)
-
-    # source vector s = (p, m') in the units of F: m' = (n_h/mu_h) m with an electric
-    # dipole, m' = m for a magnetic dipole alone (its own normalisation)
-    if dipole == "magnetic":
-        p, m_scaled = np.zeros(3, complex), moment
-    else:
-        m = np.zeros(3, complex) if magnetic_moment is None else magnetic_moment
-        p, m_scaled = moment, (n[-1] / mu[-1]).real * m
-    cov = source_covariance(p, m_scaled, orientation)
-    orientation_name = orientation if isinstance(orientation, str) else "axis"
-    reference = 8 * np.pi / 3 * float(np.real(np.trace(cov)))
+    if magnetic_convention not in ("dual", "current"):
+        raise ValueError("magnetic_convention must be 'dual' or 'current'")
+    if quadrupole is not None:
+        if dipole != "electric":
+            raise ValueError("with a quadrupole pass the magnetic dipole as magnetic_moment (dipole='electric')")
+        return _with_quadrupole(
+            radii, n, wavelength, position, moment, theta, phi, mu, kappa, l_max, tol, l_cap, warn,
+            magnetic_moment, orientation, sheets, magnetic_convention, quadrupole,
+        )  # fmt: skip
 
     r0 = max(float(np.linalg.norm(position)), 1e-9 * radii[0])
     d = int(locate_shell(radii, r0))
     host = d == radii.size
+    # a current-loop moment m_A is the dual moment mu m_A of the medium it sits in: mu_d at the
+    # emitter, mu_h for the reference (the same source in the unbounded host)
+    at_source, in_host = (mu[d].real, mu[-1].real) if magnetic_convention == "current" else (1.0, 1.0)
+    kappa_d = 0.0
+    if magnetic_convention == "current" and kappa is not None:
+        kappa_d = np.atleast_1d(np.asarray(kappa, dtype=complex))[d].real  # a loop in a chiral layer: p += i kappa m_A
+
+    # source vector s = (p, m') in the units of F: m' = (n_h/mu_h) m with an electric
+    # dipole, m' = m for a magnetic dipole alone (its own normalisation)
+    if dipole == "magnetic":
+        if kappa_d:
+            raise ValueError(
+                "a current loop in a chiral layer also radiates as an electric dipole: "
+                "pass it as magnetic_moment with moment=(0, 0, 0)"
+            )
+        p, m_scaled = np.zeros(3, complex), moment * at_source
+        m_reference = moment * in_host
+    else:
+        m = np.zeros(3, complex) if magnetic_moment is None else magnetic_moment
+        p, m_scaled = moment + 1j * kappa_d * m, (n[-1] / mu[-1]).real * m * at_source
+        m_reference = (n[-1] / mu[-1]).real * m * in_host
+    cov = source_covariance(p, m_scaled, orientation)
+    orientation_name = orientation if isinstance(orientation, str) else "axis"
+    p_reference = moment if dipole == "electric" else np.zeros(3, complex)
+    reference = 8 * np.pi / 3 * float(np.real(np.trace(source_covariance(p_reference, m_reference, orientation))))
     frame = _local_frame(position)
 
     def modes(L):
         if chiral:
             from .chiral import solve_chiral
 
-            sol = solve_chiral(radii, n, kappa, wavelength, mu, l_max=L)
+            sol = solve_chiral(radii, n, kappa, wavelength, mu, l_max=L, sheets=sheets)
         else:
-            sol = solve(radii, n, wavelength, mu, l_max=L)
+            sol = solve(radii, n, wavelength, mu, l_max=L, sheets=sheets)
         l = sol.orders
         if host:
             x = (sol.k[0, d] * r0).real

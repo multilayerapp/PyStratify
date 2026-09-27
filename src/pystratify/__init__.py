@@ -39,10 +39,12 @@ from .farfield import (
     scattering_pattern,
 )
 from .nearfield import NearField, near_field
+from .rates import EmissionRates, emission_rates
+from .sheets import Sheet, graphene_conductivity
 from .riccati import log_riccati
 from .solver import TE, TM, Solution, solve
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 __all__ = [
     "solve",
@@ -75,7 +77,11 @@ __all__ = [
     "energy_prefactors",
     "decay_rates",
     "DecayRates",
+    "emission_rates",
+    "EmissionRates",
     "locate_shell",
+    "Sheet",
+    "graphene_conductivity",
     "DRUDE",
     "DrudeModel",
     "free_path_correction",

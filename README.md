@@ -1,8 +1,10 @@
 # PyStratify
 
 Light scattering by **multilayered (stratified) spheres** in Python: any number of concentric
-shells, absorbing, magnetic, gain or chiral media, and electric or magnetic dipole emitters inside
-or outside the particle, with angle-resolved far fields for both. The physics is the recursive transfer-matrix method of Moroz (2005) as used
+shells, absorbing, magnetic, gain or chiral media, 2D materials (graphene, TMD monolayers) on the
+interfaces, and emitters inside or outside the particle - electric, magnetic, chiral (p + m) and
+electric-quadrupole - with angle-resolved far fields and decay rates. The physics is the
+recursive transfer-matrix method of Moroz (2005) as used
 by [STRATIFY](https://gitlab.com/iliarasskazov/stratify) (Rasskazov, Carney & Moroz,
 [OSA Continuum 3, 2290 (2020)](https://doi.org/10.1364/OSAC.399979)). The numerics are rebuilt
 so that every quantity stays finite and accurate to the orders it needs, and the defects found in
@@ -23,7 +25,10 @@ the MATLAB code are fixed ([AUDIT.md](AUDIT.md)).
 | orientation-averaged intensities and energy density | `energy_density` |
 | energy stored in each shell | `shell_energy` |
 | energy prefactors (Loudon, for Drude metals) | `electric_prefactor`, `energy_prefactors` |
-| radiative / nonradiative / total decay rates | `decay_rates` → `DecayRates` |
+| radiative / nonradiative / total decay rates, radial and tangential dipoles | `decay_rates` → `DecayRates` |
+| decay rates of any source (p, m, quadrupole Q; fixed or orientation-averaged) in any lossless layer, chiral included: total (Purcell), radiative per helicity, absorbed per layer and per sheet | `emission_rates` → `EmissionRates` |
+| electric-quadrupole emitters: far field and rates | `dipole_far_field(..., quadrupole=)`, `emission_rates(..., quadrupole=)` |
+| 2D materials on interfaces: in-plane conductivity and out-of-plane response; thin films; graphene | `solve(..., sheets=)`, `solve_chiral(..., sheets=)`, `Sheet`, `Sheet.from_film`, `graphene_conductivity` |
 | thin-shell electron free-path correction | `free_path_correction`, `DRUDE` |
 | multipole truncation | `truncation_order` |
 
@@ -41,8 +46,8 @@ Python ≥ 3.10, NumPy ≥ 1.24, SciPy ≥ 1.10.
 
 ## Use
 
-Lengths are unit-agnostic (give radii and wavelengths in the same unit); the Drude helpers take
-nanometres. Shells are indexed from 0 (the core) to N (the host).
+Lengths are unit-agnostic (give radii and wavelengths in the same unit); the Drude helpers and
+`graphene_conductivity` take nanometres. Shells are indexed from 0 (the core) to N (the host).
 
 ```python
 import numpy as np
@@ -80,6 +85,23 @@ molecule = ps.dipole_far_field([50.0, 55.0, 60.0], [1.45, n_gold[200], 1.5, 1.33
                                magnetic_moment=[0, 0, 0.01j], orientation="isotropic")
 molecule.dissymmetry, molecule.helicity_power, molecule.coherency   # g_lum, (P_+, P_-), <F F^H>
 exciton = ps.dipole_far_field(radii, n[200], wavelength[200], [0, 0, 57.0], [1, 1j, 0], theta, phi)
+
+# decay of a randomly oriented chiral molecule at two distances from a chiral sphere; the enantiomer
+# has m -> -m.  (A lossy kappa needs magnetic loss too: passivity is eps'' mu'' >= kappa''^2.)
+rates = ps.emission_rates([50.0], [1.6 + 0.02j, 1.0], 600.0, [[0, 0, 55.0], [0, 0, 70.0]], [0, 0, 1],
+                          magnetic_moment=[0, 0, -0.1j], kappa=[0.03 + 0.003j, 0], mu=[1 + 1e-3j, 1],
+                          orientation="isotropic")
+rates.total, rates.radiative_helicity, rates.absorption, rates.balance_error, rates.dissymmetry
+
+# an electric-quadrupole emitter 5 nm from gold: rates and far field
+quad = ps.emission_rates([40.0], [n_gold[200], 1.33], wavelength[200], [0, 0, 45.0], [0, 0, 0],
+                         quadrupole=np.diag([-1.0, -1.0, 2.0]))
+
+# 2D materials on interface 0: a TMD monolayer as a sheet, graphene from its conductivity
+tmd = ps.Sheet.from_film(eps_ws2, 0.618, wavelength, eps_background=1.0, eps_normal=6.5)
+sol = ps.solve([78.0], [3.9, 1.0], wavelength, sheets={0: tmd})
+sigma = ps.graphene_conductivity(wavelength_ir, fermi_energy=0.5, damping=0.005)  # sigma Z0; nm, eV
+sol = ps.solve([25.0], [1.45, 1.0], wavelength_ir, sheets={0: sigma})
 ```
 
 Far-field conventions are Bohren & Huffman's: E_sca = e^{ikr}/(−ikr) X with
@@ -88,24 +110,44 @@ Far-field conventions are Bohren & Huffman's: E_sca = e^{ikr}/(−ikr) X with
 D = εE + iκH, B = μH − iκE (Gaussian units, e^{−iωt}; the convention of
 [treams](https://github.com/tfp-photonics/treams)), so helicity ±1 has index n ± κ.
 
-Emitters follow Klimov, Guzatov & Ducloy ([EPL 97, 47004 (2012)](https://arxiv.org/abs/1203.5393)):
+Emitters follow Klimov, Guzatov & Ducloy ([EPL 97, 47004 (2012)](https://arxiv.org/abs/1108.0497))
+and Guzatov & Klimov ([New J. Phys. 14, 123009 (2012)](https://arxiv.org/abs/1203.5393)):
 a chiral emitter is an electric dipole p and a magnetic dipole m radiating coherently, Gaussian
-units (in SI pass m/c), enantiomers differing in the sign of Im(p·m*). With both moments the
+units (in SI pass m/c), enantiomers differing in the sign of Im(p·m*); their molecule
+⟨e|d|g⟩ = d₀, ⟨e|m|g⟩ = −i m₀ is (p, m) = (d₀, −i m₀). With both moments the
 far field is normalised to the electric dipole's, so m enters as (n_h/μ_h) m, and in a host of
 index n a free emitter has g_lum = 2(P₊ − P₋)/(P₊ + P₋) = 4n Im(p·m*)/(|p|² + n²|m|²). m is the
-dual of p, as in `decay_rates`; inside a medium with μ ≠ 1 a current-loop moment m_A enters as
-μ m_A. A valley exciton of a monolayer semiconductor is a circular in-plane dipole (x̂ ± iŷ)/√2
+dual of p (the magnetic current −iωm of the Maxwell equations), as in `decay_rates`;
+`magnetic_convention="current"` takes a current-loop moment m_A instead, which in a layer with
+μ_d, κ_d acts as the dual moment μ_d m_A together with the electric dipole iκ_d m_A. An electric
+quadrupole is Jackson's Q_ij = ∫(3x_ix_j − r²δ_ij)ρ dV: it couples through (1/6)Q:∇E and alone
+in the host radiates (k²/120)Σ|Q_ij|² in units of the power of |p| = 1. Rates are normalised to
+the same source in the unbounded host (`normalization="layer"`: in its own layer's medium). A
+lossy chirality (circular dichroism) is passive only with magnetic loss, ε″μ″ ≥ κ″²;
+`emission_rates` warns otherwise, since one handedness then sees gain. A valley exciton of a monolayer semiconductor is a circular in-plane dipole (x̂ ± iŷ)/√2
 about the layer normal (Gong et al., [Science 359, 443 (2018)](https://arxiv.org/abs/1709.00762));
 dark excitons are out-of-plane. For an ensemble of incoherent emitters uniformly covering a
 sphere of radius r₀ (a conformal monolayer, a molecular shell) with orientation fixed relative
 to the local normal, the emission is isotropic and its dissymmetry is that of one emitter at
 r₀ẑ, so `power` and `helicity_power` of a single call give the ensemble.
 
+A 2D material on interface j enters as generalised sheet transition conditions with the fields
+averaged over its two sides (Kuester et al., IEEE TAP 51, 2641 (2003)):
+r̂ × (H⁺ − H⁻) = σ⟨E_t⟩ and E_t⁺ − E_t⁻ = −ζ∇_t⟨D_n⟩, with σ = σ_s Z₀ (SI) = 4πσ_s/c the
+dimensionless sheet conductivity (graphene's universal value is πα) and ζ a length for the
+out-of-plane response. `Sheet.from_film` gives the first-order limit of a film of thickness d,
+σ = −ik₀d(ε_∥ − ε_b), ζ = d(1/ε_b − 1/ε_⊥), which absorbs (c/8π)[Re σ|⟨E_t⟩|² + k₀ Im ζ|⟨D_n⟩|²]
+per area. `graphene_conductivity` is the local RPA conductivity (Falkovsky; Hanson), intraband
+at any temperature, interband for k_BT ≪ E_F.
+
 `examples/` has runnable scripts (multipole spectra, free-path correction, scattering pattern,
 scattering and emission directivity, near-field maps, energy density, stored energy, electric and
 magnetic dipole decay, circular dichroism of a chiral shell, circularly polarised emission of chiral
-molecules and valley excitons beside spheres); with matplotlib installed each saves a PNG beside
-itself.
+molecules and valley excitons beside spheres, enantioselective decay beside chiral particles,
+quadrupole versus dipole emitters near gold, a TMD monolayer on a silicon sphere and
+graphene-coated spheres); with matplotlib installed each saves a PNG beside itself.
+`crosscheck/` recomputes published figures from their stated parameters for comparison with the
+papers (Guzatov & Klimov 2012, Figs. 3–6).
 
 ## Numerics
 
@@ -153,6 +195,26 @@ from a metal needs l ≈ 500–1000. PyStratify keeps the physics and changes th
   logarithms so it survives falling below the double range across thick absorbing shells.
   The layer amplitudes follow inwards from the host through the inverse of the same step, in
   element-wise logarithms as well.
+* **Decay rates of any source** (`rates.py`). In the emitter's layer a source (p, m, Q) drives
+  each helicity channel s through q_s = p + i s m/Z plus (1/6)Q:∇; the direct field is the dyadic
+  expansion of Tai, the reflected one follows from the 2 × 2 R, S of the layer evaluated scaled
+  at the emitter, B = (1 − RS)⁻¹R(D_ψ + S D_ξ), A = S(B + D_ξ). The total rate is the free power
+  (closed form) plus Re q*·(Aψ + Bξ); the radiated power, per helicity, comes from the outgoing
+  amplitudes carried to the host by per-interface maps (`ChiralSolution.log_in`, `log_out`), so
+  no ill-conditioned amplitude matrix is ever inverted; the absorption of each layer is the loss
+  density ε″|E|² + μ″|H|² − 2κ″ Im(E*·H) integrated by Gauss–Legendre quadrature in the basis
+  (ψ₊, ψ₋, ξ₊, ξ₋) with per-function logarithmic scales, and that of each sheet comes from the
+  fields on its two sides. The three are independent, and `balance_error` checks energy
+  conservation. Orientation averages are exact: the analytic ⟨ss†⟩ for dipoles, the 60
+  rotations of the icosahedral group (exact to rank 4) once a quadrupole is present.
+* **2D sheets** (`sheets.py`). The averaged sheet conditions are a unimodular 2 × 2 transfer on
+  each pair of tangential components (E_M, H_N) and (E_N, H_M); they enter the Möbius steps of
+  both solvers as additions to the interface matrices (the large l/x parts still cancel
+  analytically in the bulk contrast), and the amplitude equations acquire the matching terms.
+* **Quadrupoles.** With the emitter on the local z axis a quadrupole couples to the axial
+  families m = 0, ±1, ±2; the gradients of M and N there are closed forms in ψ'/ψ, x and l.
+  Their far field is synthesised from the outgoing host amplitudes (for dipoles this route
+  agrees with the reciprocity route to 1e-14 in complex amplitude).
 * **Vectorised.** `solve` takes a whole spectrum at once (array operations over wavelength ×
   order; Python loops only over interfaces). Near fields and energy densities evaluate the
   special functions once per distinct kr for both polarisations; absorption integrals reuse one
@@ -167,7 +229,23 @@ Rayleigh particle is known only to ~eps·|a_l|. Layers index-matched to within �
 coefficients to ~l·eps/δ. Chiral T-matrices agree with 80-digit 4 × 4 transfer matrices to
 1e-12 up to l = 160 (the amplitudes in every layer to 6e-13), with the independent code treams
 to 1e-13, and a small chiral sphere reproduces the published quasi-static polarisabilities
-α_EE, α_HH, α_EH of Klimov et al. (2012).
+α_EE, α_HH, α_EH of Guzatov & Klimov (2012).
+
+`emission_rates` equals `decay_rates` to ~1e-13 (total, radiative, nonradiative) for achiral
+spheres; for lossless chiral multilayers its total rate equals the independent reciprocity-based
+radiated power to 1e-11, per helicity to 1e-12; with absorbing, magnetic and chiral layers, gold
+and sheets, total = radiative + absorbed holds to ~1e-12 even 0.1 nm from an interface; the
+orientation-averaged rate of a chiral molecule beside a small chiral sphere converges to
+Guzatov & Klimov's quasi-static Eq. 46 as (k₀a)² for both enantiomers. One limit: within ~1 nm of
+a *lossless* interface the reflected part of the total rate is the small real part of large
+evanescent terms, so rounding limits `total` to ~1e-9 (1 nm) … 1e-5 (0.1 nm) relative, while
+`radiative` and `nonradiative` stay accurate (`balance_error` shows it). Quadrupole couplings
+agree with 40-digit finite differences of the vector wave functions to 1e-14, and a pair of
+opposite dipoles ±p at r₀ ± δ/2, computed by the reciprocity route, converges to the quadrupole
+3(pδ + δp) − 2(p·δ)I plus the current loop (ik₀/2)p × δ to 1e-12 in amplitude, near and inside
+chiral particles. A sheet is the O(d²)-accurate limit of the explicit film it replaces, and
+graphene-coated-sphere resonances sit on the quasi-static condition
+ε₁l + ε₂(l+1) + iσl(l+1)/(k₀R) = 0 within the (k₀R)² retardation shift.
 
 Typical timings on one core:
 
@@ -182,6 +260,10 @@ Typical timings on one core:
 | scattering pattern on a 181 × 361 (θ, φ) grid | 10 ms |
 | dipole emission pattern on a 181 × 361 grid | 90 ms |
 | orientation-averaged chiral emitter inside a chiral shell, 181 × 361 grid | 0.12 s |
+| `emission_rates`, 100 positions, chiral source, orientation average, chiral + Au multilayer | 0.4 s |
+| `emission_rates`, one position 10 nm / 1 nm from gold (p + m, quadrupole) | 40 ms / 1.3 s |
+| quadrupole emission pattern, 181 × 361 grid, emitter on / off the grid's axis | 0.15 s / 1.1 s |
+| 601-wavelength spectrum, graphene-coated sphere | 10 ms |
 
 ## Tests
 
@@ -218,6 +300,21 @@ pytest
   averages against the exact averages over the 24 rotations of the cube and 8 about an axis,
   quadrature of total and helicity-resolved power, and the mirror symmetry of valley excitons
   beside spheres (g_lum = 0 alone, ±g on either side or valley).
+* `test_rates.py`: `decay_rates` (κ → 0), the reciprocity far field for lossless chiral
+  multilayers (total = radiated, per helicity), energy balance with absorbing chiral, magnetic
+  and gold layers down to 0.1 nm from interfaces, mirror symmetry (κ, m) → (−κ, −m), exact
+  orientation averages, batches of positions, the free power in a chiral medium, normalisations
+  and quantum yield, and Guzatov & Klimov's Eq. 46 for dielectric, lossy, metallic and
+  double-negative chiral spheres.
+* `test_sheets.py`: explicit films (O(d²) with the out-of-plane term, O(d) without it),
+  sheets between chiral layers, the chiral and achiral solvers against each other to l = 400,
+  graphene-coated-sphere plasmons against the quasi-static condition, graphene conductivity
+  limits, plane-wave absorption = Poynting-flux jump = sheet-loss formula = extinction −
+  scattering, emitter energy balance and far fields with sheets.
+* `test_quadrupoles.py`: the coupling against 40-digit finite differences, Jackson's free power,
+  total = radiated and energy balance with quadrupoles, the dipole-pair limit in amplitude, the
+  two far-field routes against each other, pattern quadrature, the icosahedral design, and
+  current-loop moments.
 
 ## Licence
 

@@ -313,6 +313,48 @@ def _rates_one(sol: Solution, r, shells, normalization, dipole, tol, nodes):
     return _converged_sum(terms, tol)
 
 
+def _rates_with_sheets(radii, n, wavelength, r, mu, l_max, tol, normalization, dipole, nodes, l_cap, warn, sheets):
+    """Radial and tangential dipoles through the general route of :func:`~pystratify.emission_rates`."""
+    from .rates import emission_rates
+
+    positions = np.column_stack([np.zeros_like(r), np.zeros_like(r), r])
+    runs = [
+        emission_rates(
+            radii,
+            n,
+            wavelength,
+            positions,
+            moment,
+            mu=mu,
+            dipole=dipole,
+            l_max=l_max,
+            tol=tol,
+            l_cap=l_cap,
+            quadrature_nodes=nodes,
+            warn=False,
+            sheets=sheets,
+            normalization="layer" if normalization == "shell" else "host",
+        )  # fmt: skip
+        for moment in ([0, 0, 1.0], [1.0, 0, 0])
+    ]
+    ok = runs[0].converged & runs[1].converged
+    notes = tuple(dict.fromkeys(note for run in runs for note in run.notes))
+    if warn and not ok.all():
+        warnings.warn(notes[-1] if notes else "l-sum not converged", RuntimeWarning, stacklevel=3)
+    return DecayRates(
+        r=r,
+        radiative=np.stack([run.radiative for run in runs], axis=1),
+        nonradiative=np.stack([run.nonradiative for run in runs], axis=1),
+        total=np.stack([run.total for run in runs], axis=1),
+        shell=runs[0].shell,
+        orders_used=np.full(r.size, max(run.orders_used for run in runs)),
+        converged=ok,
+        normalization=normalization,
+        dipole=dipole,
+        notes=notes,
+    )
+
+
 def decay_rates(
     radii,
     n,
@@ -326,6 +368,7 @@ def decay_rates(
     quadrature_nodes=None,
     l_cap=1200,
     warn=True,
+    sheets=None,
 ) -> DecayRates:
     """Radiative, nonradiative and total decay rates of a dipole emitter.
 
@@ -341,6 +384,9 @@ def decay_rates(
     normalization : ``'host'`` or ``'shell'`` - free-space rate in the host or
         in the emitter's own shell.
     dipole : ``'electric'`` or ``'magnetic'``.
+    sheets : 2D materials on interfaces (see :mod:`pystratify.sheets`); their
+        absorption is part of the nonradiative rate.  Computed by
+        :func:`~pystratify.emission_rates`.
     """
     radii = np.atleast_1d(np.asarray(radii, dtype=float))
     n = np.atleast_1d(np.asarray(n, dtype=complex))
@@ -362,6 +408,10 @@ def decay_rates(
     shells = locate_shell(radii, r)
     if np.any(eps[shells].imag != 0) or np.any(n[shells].imag != 0):
         raise ValueError("emitter inside an absorbing or gain shell: the rates are undefined")
+    if sheets:
+        return _rates_with_sheets(
+            radii, n, wavelength, r, mu, l_max, tol, normalization, dipole, quadrature_nodes, l_cap, warn, sheets
+        )
 
     if l_max is not None:
         sol = solve(radii, n, wavelength, mu, int(l_max))

@@ -39,6 +39,7 @@ import numpy as np
 
 from .convergence import truncation_order
 from .riccati import log_riccati
+from .sheets import _sheet_arrays, _sheet_terms
 
 __all__ = ["Solution", "solve", "TM", "TE"]
 
@@ -122,6 +123,12 @@ class Solution:
     log_r: np.ndarray
     log_b_out: np.ndarray
     log_s: np.ndarray
+    sheet_sigma: np.ndarray | None = None  # (W, N): 2D sheets at the interfaces (see pystratify.sheets)
+    sheet_zeta: np.ndarray | None = None  # (W, N)
+
+    @property
+    def has_sheets(self) -> bool:
+        return self.sheet_sigma is not None and bool(np.any(self.sheet_sigma) or np.any(self.sheet_zeta))
 
     @property
     def n_shells(self) -> int:
@@ -193,7 +200,7 @@ def _side(x, log_psi, log_xi, orders):
     return lp, lx, r, big_x, d1, d3
 
 
-def solve(radii, n, wavelength, mu=None, l_max=None) -> Solution:
+def solve(radii, n, wavelength, mu=None, l_max=None, sheets=None) -> Solution:
     """Solve the multilayered sphere for multipole orders l = 1..l_max.
 
     Parameters
@@ -204,6 +211,8 @@ def solve(radii, n, wavelength, mu=None, l_max=None) -> Solution:
     mu : like ``n``, relative permeabilities (default 1).
     l_max : truncation order; default :func:`truncation_order` (Wiscombe) for
         the shortest wavelength.
+    sheets : 2D materials at interfaces, ``{j: Sheet(...)}`` or ``{j: conductivity}``
+        with j the interface index (0 = surface of the core); see :mod:`pystratify.sheets`.
 
     Vectorised over wavelengths and orders; Python loops only over interfaces.
     """
@@ -231,6 +240,9 @@ def solve(radii, n, wavelength, mu=None, l_max=None) -> Solution:
     n_in, n_out, mu_in, mu_out = n[:, :N], n[:, 1:], mu[:, :N], mu[:, 1:]
     eta = (n_in / n_out)[..., None]
     mu_ratio = (mu_in / mu_out)[..., None]
+    sigma, zeta = _sheet_arrays(sheets, N, W)
+    sheet_a, sheet_p, sheet_tau = _sheet_terms(sigma, zeta, 2 * np.pi / wavelength, radii, orders)
+    z_in, z_out, sg = (mu_in / n_in)[..., None], (mu_out / n_out)[..., None], sigma[..., None]
     # g - 1 with g = f x'/x, from the contrast directly (no cancellation for similar media)
     g_minus_1 = {
         TM: ((mu_in * (n_out - n_in) * (n_out + n_in) + n_in**2 * (mu_in - mu_out)) / (mu_out * n_in**2))[..., None],
@@ -250,6 +262,20 @@ def solve(radii, n, wavelength, mu=None, l_max=None) -> Solution:
         m33 = (f * X_in - X_out) - lead_xi * g_minus_1[p]  # f D3 - D3'
         f_d1_minus_d3 = f * d1_in - d3_out
         d1_minus_f_d3 = d1_out - f * d3_in
+        # 2D sheets (pystratify.sheets): TE sees the jump of H_t, TM that of H_t and of E_t;
+        # the matching becomes value' = (value + t_value deriv) / tau, deriv' = (deriv - t_deriv value) / tau
+        if p == TE:
+            s = 1j * z_out * sg
+            m11, m33 = m11 - s, m33 - s
+            d1_minus_f_d3, f_d1_minus_d3 = d1_minus_f_d3 + s, f_d1_minus_d3 - s
+            t_value, t_deriv, tau = np.zeros_like(sg), 1j * z_in * sg, np.ones_like(sg)
+        else:
+            t = 1j * z_in * sg / sheet_p
+            w = sheet_a / (1j * z_out * sheet_p)
+            m11, m33 = m11 - w - t * d1_out * d1_in, m33 - w - t * d3_out * d3_in
+            d1_minus_f_d3 = d1_minus_f_d3 + w + t * d1_out * d3_in
+            f_d1_minus_d3 = f_d1_minus_d3 - w - t * d3_out * d1_in
+            t_value, t_deriv, tau = t, sheet_a / (1j * z_in * sheet_p), sheet_tau
 
         # regular solution, outwards: rho' = [m11 + rho (f D3 - D1')] / [(D3' - f D1) - rho m33]
         log_rho_in = np.full((W, N, l_max), -np.inf, dtype=complex)
@@ -285,19 +311,31 @@ def solve(radii, n, wavelength, mu=None, l_max=None) -> Solution:
         for j in range(N - 1, -1, -1):
             a1, a3, b1, b3 = d1_in[:, j], d3_in[:, j], d1_out[:, j], d3_out[:, j]
             ri, ro, si, so = rho_in[:, j], rho_out[:, j], sig_in[:, j], sig_out[:, j]
+            tv, td = t_value[:, j], t_deriv[:, j]
+            cv, cd = c_value[:, j] / tau[:, j], c_deriv[:, j] / tau[:, j]
             with np.errstate(all="ignore"):
+                val, der = 1 + ri, a1 + ri * a3
+                val_scale, der_scale = 1 + np.abs(ri), np.abs(a1) + np.abs(ri * a3)
                 ratio = _amplitude_log_ratio(
-                    c_value[:, j],
-                    c_deriv[:, j],
-                    ((1 + ro, 1 + np.abs(ro)), (1 + ri, 1 + np.abs(ri))),
-                    ((b1 + ro * b3, np.abs(b1) + np.abs(ro * b3)), (a1 + ri * a3, np.abs(a1) + np.abs(ri * a3))),
+                    cv,
+                    cd,
+                    ((1 + ro, 1 + np.abs(ro)), (val + tv * der, val_scale + np.abs(tv) * der_scale)),
+                    (
+                        (b1 + ro * b3, np.abs(b1) + np.abs(ro * b3)),
+                        (der - td * val, der_scale + np.abs(td) * val_scale),
+                    ),
                 )
                 la[j] = la[j + 1] + ratio + lp_out[:, j] - lp_in[:, j]
+                val, der = 1 + si, si * a1 + a3
+                val_scale, der_scale = 1 + np.abs(si), np.abs(si * a1) + np.abs(a3)
                 ratio = _amplitude_log_ratio(
-                    c_value[:, j],
-                    c_deriv[:, j],
-                    ((1 + so, 1 + np.abs(so)), (1 + si, 1 + np.abs(si))),
-                    ((so * b1 + b3, np.abs(so * b1) + np.abs(b3)), (si * a1 + a3, np.abs(si * a1) + np.abs(a3))),
+                    cv,
+                    cd,
+                    ((1 + so, 1 + np.abs(so)), (val + tv * der, val_scale + np.abs(tv) * der_scale)),
+                    (
+                        (so * b1 + b3, np.abs(so * b1) + np.abs(b3)),
+                        (der - td * val, der_scale + np.abs(td) * val_scale),
+                    ),
                 )
                 lbo[j] = lbo[j + 1] + ratio + lx_out[:, j] - lx_in[:, j]
 
@@ -320,4 +358,6 @@ def solve(radii, n, wavelength, mu=None, l_max=None) -> Solution:
         log_r=log_r,
         log_b_out=log_b_out,
         log_s=log_s,
+        sheet_sigma=sigma,
+        sheet_zeta=zeta,
     )

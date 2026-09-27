@@ -206,8 +206,8 @@ def test_achiral_functions_refuse_chiral_solutions():
     [(4.0, 1.0, 0.1), (-4.0 + 0.3j, 1.0, 0.05), (6.0, 1.2, 0.15), (2.25 + 0.1j, 0.9, -0.08), (-2.2 + 0.1j, 1.0, 0.1)],
 )
 def test_small_chiral_sphere_matches_published_polarisabilities(eps, mu, chi):
-    """Quasi-static polarisabilities of Klimov, Guzatov & Ducloy, EPL 97, 47004 (2012), Eq. 48, for the
-    Drude-Born-Fedorov medium D = eps (E + eta curl E), B = mu (H + eta curl H), chi = k0 eta.  In Pasteur
+    """Quasi-static polarisabilities of Guzatov & Klimov, New J. Phys. 14, 123009 (2012), Eq. 48
+    (arXiv:1203.5393), for the Drude-Born-Fedorov medium D = eps (E + eta curl E), B = mu (H + eta curl H), chi = k0 eta.  In Pasteur
     form eps_P = eps/s, mu_P = mu/s, kappa = n^2 chi/s with s = 1 - n^2 chi^2 (same impedance, n +- kappa =
     n/(1 -+ n chi) = their k_L, k_R), and the dipole block is T = (2i/3) k^3 [[a_EE, -i a_EH], [-i a_EH, a_HH]]."""
     k = 2 * np.pi / 600.0
@@ -233,3 +233,34 @@ def test_chiral_metal_with_negative_real_part_of_n_minus_kappa():
     sol = ps.solve_chiral([50.0], [0.2 + 3.0j, 1.33], [0.5 + 0.01j, 0], LAM)
     hc = ps.helicity_cross_sections(sol)
     assert np.all(np.isfinite(hc.ext)) and np.all(hc.abs > 0) and abs(hc.g_ext[0]) > 1e-4
+
+
+@pytest.mark.parametrize(
+    "radii, n, kappa, mu",
+    [
+        ([30.0, 33.0, 60.0], [1.5, AU, 1.55 + 0.001j, 1.33], [0.02, 0, 0.1 + 0.003j, 0], [1, 1, 1.2, 1]),
+        (MATRYOSHKA[0], MATRYOSHKA[1], [0.01, 0, 0.2 + 0.01j, 0, 0], [1] * 5),
+        ([40.0, 60.0], [1.5, 1.6 - 0.02j, 1.33], [0.03, 0.05, 0], [1, 1, 1]),
+    ],
+)
+def test_layer_solutions_against_80_digit_transfer_matrices(radii, n, kappa, mu):
+    """Regular (unit incident wave) and outgoing (unit outgoing wave, nothing incoming) solutions in every layer."""
+    from pystratify.chiral import log_matmul
+
+    sol = ps.solve_chiral(radii, n, kappa, 690.0, mu, l_max=160)
+    for order in (1, 2, 7, 40, 100, 160):
+        regular = chiral_t_matrix(radii, n, kappa, mu, 690.0, order, amplitudes_only=True)
+        outgoing = chiral_t_matrix(radii, n, kappa, mu, 690.0, order, outgoing=True)
+        for j in range(len(radii) + 1):
+            alpha = sol.log_alpha[0, j, order - 1]
+            beta_out = sol.log_beta_out[0, j, order - 1]
+            pairs = [(alpha, regular[j][0]), (beta_out, outgoing[j][1])]
+            if j:
+                pairs.append((log_matmul(sol.log_r[0, j, order - 1], alpha), regular[j][1]))
+            if j < len(radii):
+                pairs.append((log_matmul(sol.log_s[0, j, order - 1], beta_out), outgoing[j][0]))
+                # interface maps, applied to the reference amplitudes of the neighbouring layer
+                pairs.append((log_matmul(sol.log_in[0, j, order - 1], regular[j + 1][0]), regular[j][0]))
+                pairs.append((log_matmul(sol.log_out[0, j, order - 1], outgoing[j][1]), outgoing[j + 1][1]))
+            for got, reference in pairs:
+                assert _norm_error(got, reference) < 1e-11, (order, j)

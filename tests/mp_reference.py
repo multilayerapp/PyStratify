@@ -85,7 +85,9 @@ def coefficients(radii, n_list, mu_list, wavelength, order, te):
         return regular, [(c[0], c[1]) for c in outgoing]
 
 
-def chiral_t_matrix(radii, n_list, kappa_list, mu_list, wavelength, order, dps=80, amplitudes_only=False):
+def chiral_t_matrix(
+    radii, n_list, kappa_list, mu_list, wavelength, order, dps=80, amplitudes_only=False, outgoing=False
+):
     """Logarithms of the exact host T-matrix block (helicity basis [out, in]) of a sphere with chiral layers.
 
     Direct 4x4 transfer matrices in extended precision, independent of the
@@ -96,7 +98,9 @@ def chiral_t_matrix(radii, n_list, kappa_list, mu_list, wavelength, order, dps=8
     v_c = u_c(x_c)/x_c, d_c = u_c'(x_c)/x_c.
 
     With ``amplitudes_only`` returns, per layer, (log alpha, log beta) as 2x2
-    arrays [channel, incident helicity] for unit incident waves in the host.
+    arrays [channel, incident helicity] for unit incident waves in the host;
+    with ``outgoing``, the same for the outgoing solution (unit outgoing waves in
+    the host, nothing incoming).
     """
     with mp.workdps(dps):
         k0 = 2 * mp.pi / mp.mpf(wavelength)
@@ -134,18 +138,38 @@ def chiral_t_matrix(radii, n_list, kappa_list, mu_list, wavelength, order, dps=8
             cumulative.append(g)
         top = mp.matrix([[g[0, 0], g[0, 1]], [g[1, 0], g[1, 1]]])
         core = mp.inverse(top)  # core amplitudes giving a unit incident wave of each helicity
-        layers = []
+        per_layer = []
         for c in cumulative:
             amplitudes = c * mp.matrix([[core[0, 0], core[0, 1]], [core[1, 0], core[1, 1]], [0, 0], [0, 0]])
-            layers.append(
+            per_layer.append(
                 [
                     [[complex(mp.log(v)) if v != 0 else complex(-mp.inf) for v in (amplitudes[i, 0], amplitudes[i, 1])]]
                     for i in range(4)
                 ]
             )
+        if outgoing:  # inwards from a unit outgoing wave of each helicity in the host
+            c = mp.matrix([[0, 0], [0, 0], [1, 0], [0, 1]])
+            result = [None] * (len(radii) + 1)
+            result[-1] = c
+            for j in range(len(radii) - 1, -1, -1):
+                (inner, s_in), (outer, s_out) = boundary(j, radii[j]), boundary(j + 1, radii[j])
+                m = mp.inverse(inner) * outer
+                c = mp.matrix([[m[a, b] * s_out[b] / s_in[a] for b in range(4)] for a in range(4)]) * c
+                result[j] = c
+
+            def logs(block, rows):
+                return np.array(
+                    [
+                        [complex(mp.log(block[i, k])) if block[i, k] != 0 else complex(-mp.inf) for k in (0, 1)]
+                        for i in rows
+                    ]
+                )
+
+            return [(logs(c, (0, 1)), logs(c, (2, 3))) for c in result]
         if amplitudes_only:
             return [
-                (np.array([row[0] for row in layer[:2]]), np.array([row[0] for row in layer[2:]])) for layer in layers
+                (np.array([row[0] for row in layer[:2]]), np.array([row[0] for row in layer[2:]]))
+                for layer in per_layer
             ]
         bottom = mp.matrix([[g[2, 0], g[2, 1]], [g[3, 0], g[3, 1]]])
         t = bottom * mp.inverse(top)

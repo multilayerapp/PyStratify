@@ -43,6 +43,7 @@ import numpy as np
 
 from .convergence import truncation_order
 from .riccati import log_riccati
+from .sheets import _sheet_arrays, _sheet_terms
 from .solver import _batch, _side
 
 __all__ = ["ChiralSolution", "solve_chiral", "HELICITY_TO_TMTE", "log_matmul"]
@@ -95,7 +96,16 @@ class ChiralSolution:
     helicity]: in layer j the regular solution excited by a unit incident wave
     W_h in the host is sum_c (alpha_ch psi_l(k_jc r) + beta_ch xi_l(k_jc r)) W_c,
     with ``log_alpha`` = log alpha (the identity in the host) and ``log_r`` =
-    log R, beta = R alpha (zero in the core, T in the host).
+    log R, beta = R alpha (zero in the core, T in the host).  The outgoing
+    solution, a unit outgoing wave W_h in the host and nothing incoming, is
+    ``log_beta_out`` = log beta and ``log_s`` = log S, alpha = S beta (zero in the host).
+
+    Interface maps, shape ``(W, N, L, 2, 2)``: ``log_in[:, j]`` carries the
+    psi amplitudes of any regular solution from layer j + 1 to layer j
+    (alpha_j = M alpha_{j+1}), ``log_out[:, j]`` the xi amplitudes of any
+    outgoing solution from layer j to layer j + 1 (beta_{j+1} = M beta_j).
+    Chained, they continue a field found in one layer (e.g. of a source) to
+    the others without inverting ``log_alpha`` or ``log_beta_out``.
     """
 
     radii: np.ndarray
@@ -107,6 +117,16 @@ class ChiralSolution:
     log_t_helicity: np.ndarray  # (W, L, 2, 2)
     log_alpha: np.ndarray  # (W, N + 1, L, 2, 2)
     log_r: np.ndarray  # (W, N + 1, L, 2, 2)
+    log_beta_out: np.ndarray  # (W, N + 1, L, 2, 2)
+    log_s: np.ndarray  # (W, N + 1, L, 2, 2)
+    log_in: np.ndarray  # (W, N, L, 2, 2)
+    log_out: np.ndarray  # (W, N, L, 2, 2)
+    sheet_sigma: np.ndarray | None = None  # (W, N): 2D sheets at the interfaces (see pystratify.sheets)
+    sheet_zeta: np.ndarray | None = None  # (W, N)
+
+    @property
+    def has_sheets(self) -> bool:
+        return self.sheet_sigma is not None and bool(np.any(self.sheet_sigma) or np.any(self.sheet_zeta))
 
     @property
     def n_shells(self) -> int:
@@ -164,6 +184,37 @@ def _interface_matrices(l, x_in, x_out, diff, side_in, side_out, delta):
     return n0, n1, d0, d1
 
 
+def _sheet_corrections(d1_in, d3_in, d1_out, d3_out, z_in, z_out, sigma, a, tau, p):
+    """Additions to N0, N1, D0, D1m (W, L, 2, 2) from a 2D sheet on the interface (pystratify.sheets).
+
+    With the sheet, v' = C_v^ v + S_v d and d' = C_d^ d + S_d v, where (J = [[1, -1], [-1, 1]],
+    O = [[1, 1], [1, 1]], g = tau / p): C_v^ = C_v + z (tau - 1) J / 2, C_d^ = C_d + (tau - 1) J / 2,
+    S_v = g i Z' sigma J / 2, S_d = -i Z' sigma O / 2 - g a J / (2 i Z).  ``d*``: (W, L, 2) per
+    channel; ``z_*``, ``sigma``: (W,); ``a``, ``tau``, ``p``: (W, L).
+    """
+    J = np.array([[1.0, -1.0], [-1.0, 1.0]])
+    O = np.ones((2, 2))
+    zeta = (z_out / z_in)[:, None, None, None]
+    tau, a, gain = tau[..., None, None], a[..., None, None], (tau / p)[..., None, None]
+    sig = sigma[:, None, None, None]
+    dcv = zeta * (tau - 1) / 2 * J
+    dcd = (tau - 1) / 2 * J
+    s_v = gain * 1j * z_out[:, None, None, None] * sig / 2 * J
+    s_d = -1j * z_out[:, None, None, None] * sig / 2 * O - gain * a / (2j * z_in[:, None, None, None]) * J
+
+    def left(d, m):  # diag(d) @ m
+        return d[..., :, None] * m
+
+    def right(m, d):  # m @ diag(d)
+        return m * d[..., None, :]
+
+    n0 = left(d1_out, dcv) - right(dcd, d1_in) + right(left(d1_out, s_v), d1_in) - s_d
+    n1 = left(d1_out, dcv) - right(dcd, d3_in) + right(left(d1_out, s_v), d3_in) - s_d
+    d0 = right(dcd, d1_in) - left(d3_out, dcv) + s_d - right(left(d3_out, s_v), d1_in)
+    d1 = right(dcd, d3_in) - left(d3_out, dcv) + s_d - right(left(d3_out, s_v), d3_in)
+    return n0, n1, d0, d1
+
+
 def _log_moebius(n0, n1, d0, d1, log_rho):
     """log[(N0 + N1 rho)(D0 + D1m rho)^-1] element-wise, rho = exp(log_rho), for any magnitude of rho,
     and log[(D0 + D1m rho)^-1] (the inverse amplitude transfer up to Lambda).
@@ -190,7 +241,26 @@ def _log_moebius(n0, n1, d0, d1, log_rho):
     return out, log_den_inv
 
 
-def solve_chiral(radii, n, kappa, wavelength, mu=None, l_max=None) -> ChiralSolution:
+def _log_moebius_inward(n0, n1, d0, d1, log_sig):
+    """Outgoing solution across an interface, outer to inner:
+    log[(sig N0 - D0)^-1 (D1m - sig N1)] element-wise for sig = exp(log_sig) (already
+    similarity-transformed by Lambda), any magnitude; below e^-600 to first order in sig."""
+    with np.errstate(invalid="ignore"):
+        s = np.max(log_sig.real, axis=(-2, -1))
+    tiny = np.isfinite(s) & (s <= -_SAFE_LOG)
+    shift = np.where(np.isfinite(s) & (s > _SAFE_LOG), s - _SAFE_LOG, 0.0)[..., None, None]
+    with np.errstate(all="ignore"):
+        sig = np.exp(np.where(tiny[..., None, None], -np.inf, log_sig - shift))
+        out = _log(_inv2(sig @ n0 - d0) @ (d1 - sig @ n1))
+    if tiny.any():
+        sig_hat = np.exp(log_sig[tiny] - s[tiny][:, None, None])
+        inv = _inv2(d0[tiny])
+        first = inv @ sig_hat @ (n1[tiny] - n0[tiny] @ inv @ d1[tiny])
+        out[tiny] = _log_add(_log(-inv @ d1[tiny]), s[tiny][:, None, None] + _log(first))
+    return out
+
+
+def solve_chiral(radii, n, kappa, wavelength, mu=None, l_max=None, sheets=None) -> ChiralSolution:
     """Solve a multilayered sphere whose shells may be chiral.
 
     Parameters
@@ -204,6 +274,8 @@ def solve_chiral(radii, n, kappa, wavelength, mu=None, l_max=None) -> ChiralSolu
     mu : like ``n``, relative permeabilities (default 1).
     l_max : truncation order; default :func:`truncation_order` (Wiscombe) for
         the shortest wavelength, as :func:`~pystratify.solve`.
+    sheets : 2D materials at interfaces, ``{j: Sheet(...)}`` or ``{j: conductivity}``
+        (j = 0: surface of the core), as :func:`~pystratify.solve`; see :mod:`pystratify.sheets`.
 
     With ``kappa = 0`` everywhere the result equals :func:`~pystratify.solve`'s
     (``t_matrix`` then is diagonal).
@@ -240,17 +312,21 @@ def solve_chiral(radii, n, kappa, wavelength, mu=None, l_max=None) -> ChiralSolu
     kc = k0[:, None, None] * helicity_n  # (W, N + 1, 2)
     x_in = kc[:, :N] * radii[:, None]  # (W, N, 2): k_{j,s} R_j
     x_out = kc[:, 1:] * radii[:, None]  # (W, N, 2): k_{j+1,s} R_j
-    lp_in, lx_in, r_in, big_in, _, _ = _side(x_in, *log_riccati(x_in, l_max + 1), l)
-    lp_out, lx_out, r_out, big_out, _, _ = _side(x_out, *log_riccati(x_out, l_max + 1), l)
+    lp_in, lx_in, r_in, big_in, d1_in, d3_in = _side(x_in, *log_riccati(x_in, l_max + 1), l)
+    lp_out, lx_out, r_out, big_out, d1_out, d3_out = _side(x_out, *log_riccati(x_out, l_max + 1), l)
     # 1 - Z_{j+1}/Z_j from the contrasts, Z = mu/n
     n_i, n_o, mu_i, mu_o = n[:, :N], n[:, 1:], mu[:, :N], mu[:, 1:]
     delta = (mu_i * (n_o - n_i) + n_i * (mu_i - mu_o)) / (mu_i * n_o)  # (W, N)
     # x - x' per helicity from the contrasts, not by subtraction of the products
     diff_n = (n_i - n_o)[..., None] + _SIGN * (kappa[:, :N] - kappa[:, 1:])[..., None]  # (W, N, 2)
 
+    sigma, zeta = _sheet_arrays(sheets, N, W)
+    sheet_a, sheet_p, sheet_tau = _sheet_terms(sigma, zeta, k0, radii, l)
+
     log_rho = np.full((W, l_max, 2, 2), -np.inf, dtype=complex)
     log_rho_out = np.empty((N, W, l_max, 2, 2), dtype=complex)
     log_transfer_inv = np.empty((N, W, l_max, 2, 2), dtype=complex)  # a = K^-1 a' at interface j
+    interface = []
     for j in range(N):
         if j:  # carry rho across shell j: rho_ce *= [xi_c(o)/xi_c(i)] [psi_e(i)/psi_e(o)]
             grow_xi = np.moveaxis(lx_in[:, j] - lx_out[:, j - 1], 1, -1)  # (W, L, 2)
@@ -265,6 +341,18 @@ def solve_chiral(radii, n, kappa, wavelength, mu=None, l_max=None) -> ChiralSolu
             (r_out[:, j], big_out[:, j]),
             delta[:, j],
         )
+        if np.any(sigma[:, j]) or np.any(zeta[:, j]):
+            extra = _sheet_corrections(
+                *(np.moveaxis(v[:, j], 1, -1) for v in (d1_in, d3_in, d1_out, d3_out)),
+                mu[:, j] / n[:, j],
+                mu[:, j + 1] / n[:, j + 1],
+                sigma[:, j],
+                sheet_a[:, j],
+                sheet_tau[:, j],
+                sheet_p[:, j],
+            )
+            mats = tuple(m + e for m, e in zip(mats, extra))
+        interface.append(mats)
         log_m, log_den_inv = _log_moebius(*mats, log_rho)
         # similarity with Lambda = diag(-i / (psi xi)) at the outer arguments
         lam = np.moveaxis(lp_out[:, j] + lx_out[:, j], 1, -1)  # (W, L, 2): log(psi xi)
@@ -276,15 +364,47 @@ def solve_chiral(radii, n, kappa, wavelength, mu=None, l_max=None) -> ChiralSolu
     log_x_in, log_x_out = np.log(x_in), np.log(x_out)  # (W, N, 2)
     log_alpha = np.empty((W, N + 1, l_max, 2, 2), dtype=complex)
     log_r = np.full((W, N + 1, l_max, 2, 2), -np.inf, dtype=complex)
+    log_in = np.empty((W, N, l_max, 2, 2), dtype=complex)
     log_alpha[:, N] = _log(np.eye(2) + 0j)
     for j in range(N - 1, -1, -1):
         outer = np.moveaxis(lp_out[:, j], 1, -1) - log_x_out[:, j, None, :]  # (W, L, 2): log(psi/x)
         inner = np.moveaxis(lp_in[:, j], 1, -1) - log_x_in[:, j, None, :]
+        # alpha_j = diag(x/psi)_in K^-1 diag(psi/x)_out alpha_{j+1}
+        log_in[:, j] = log_transfer_inv[j] + outer[..., None, :] - inner[..., :, None]
         scaled = log_matmul(log_transfer_inv[j], log_alpha[:, j + 1] + outer[..., :, None])
         log_alpha[:, j] = scaled - inner[..., :, None]
         # R of layer j + 1 from rho at its inner boundary: R_ce = rho_ce (x_c / xi_c) (psi_e / x_e)
         to_r_rows = log_x_out[:, j, None, :] - np.moveaxis(lx_out[:, j], 1, -1)
         log_r[:, j + 1] = log_rho_out[j] + to_r_rows[..., :, None] + outer[..., None, :]
+    # outgoing solution from the host inwards: scaled b = diag(xi/x) beta, sigma = (psi/x) S (x/xi),
+    # sigma = (sig' N0 - D0)^-1 (D1m - sig' N1) and b = (N0 sigma + N1)^-1 Lambda b'
+    log_beta_out = np.empty((W, N + 1, l_max, 2, 2), dtype=complex)
+    log_s = np.full((W, N + 1, l_max, 2, 2), -np.inf, dtype=complex)
+    log_out = np.empty((W, N, l_max, 2, 2), dtype=complex)
+    log_beta_out[:, N] = _log(np.eye(2) + 0j)
+    log_sig = np.full((W, l_max, 2, 2), -np.inf, dtype=complex)  # outer side of interface N - 1
+    for j in range(N - 1, -1, -1):
+        n0, n1, d0, d1 = interface[j]
+        lam = np.moveaxis(lp_out[:, j] + lx_out[:, j], 1, -1)
+        # sig~' = Lambda sig' Lambda^-1, Lambda = diag(-i / (psi xi)): element factor (psi xi)_e / (psi xi)_c
+        log_sig_in = _log_moebius_inward(n0, n1, d0, d1, log_sig - lam[..., :, None] + lam[..., None, :])
+        with np.errstate(under="ignore", over="ignore"):
+            forward = n0 @ np.exp(log_sig_in) + n1
+        transfer = _inv2(forward)  # (N0 sigma + N1)^-1, then Lambda
+        outer_xi = np.moveaxis(lx_out[:, j], 1, -1) - log_x_out[:, j, None, :]  # log(xi/x), outer side
+        inner_xi = np.moveaxis(lx_in[:, j], 1, -1) - log_x_in[:, j, None, :]
+        # beta_{j+1} = diag(x/xi)_out Lambda^-1 (N0 sigma + N1) diag(xi/x)_in beta_j, Lambda^-1 = diag(i psi xi)
+        log_out[:, j] = _log(forward) + (np.log(1j) + lam - outer_xi)[..., :, None] + inner_xi[..., None, :]
+        log_transfer = _log(transfer) + (np.log(-1j) - lam)[..., None, :]
+        scaled = log_matmul(log_transfer, log_beta_out[:, j + 1] + outer_xi[..., :, None])
+        log_beta_out[:, j] = scaled - inner_xi[..., :, None]
+        # S of layer j from sigma at its outer boundary: S_ce = sigma_ce (x_c / psi_c) (xi_e / x_e)
+        inner_psi = np.moveaxis(lp_in[:, j], 1, -1) - log_x_in[:, j, None, :]
+        log_s[:, j] = log_sig_in - inner_psi[..., :, None] + inner_xi[..., None, :]
+        if j:  # carry sigma across layer j to the outer side of interface j - 1
+            fall_psi = np.moveaxis(lp_out[:, j - 1] - lp_in[:, j], 1, -1)
+            grow_xi = np.moveaxis(lx_in[:, j] - lx_out[:, j - 1], 1, -1)
+            log_sig = log_sig_in + fall_psi[..., :, None] + grow_xi[..., None, :]
     return ChiralSolution(
         radii=radii,
         n=n,
@@ -295,4 +415,10 @@ def solve_chiral(radii, n, kappa, wavelength, mu=None, l_max=None) -> ChiralSolu
         log_t_helicity=log_r[:, N],
         log_alpha=log_alpha,
         log_r=log_r,
+        log_beta_out=log_beta_out,
+        log_s=log_s,
+        log_in=log_in,
+        log_out=log_out,
+        sheet_sigma=sigma,
+        sheet_zeta=zeta,
     )
