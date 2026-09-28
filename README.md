@@ -21,7 +21,7 @@ the MATLAB code are fixed ([AUDIT.md](AUDIT.md)).
 | far field, directivity and radiated power of a dipole emitter anywhere (core, any shell incl. chiral, host) | `dipole_far_field` → `EmissionPattern` |
 | chiral emitters (coherent p + m), random or in-plane orientation averages, helicity-resolved power and g_lum | `dipole_far_field(..., magnetic_moment=, orientation=)`, `source_covariance` |
 | chiral (Pasteur) shells: T-matrix with TM–TE coupling | `solve_chiral` → `ChiralSolution` |
-| E and H near fields | `near_field` |
+| E and H near fields, whole or of chosen partial waves (orders; electric, magnetic) | `near_field`, `near_field(..., orders=, polarisations=)` |
 | orientation-averaged intensities and energy density | `energy_density` |
 | energy stored in each shell | `shell_energy` |
 | energy prefactors (Loudon, for Drude metals) | `electric_prefactor`, `energy_prefactors` |
@@ -235,7 +235,9 @@ from a metal needs l ≈ 500–1000. PyStratify keeps the physics and changes th
   the scattered series, which converges with the sphere's orders at any distance, and add the
   plane wave exactly (its own series needs l ~ kr: with Wiscombe's truncation |E|² eight radii
   from a gold sphere was off by a factor of two). `near_field(..., incident=False)` returns the
-  scattered field alone.
+  scattered field alone. A partial-wave field, `near_field(..., orders=, polarisations=)`, is the
+  exception: it sums the incident wave's own terms of those orders, which is what such a field is,
+  so that disjoint selections add up to their union and all orders together to the field itself.
 * **Vectorised.** `solve` takes a whole spectrum at once (array operations over wavelength ×
   order; Python loops only over interfaces). Near fields and energy densities evaluate the
   special functions once per distinct kr for both polarisations.

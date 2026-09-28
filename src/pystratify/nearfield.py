@@ -13,6 +13,8 @@ added in closed form.  Its multipole series would need l ~ k_h r terms, far
 more than the sphere's truncation away from the particle (with Wiscombe's
 l_max, |E|^2 two radii from a 50-nm gold sphere was off by a factor of two),
 whereas the scattered series converges with the sphere's orders at any r > R.
+A partial-wave field (``orders``, ``polarisations``) is the exception: there the
+incident wave's own terms of those orders are what is asked for.
 """
 
 from __future__ import annotations
@@ -87,7 +89,32 @@ def radial_functions(
     return out, x, shell
 
 
-def near_field(sol: Solution, x, y, z, wavelength_index: int = 0, chunk: int = 4096, incident: bool = True) -> NearField:
+def _partial_waves(available, orders, polarisations):
+    """Weights (2, L) of the kept partial waves, or None when every one is kept."""
+    kept = set(np.atleast_1d(polarisations).tolist())
+    if not kept or not kept <= {TM, TE}:
+        raise ValueError("polarisations must name TM and/or TE")
+    if orders is None and kept == {TM, TE}:
+        return None
+    wanted = available if orders is None else np.unique(np.asarray(orders, dtype=int).ravel())
+    if wanted.size == 0 or wanted[0] < 1 or wanted[-1] > available[-1]:
+        raise ValueError(f"orders must lie in 1..{available[-1]}, the Solution's orders")
+    weights = np.zeros((2, available.size))
+    weights[sorted(kept)] = np.isin(available, wanted)
+    return weights
+
+
+def near_field(
+    sol: Solution,
+    x,
+    y,
+    z,
+    wavelength_index: int = 0,
+    chunk: int = 4096,
+    incident: bool = True,
+    orders=None,
+    polarisations=(TM, TE),
+) -> NearField:
     """Electric and magnetic near field at Cartesian points (x, y, z).
 
     Points at the origin are evaluated at r = 1e-9 R_0 (the field is
@@ -96,6 +123,13 @@ def near_field(sol: Solution, x, y, z, wavelength_index: int = 0, chunk: int = 4
     fields right at the surface converge more slowly, see
     ``solve(..., regime='near')``.  ``incident=False`` returns the scattered
     field alone in the host (the internal fields are unchanged).
+
+    ``orders`` (multipole orders l) and ``polarisations`` (:data:`TM`, the
+    electric multipoles; :data:`TE`, the magnetic ones) keep only those partial
+    waves: the internal field and, in the host, the scattered waves and -- with
+    ``incident`` -- the incident wave's own terms of those orders, its series
+    summed instead of taken in closed form.  Fields are linear in the partial
+    waves, so the fields of disjoint selections add up to that of their union.
     """
     x, y, z = np.broadcast_arrays(*(np.asarray(v, dtype=float) for v in (x, y, z)))
     shape = x.shape
@@ -105,13 +139,16 @@ def near_field(sol: Solution, x, y, z, wavelength_index: int = 0, chunk: int = 4
     phi = np.arctan2(y, x)
     l = sol.orders
     w = wavelength_index
+    weights = _partial_waves(l, orders, polarisations)
+    series = weights is not None and incident
 
     radii, r_index = np.unique(r, return_inverse=True)
-    functions, kr, shell = radial_functions(sol, w, radii, offsets=(-1, 0), host_scattered_only=True)
+    functions, kr, shell = radial_functions(sol, w, radii, offsets=(-1, 0), host_scattered_only=not series)
     radial = {}
     for p, (f_prev, f) in functions.items():
         g = f / kr[:, None]  # f_l / x
-        radial[p] = (f, g, f_prev - l * g)  # (1/x) d(x f_l)/dx = f_{l-1} - l f_l / x
+        d = f_prev - l * g  # (1/x) d(x f_l)/dx = f_{l-1} - l f_l / x
+        radial[p] = (f, g, d) if weights is None else (f * weights[p], g * weights[p], d * weights[p])
     shell = shell[r_index]
 
     cosines, c_index = np.unique(np.round(np.cos(theta), 14), return_inverse=True)
@@ -147,7 +184,7 @@ def near_field(sol: Solution, x, y, z, wavelength_index: int = 0, chunk: int = 4
 
     ct, st, cp, sp = np.cos(theta), np.sin(theta), np.cos(phi), np.sin(phi)
     host = shell == sol.n_shells
-    if incident and host.any():  # E_inc = x_hat exp(i k z), H_inc = (n/mu) y_hat exp(i k z)
+    if incident and weights is None and host.any():  # E_inc = x_hat exp(i k z), H_inc = (n/mu) y_hat exp(i k z)
         wave = np.exp(1j * sol.k[w, -1] * z[host])
         h0 = sol.n[w, -1] / sol.mu[w, -1] * wave
         e["r"][host] += st[host] * cp[host] * wave

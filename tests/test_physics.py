@@ -167,6 +167,37 @@ def test_fields_far_from_the_sphere_converge_with_the_sphere_truncation():
     assert np.allclose(f.e["x"], np.exp(2j * np.pi * 1.33 / LAM * z), atol=1e-12)
 
 
+def test_partial_waves_add_up_to_the_field():
+    """The fields of disjoint partial-wave selections add up, and all of them together are
+    the field itself wherever the incident series has converged (k r ~ 1 here)."""
+    S = _sol([40.0, 50.0], [1.45, AU, 1.33])
+    r = np.array([10.0, 39.0, 45.0, 55.0, 80.0])
+    th, ph = np.array([0.3, 1.1, 2.0, 2.9, 1.6]), np.array([0.2, 0.9, 2.5, 4.0, 5.5])
+    X, Y, Z = r * np.sin(th) * np.cos(ph), r * np.sin(th) * np.sin(ph), r * np.cos(th)
+    full = ps.near_field(S, X, Y, Z)
+    every = ps.near_field(S, X, Y, Z, orders=range(1, 21))
+    low, high = ps.near_field(S, X, Y, Z, orders=[1, 2, 3]), ps.near_field(S, X, Y, Z, orders=range(4, 21))
+    tm, te = ps.near_field(S, X, Y, Z, polarisations=ps.TM), ps.near_field(S, X, Y, Z, polarisations=[ps.TE])
+    for f in ("e", "h"):
+        for c in ("x", "y", "z"):
+            whole = getattr(full, f)[c]
+            assert np.allclose(getattr(every, f)[c], whole, rtol=0, atol=1e-10 * np.abs(whole).max())
+            assert np.allclose(getattr(low, f)[c] + getattr(high, f)[c], getattr(every, f)[c], rtol=1e-12, atol=1e-14)
+            assert np.allclose(getattr(tm, f)[c] + getattr(te, f)[c], getattr(every, f)[c], rtol=1e-12, atol=1e-14)
+    inside = r < 50
+    scattered = ps.near_field(S, X, Y, Z, incident=False, orders=range(1, 21))
+    for c in ("x", "y", "z"):
+        assert np.allclose(scattered.e[c], ps.near_field(S, X, Y, Z, incident=False).e[c], rtol=1e-12, atol=1e-14)
+        assert np.allclose(scattered.e[c][inside], every.e[c][inside], rtol=1e-12, atol=1e-14)
+
+
+def test_partial_wave_selection_is_validated():
+    S = _sol([50.0], [AU, 1.33], L=6)
+    for bad in ({"orders": [0, 1]}, {"orders": [7]}, {"orders": []}, {"polarisations": ()}, {"polarisations": [2]}):
+        with pytest.raises(ValueError):
+            ps.near_field(S, 60.0, 0.0, 0.0, **bad)
+
+
 def test_near_regime_truncation_for_surface_fields():
     rad, ref, lam = [50.0], [0.25 + 3.0j, 1.33], 600.0
     near = ps.solve(rad, ref, lam, regime="near")
