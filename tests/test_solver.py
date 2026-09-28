@@ -9,6 +9,7 @@ from pystratify import TE, TM
 from pystratify.riccati import log_riccati
 
 from .mp_reference import coefficients
+from pystratify.references import bhmie
 
 WAVELENGTH = 690.0
 MATRYOSHKA = ([10.0, 13.0, 36.0, 48.0], [1.45, 0.2 + 3.8j, 1.45, 0.25 + 3.5j, 1.33])  # 3-nm Au shell
@@ -109,6 +110,17 @@ def test_large_size_parameter_and_extreme_absorption():
     for field in (sol.log_a, sol.log_b, sol.log_b_out):
         finite = np.isfinite(field) | (field.real == -np.inf)
         assert finite.all()
+
+
+@pytest.mark.parametrize("m", [1.5 + 0.5j, 0.1 + 4j, 10 + 10j])
+def test_very_large_absorbing_spheres_against_bhmie(m):
+    """x = 20000: |m x| up to 3e4 with Im(m x) up to 8e4 (NaN before AMOS zeros
+    off the real axis were treated as underflow)."""
+    x = 20000.0
+    sol = ps.solve([x], [m, 1.0], 2 * np.pi)
+    q_ext, q_sca = bhmie(x, m)
+    cs = ps.cross_sections(sol)
+    assert cs.q_ext[0] == pytest.approx(q_ext, rel=1e-10) and cs.q_sca[0] == pytest.approx(q_sca, rel=1e-10)
 
 
 def test_default_truncation_uses_the_shortest_wavelength():

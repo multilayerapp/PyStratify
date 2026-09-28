@@ -70,20 +70,22 @@ def test_bohren_huffman_backscattering_from_the_pattern():
 
 @pytest.mark.parametrize("theta, phi", [(1.1, 0.7), (2.9, -2.0), (0.2, 3.0)])
 def test_pattern_is_the_far_zone_limit_of_the_near_field(theta, phi):
-    """Scattered near field (minus the same truncated expansion without particle) times -ikr exp(-ikr)."""
+    """Scattered near field times -ikr exp(-ikr).
+
+    The scattered field is taken without the incident wave: at kr ~ 1e7 it is ~1e-7 of an O(1) plane
+    wave, so subtracting a particle-free field would round away the digits this checks."""
     sol = ps.solve(*NANOSHELL, LAM, l_max=20)
-    empty = ps.solve(NANOSHELL[0], [1.33] * 3, LAM, l_max=20)
     k = 2 * np.pi * 1.33 / LAM
     pattern = ps.scattering_pattern(sol, theta, phi, (1, 0))
     residual = []
     for r in (3e6, 3e8):
         point = r * np.array([np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), np.cos(theta)])
-        f, f0 = ps.near_field(sol, *point), ps.near_field(empty, *point)
+        f = ps.near_field(sol, *point, incident=False)
         scale = -1j * k * r * np.exp(-1j * k * r)
         residual.append(
             max(
-                abs((f.e["theta"] - f0.e["theta"]) * scale - pattern.e_theta[0]),
-                abs((f.e["phi"] - f0.e["phi"]) * scale - pattern.e_phi[0]),
+                abs(f.e["theta"] * scale - pattern.e_theta[0]),
+                abs(f.e["phi"] * scale - pattern.e_phi[0]),
             )
             / abs(pattern.e_theta[0])
         )

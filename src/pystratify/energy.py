@@ -108,16 +108,32 @@ class EnergyDensity:
 
 
 def _intensities(sol: Solution, w: int, r):
+    """<|E|^2> and <|H|^2> over the sphere of radius r, per point.
+
+    In the host the incident part of every term is taken out and its exact
+    sum (1) added back: the remaining terms |f_s|^2 + 2 Re(f_i* f_s) decay
+    with the scattering coefficients, whereas the incident series alone needs
+    l ~ k r orders.
+    """
     l = sol.orders
-    functions, _, shell = radial_functions(sol, w, r, offsets=(-1, 0, 1), with_incident=False)
-    fe_prev, fe, fe_next = functions[TM]
-    fm_prev, fm, fm_next = functions[TE]
-
-    def sq(v):
-        return np.abs(v) ** 2
-
-    i_e = ((2 * l + 1) * sq(fm) + (l + 1) * sq(fe_prev) + l * sq(fe_next)).sum(axis=1) / 2
-    i_h = ((2 * l + 1) * sq(fe) + (l + 1) * sq(fm_prev) + l * sq(fm_next)).sum(axis=1) / 2
+    offsets = (-1, 0, 1)
+    functions, _, shell = radial_functions(sol, w, r, offsets=offsets, with_incident=False)
+    sq = {p: [np.abs(f) ** 2 for f in fs] for p, fs in functions.items()}
+    host = shell == sol.n_shells
+    baseline = np.zeros(r.shape)
+    if host.any():
+        scattered, _, _ = radial_functions(
+            sol, w, r[host], offsets=offsets, with_incident=False, host_scattered_only=True
+        )
+        for p in sq:
+            for s2, f, f_s in zip(sq[p], functions[p], scattered[p]):
+                f_i = f[host] - f_s
+                s2[host] = np.abs(f_s) ** 2 + 2 * np.real(np.conj(f_i) * f_s)
+        baseline[host] = 1.0
+    fe_prev, fe, fe_next = sq[TM]
+    fm_prev, fm, fm_next = sq[TE]
+    i_e = baseline + ((2 * l + 1) * fm + (l + 1) * fe_prev + l * fe_next).sum(axis=1) / 2
+    i_h = baseline + ((2 * l + 1) * fe + (l + 1) * fm_prev + l * fm_next).sum(axis=1) / 2
     eps = sol.n[w] ** 2 / sol.mu[w]
     return i_e, i_h * (np.abs(eps) / np.abs(sol.mu[w]))[shell], shell
 

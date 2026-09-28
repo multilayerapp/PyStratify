@@ -39,6 +39,7 @@ from .farfield import (
     scattering_pattern,
 )
 from .nearfield import NearField, near_field
+from .normalized import NormalizedRates, normalized_decay_rates
 from .rates import EmissionRates, emission_rates
 from .sheets import Sheet, graphene_conductivity
 from .riccati import log_riccati
@@ -87,4 +88,6 @@ __all__ = [
     "free_path_correction",
     "surface_damping_wavelength",
     "log_riccati",
+    "normalized_decay_rates",
+    "NormalizedRates",
 ]

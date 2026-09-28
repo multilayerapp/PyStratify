@@ -88,3 +88,22 @@ def test_log_derivatives_and_wronskian():
 def test_rejects_unusable_arguments(bad):
     with pytest.raises(ValueError):
         log_riccati(np.array([bad]), 5)
+
+
+@pytest.mark.parametrize("z", [1500 + 1500j, 30000 + 10000j, 2000 + 80000j])
+def test_large_complex_arguments_below_the_turning_point(z):
+    """Off the real axis psi_n has no zeros, so an AMOS zero is underflow: scaled
+    jve underflows long before n = |z| once |Im z| >~ 1000 (at 1500 + 1500i from
+    n = 1993), which made large absorbing spheres NaN.  psi comes from the downward
+    recurrence and xi from AMOS/upward - independent - so the Wronskian checks both
+    (mpmath agrees to 1e-12 at 1500 + 1500i, n = 1000..2200; too slow for the suite)."""
+    nmax = int(abs(z)) + 100
+    lp, lx = log_riccati(np.array([z]), nmax)
+    assert np.all(np.isfinite(lp)) and np.all(np.isfinite(lx))
+    n = np.arange(1, nmax + 1)
+    # psi_n xi_{n-1} - psi_{n-1} xi_n = i, relative to its first term
+    big = lp[0, n] + lx[0, n - 1]
+    wronskian = 1 - np.exp(lp[0, n - 1] + lx[0, n] - big)
+    target = 1j * np.exp(-big)
+    # the logs are ~|z| in size, so their float spacing sets the attainable accuracy
+    assert np.max(np.abs(wronskian - target) / (1 + np.abs(target))) < 1e-12 + 3e-14 * abs(z)

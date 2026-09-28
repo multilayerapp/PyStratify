@@ -31,6 +31,8 @@ the MATLAB code are fixed ([AUDIT.md](AUDIT.md)).
 | 2D materials on interfaces: in-plane conductivity and out-of-plane response; thin films; graphene | `solve(..., sheets=)`, `solve_chiral(..., sheets=)`, `Sheet`, `Sheet.from_film`, `graphene_conductivity` |
 | thin-shell electron free-path correction | `free_path_correction`, `DRUDE` |
 | multipole truncation | `truncation_order` |
+| decay rates from normalized quantities (reference formulation) | `normalized_decay_rates` |
+| extended-precision and classical references | `pystratify.references` |
 
 No optical constants are shipped: pass n + ik from a database such as
 [refractiveindex.info](https://refractiveindex.info). The Drude fits in `DRUDE` exist only for
@@ -60,7 +62,8 @@ sol = ps.solve(radii, n, wavelength)                                 # mu defaul
 
 cs = ps.cross_sections(sol)                 # cs.q_ext, cs.q_sca, cs.q_abs: arrays over wavelength
 cs.ext_by_order[:, ps.TM, 0]                # electric dipole contribution
-field = ps.near_field(sol, x, y, z, wavelength_index=200)
+field = ps.near_field(sol, x, y, z, wavelength_index=200)  # fields at the very surface:
+                                            # ps.solve(..., regime="near") converges them
 stored = ps.shell_energy(sol, wavelength_index=200)
 
 rates = ps.decay_rates(radii, n[200], wavelength[200], r=[60.0, 75.0])
@@ -161,8 +164,11 @@ from a metal needs l ≈ 500–1000. PyStratify keeps the physics and changes th
   the exponentially scaled AMOS routines, which are exact near the zeros of ψ; higher orders from
   the stable recurrences, downward for ψ and upward for ξ, so the cost does not grow with the
   truncation order. In gain media AMOS's `hankel1e` returns spurious zeros and `yve` is
-  mis-scaled; there the unscaled `hankel1` is used. Accuracy is ≤ 1e-10 against
-  extended-precision mpmath for orders 0–2500, |x| from 1e-6 to 3000, Im x up to 700 and gain.
+  mis-scaled; there the unscaled `hankel1` is used. Off the real axis ψ has no zeros, so a zero
+  from AMOS is underflow (scaled `jve` underflows below n = |x| once Im x ≳ 1000) and the
+  recurrence takes over. Accuracy is ≤ 1e-10 against extended-precision mpmath for orders
+  0–2500, |x| from 1e-6 to 3000, Im x up to 700 and gain, and 1e-12 at 1500 + 1500i; spheres
+  with |mx| = 3·10⁴ and Im(mx) = 8·10⁴ match BHMIE to 2e-12.
 * **Scaled two-sided recursion** (`solver.py`). The regular solution is swept outwards through
   ρ = Rξ/ψ and the outgoing solution inwards through σ = Sψ/ξ, both carried as logarithms, so a
   ratio that falls to e⁻⁷⁰⁰ across a thick shell keeps full precision instead of turning
@@ -174,7 +180,8 @@ from a metal needs l ≈ 500–1000. PyStratify keeps the physics and changes th
   and Zhang (2025).
 * **Decay rates from the Green's function.** The radiative rate, the Ohmic loss and the total
   rate (LDOS) are three independent sums, and `DecayRates.balance_error` checks
-  total = radiative + nonradiative. Sums are truncated from the geometry and accepted only when
+  total = radiative + nonradiative. The loss includes magnetic loss, Im(μ)|H|², as well as
+  Im(ε)|E|². Sums are truncated from the geometry and accepted only when
   a remainder estimate meets `tol`; an unconverged position is flagged, never silently
   truncated.
 * **Dipole far fields from reciprocity.** The far-field amplitude of a source (p, m) at r₀ in
@@ -215,10 +222,23 @@ from a metal needs l ≈ 500–1000. PyStratify keeps the physics and changes th
   families m = 0, ±1, ±2; the gradients of M and N there are closed forms in ψ'/ψ, x and l.
   Their far field is synthesised from the outgoing host amplitudes (for dipoles this route
   agrees with the reciprocity route to 1e-14 in complex amplitude).
+* **Ohmic loss from boundary terms.** The absorption in a shell, ∫|A j_l + B h_l|² r² dr, is
+  a Lommel integral: it needs the fields only at the shell's boundaries, so its cost is O(l)
+  rather than the O(l²) of quadrature (whose node count must grow with the order). Past the
+  turning point the textbook boundary term Im(k* f_{l−1}* f_l) is a small difference of real
+  numbers, losing ~log₁₀(2l²/Im x²) digits; the jj and hh parts are therefore carried by ratio
+  recurrences (downward for j, upward for h) that add only positive terms there, and the jh part
+  has no cancellation. Weakly lossy shells (|Im k| < 10⁻³|k|), where Im k² → 0, use quadrature,
+  in chunks so memory stays bounded. An emitter 1 nm from a 1-µm silver sphere needs ~17000
+  orders and takes 0.8 s (quadrature ran out of memory); the default order cap is 20000.
+* **Incident field in closed form.** In the host, `near_field` and `energy_density` sum only
+  the scattered series, which converges with the sphere's orders at any distance, and add the
+  plane wave exactly (its own series needs l ~ kr: with Wiscombe's truncation |E|² eight radii
+  from a gold sphere was off by a factor of two). `near_field(..., incident=False)` returns the
+  scattered field alone.
 * **Vectorised.** `solve` takes a whole spectrum at once (array operations over wavelength ×
   order; Python loops only over interfaces). Near fields and energy densities evaluate the
-  special functions once per distinct kr for both polarisations; absorption integrals reuse one
-  quadrature rule per shell.
+  special functions once per distinct kr for both polarisations.
 
 **Accuracy you can expect.** Coefficients agree with 60-digit transfer matrices to ~1e-12, and
 the interface conditions hold to 1e-9 at every order. Where a result is less accurate than that,
@@ -255,7 +275,8 @@ Typical timings on one core:
 | 601-wavelength spectrum, 6-interface matryoshka | 70 ms |
 | x = 500 sphere, all orders | 8 ms |
 | 300 × 300 near-field map | 1.4 s |
-| decay rates at 100 emitter positions, up to l = 1200 | 0.4 s |
+| decay rates at 100 emitter positions 0.5–25 nm from an Au nanoshell | 0.4 s |
+| the same from 0.1 nm (6700 orders) | 2.4 s |
 | 601-wavelength spectrum, Au nanoshell with a chiral shell, both helicities | 46 ms |
 | scattering pattern on a 181 × 361 (θ, φ) grid | 10 ms |
 | dipole emission pattern on a 181 × 361 grid | 90 ms |
@@ -265,6 +286,17 @@ Typical timings on one core:
 | quadrupole emission pattern, 181 × 361 grid, emitter on / off the grid's axis | 0.15 s / 1.1 s |
 | 601-wavelength spectrum, graphene-coated sphere | 10 ms |
 
+## Benchmarks
+
+`python benchmarks/convergence.py` reruns the test cases of the multilayered-sphere literature
+against independent references and writes the report in
+[benchmarks/RESULTS.md](benchmarks/RESULTS.md): decay rates near silver and silicon spheres down
+to 0.25-nm gaps (Majic & Le Ru 2020) and inside and outside gold nanoshells and a matryoshka
+(against high-precision transfer matrices), a dipole in a layered magnetic sphere and a Luneburg lens
+(Yuan, Zhu & Zhu 2023, 2024), 1000-layer spheres at x = 1000, a graded 250-µm droplet at the
+rainbow angle and the Cauchy profile (Wu & Wang 1991; Wu et al. 1997), absorbing spheres to
+x = 20000, and fields far from the particle.
+
 ## Tests
 
 ```bash
@@ -272,14 +304,22 @@ pip install -e ".[test]"
 pytest
 ```
 
-* `test_riccati.py`: special functions against mpmath in every regime above.
+* `test_normalized.py`: the normalized formulation (`normalized.py`: ψ'/ψ, ψξ and normalized j̄ only,
+  reflection ratios swept outwards and inwards) against the solver, extended precision and the
+  unnormalized formulas.
+* `test_riccati.py`: special functions against mpmath in every regime above, and the
+  Wronskian for |x| up to 8·10⁴.
 * `test_solver.py`: coefficients against 60-digit transfer matrices (including a 1-nm film,
   index-matched layers and a gain shell), the interface conditions at every order up to 400,
-  batching, 50 shells, x = 1000 and Im x ≈ 700.
+  batching, 50 shells, x = 1000, Im x ≈ 700, and BHMIE at x = 20000.
 * `test_physics.py`: textbook Mie (SciPy's spherical Bessel functions), the Bohren–Huffman
   reference case, the optical theorem, energy conservation of lossless multilayers, passivity,
-  the Rayleigh limit, plane-wave limits, field continuity, quadrature, and energy conservation
-  of decay rates for electric and magnetic dipoles.
+  the Rayleigh limit, plane-wave limits, field continuity and convergence far from the
+  particle, quadrature, decay rates against the mpmath Mie sums of Majic & Le Ru and, for
+  emitters inside and outside metal shells, against high-precision transfer matrices, closed-form
+  against quadrature Ohmic loss, magnetic-dipole rates against transfer matrices (including
+  μ ≠ 1 and magnetically lossy shells), and energy conservation of decay rates for electric and
+  magnetic dipoles, up to 17000 orders.
 * `test_farfield.py`: the amplitude matrix against textbook Mie with independently computed
   angular functions, the pattern as the far-zone limit of the near field (residual falling as
   1/kr), Bohren & Huffman's backscattering value, Mueller-matrix identities, directivity and
@@ -315,6 +355,9 @@ pytest
   total = radiated and energy balance with quadrupoles, the dipole-pair limit in amplitude, the
   two far-field routes against each other, pattern quadrature, the icosahedral design, and
   current-loop moments.
+
+`pystratify.references` holds the independent references (mpmath Mie decay rates and extinction,
+layered-sphere decay rates from transfer matrices, BHMIE); nothing in it shares code with the package.
 
 ## Licence
 

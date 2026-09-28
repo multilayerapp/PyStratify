@@ -47,6 +47,7 @@ of **8–39 % in decay rates** and **5–11× in stored energy inside metal shel
 | **M9** | `util/t_mat.m` and every user of its products | medium–high | the composite matrices are products of ψ_l, ξ_l: they overflow for l ≫ x, and differences like M₁₁ + M₁₂T₂₁/T₁₁ cancel catastrophically. Interface conditions are violated by ~50 % at l = 14 inside the 3-nm Au shell of OSAC Fig. 2(b); Γ_nrad drifts with l_max | code (numerics) | Octave; `test_interface_conditions_hold_at_every_order` |
 | M10 | `energy/nrg_tot.m` | low | lossy/lossless Lommel formula chosen by `imag(n) == 0`; the lossy form loses ~1e-17/Im(n) relative accuracy (2 % at Im n = 1e-14) | code (numerics) | `test_weak_loss_lommel_is_ill_conditioned_and_avoided` |
 | M11 | `decay/edcy.m` | medium | convergence of the l-sums judged by the last terms only; for a series with ratio q² → 1 the neglected tail is ~1/(1−q²) times larger | code (numerics) | `test_decay_close_to_metal_needs_and_gets_high_orders` |
+| M12 | `decay/I_abs.m` | medium for μ ≠ 1 | absorption weighted by Im(n²) = Im(εμ) instead of Im(ε) (μ_a times too large for a lossy shell with real μ_a), and no magnetic loss Im(μ)\|H\|² | code | reading (after `8800f0d`); `test_magnetic_losses_conserve_energy` |
 | T1 | OSAC Eqs. 30, 31 | typo | n_d = 1 case divides by M₂₁(1); AoP Eq. 71 and the code use M₂₂(1) | paper | energy balance |
 | T2 | OSAC Eq. 31 | typo | n_a < n_d case reads M₂₂ψ + M₁₂ζ; correct (and coded) is M₁₂ψ + M₂₂ζ | paper | energy balance |
 
@@ -201,7 +202,7 @@ arguments, with entries ~(x̃/x)^l. Two consequences:
 
 PyStratify's scaled formulation (README, "Numerics") satisfies the interface conditions to 1e-9
 at every order tested, including a 2-nm shell with |n| = 40 at l = 400, and gives decay rates
-that conserve energy to 1e-11 up to l = 1200.
+that conserve energy to 1e-11 up to l = 17000.
 
 ### M10 — weakly lossy shells in `nrg_tot.m`
 
@@ -217,6 +218,19 @@ For an emitter at distance δ from an interface of radius a, the terms decay lik
 1/(1 − q²) times larger, i.e. ×35 at 1 nm from a 70-nm sphere. PyStratify's test uses the
 estimated remainder t_L·r/(1 − r).
 
+### M12 — absorption weights in `I_abs.m`
+
+```matlab
+Im(:,aj,dj) = imag(ref(na)^2).*trapz(r,z_im,2);
+Ie(:,aj,dj) = imag(ref(na)^2).*(coef.*trapz(r,z_ie1,2) + trapz(r,z_ie2,2))./abs(ka)^2;
+```
+
+The dissipated power is Im(ε)|E|² + Im(μ)|H|². `imag(ref^2)` is Im(εμ): for a lossy shell with real
+μ_a ≠ 1 it is μ_a times Im(ε), and a magnetically lossy shell (Im μ > 0) gets Im(ε μ) in place of
+its magnetic loss, which uses the other polarisation's radial integral. Found by reading after the
+Octave harness was removed, so STRATIFY's output was not run; PyStratify had the second omission
+too (zero loss for real ε, flagged by a 97 % `balance_error`) and now conserves energy to 1e-13.
+
 ### Minor, by reading only
 
 * `near_fld.m` computes Hankel functions only for `ru > r1`. A point exactly at r = r₁, which
@@ -227,14 +241,23 @@ estimated remainder t_L·r/(1 − r).
 
 ## Limits
 
-* Emitters within ~0.5 nm of a metal need more than the default cap of 1200 multipoles for
-  tol = 1e-8. PyStratify then reports the position as not converged (`DecayRates.converged`,
-  `notes`) and does not return a silently truncated value. At that distance classical
-  electrodynamics itself is questionable (nonlocality).
-* The magnetic-dipole results (M4) are validated by energy balance only; OSAC does not publish
-  them.
+* The l-sums need ~ (a/2d)·ln(1/tol) orders for an emitter a distance d from an interface of
+  radius a; the default cap is 20000 (d = 1 nm from a 1.3-µm sphere at tol = 1e-9). Beyond it
+  PyStratify reports the position as not converged (`DecayRates.converged`, `notes`) and does
+  not return a silently truncated value. Below ~0.5 nm classical electrodynamics itself is
+  questionable (nonlocality).
+* Near a lossless interface the total rate (LDOS) carries the rounding of the reactive near
+  field, ~eps × its size, which Majic & Le Ru (2020) also note: 5e-8 in `balance_error` 0.001
+  radii from the interface of a layered magnetic sphere. The radiative rate is unaffected.
+* The magnetic-dipole results (M4) are validated by energy balance and by high-precision
+  transfer matrices (`tests/references.layered_decay_rates`); OSAC does not publish them.
 * Running STRATIFY in Octave needed small shims for `rmmissing` and `max(...,'all')` (at
   `8800f0d`, `tests/octave_compat/`); they reproduce MATLAB semantics for the arrays used.
-* The papers Majic & Le Ru (2020), Zhang (2025) and Ladutenko et al. (2017) were consulted
-  through their abstracts. The formulation here is derived independently and verified
-  numerically, not transcribed from them.
+* Majic & Le Ru (2020) was read in full; its decay-rate series (Eqs. 34–37), summed in mpmath,
+  are a test reference. Zhang (2025) and Ladutenko et al. (2017) were consulted through their
+  abstracts. The formulation here is derived independently and verified numerically, not
+  transcribed from them. `benchmarks/RESULTS.md` also covers the cases of Wu & Wang (1991),
+  Wu et al. (1997) and Yuan, Zhu & Zhu (2023, 2024), whose renormalised and asymptotic
+  formulations solve the same over/underflow problem that the logarithmic representation here
+  avoids; the asymptotic formulas of the 2024 paper are approximations (errors of 2–28 % at the
+  switching threshold, their Table 3), so they are not used.

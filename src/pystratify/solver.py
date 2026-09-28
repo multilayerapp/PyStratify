@@ -200,7 +200,7 @@ def _side(x, log_psi, log_xi, orders):
     return lp, lx, r, big_x, d1, d3
 
 
-def solve(radii, n, wavelength, mu=None, l_max=None, sheets=None) -> Solution:
+def solve(radii, n, wavelength, mu=None, l_max=None, sheets=None, regime="far") -> Solution:
     """Solve the multilayered sphere for multipole orders l = 1..l_max.
 
     Parameters
@@ -209,10 +209,13 @@ def solve(radii, n, wavelength, mu=None, l_max=None, sheets=None) -> Solution:
     n : (N + 1,) or (W, N + 1) complex refractive indices, host last.
     wavelength : scalar or (W,) vacuum wavelength(s), same unit as ``radii``.
     mu : like ``n``, relative permeabilities (default 1).
-    l_max : truncation order; default :func:`truncation_order` (Wiscombe) for
-        the shortest wavelength.
+    l_max : truncation order; default :func:`truncation_order` for the
+        shortest wavelength and ``regime``.
     sheets : 2D materials at interfaces, ``{j: Sheet(...)}`` or ``{j: conductivity}``
         with j the interface index (0 = surface of the core); see :mod:`pystratify.sheets`.
+    regime : ``'far'`` (cross sections, far field, fields away from the
+        surface; Wiscombe) or ``'near'`` (fields at the surface; Allardice &
+        Le Ru), used only when ``l_max`` is None.
 
     Vectorised over wavelengths and orders; Python loops only over interfaces.
     """
@@ -224,7 +227,7 @@ def solve(radii, n, wavelength, mu=None, l_max=None, sheets=None) -> Solution:
     N = radii.size
     n, mu, wavelength = _batch(n, mu, wavelength, N + 1)
     if l_max is None:
-        l_max = max(truncation_order(radii[-1], abs(v), lam) for v, lam in zip(n[:, -1], wavelength))
+        l_max = max(truncation_order(radii[-1], abs(v), lam, regime) for v, lam in zip(n[:, -1], wavelength))
     l_max = int(l_max)
     if l_max < 1:
         raise ValueError("l_max must be >= 1")
