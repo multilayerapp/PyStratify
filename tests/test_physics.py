@@ -191,11 +191,60 @@ def test_partial_waves_add_up_to_the_field():
         assert np.allclose(scattered.e[c][inside], every.e[c][inside], rtol=1e-12, atol=1e-14)
 
 
+def test_partial_waves_of_the_far_field_add_up_in_amplitude():
+    """Chosen partial waves of the scattering amplitudes add up amplitude by amplitude (their
+    |S|^2 carries the interference), and an electric dipole alone has the dipole's pattern:
+    S_per flat, S_par = S_per cos(theta)."""
+    S = _sol([40.0, 50.0], [1.45, AU, 1.33])
+    theta = np.linspace(0, np.pi, 37)
+    full = ps.scattering_amplitudes(S, theta)
+    low, high = ps.scattering_amplitudes(S, theta, orders=[1, 2, 3]), ps.scattering_amplitudes(S, theta, orders=range(4, 21))
+    tm, te = ps.scattering_amplitudes(S, theta, polarisations=ps.TM), ps.scattering_amplitudes(S, theta, polarisations=ps.TE)
+    for i in range(2):
+        scale = np.abs(full[i]).max()
+        assert np.allclose(low[i] + high[i], full[i], rtol=1e-12, atol=1e-14 * scale)
+        assert np.allclose(tm[i] + te[i], full[i], rtol=1e-12, atol=1e-14 * scale)
+    par, per = ps.scattering_amplitudes(S, theta, orders=[1], polarisations=ps.TM)
+    assert np.allclose(per, per[:, :1], rtol=1e-12)
+    assert np.allclose(par, per * np.cos(theta), rtol=1e-12, atol=1e-14 * np.abs(per).max())
+
+
+def test_partial_waves_of_the_energy_add_up():
+    """Over a sphere the partial waves do not interfere: the averaged intensities and the stored
+    energy of disjoint selections add up, and every order together is the whole -- inside the
+    particle exactly, in the host once the incident series has converged (k r ~ 1 here)."""
+    S = _sol([40.0, 50.0], [1.45, AU, 1.33])
+    r = np.array([10.0, 39.0, 45.0, 55.0, 80.0])
+    full = ps.energy_density(S, r)
+    every = ps.energy_density(S, r, orders=range(1, 21))
+    low, high = ps.energy_density(S, r, orders=[1, 2, 3]), ps.energy_density(S, r, orders=range(4, 21))
+    tm, te = ps.energy_density(S, r, polarisations=ps.TM), ps.energy_density(S, r, polarisations=[ps.TE])
+    for f in ("intensity_e", "intensity_h", "density_e", "density_h"):
+        whole = getattr(every, f)
+        assert np.allclose(getattr(low, f) + getattr(high, f), whole, rtol=1e-12)
+        assert np.allclose(getattr(tm, f) + getattr(te, f), whole, rtol=1e-12)
+        assert np.allclose(whole, getattr(full, f), rtol=1e-9)
+    stored = ps.shell_energy(S)
+    parts = [ps.shell_energy(S, orders=[l], polarisations=p) for l in range(1, 21) for p in (ps.TM, ps.TE)]
+    for f in ("electric", "magnetic", "total"):
+        assert np.allclose(sum(getattr(part, f) for part in parts), getattr(stored, f), rtol=1e-10)
+    dipole = {"orders": [1], "polarisations": ps.TM}
+    lommel, quadrature = ps.shell_energy(S, method="lommel", **dipole), ps.shell_energy(S, method="quadrature", **dipole)
+    assert np.allclose(lommel.electric, quadrature.electric, rtol=1e-6)
+    assert np.allclose(lommel.magnetic, quadrature.magnetic, rtol=1e-6)
+
+
 def test_partial_wave_selection_is_validated():
     S = _sol([50.0], [AU, 1.33], L=6)
     for bad in ({"orders": [0, 1]}, {"orders": [7]}, {"orders": []}, {"polarisations": ()}, {"polarisations": [2]}):
         with pytest.raises(ValueError):
             ps.near_field(S, 60.0, 0.0, 0.0, **bad)
+        with pytest.raises(ValueError):
+            ps.scattering_amplitudes(S, [0.0, 1.0], **bad)
+        with pytest.raises(ValueError):
+            ps.energy_density(S, [60.0], **bad)
+        with pytest.raises(ValueError):
+            ps.shell_energy(S, **bad)
 
 
 def test_near_regime_truncation_for_surface_fields():

@@ -24,7 +24,7 @@ import numpy as np
 from .drude import DRUDE, DrudeModel
 from .nearfield import radial_functions
 from .riccati import log_riccati
-from .solver import TE, TM, Solution
+from .solver import TE, TM, Solution, _partial_waves
 
 __all__ = [
     "electric_prefactor",
@@ -107,13 +107,18 @@ class EnergyDensity:
         return total / 2 if self.normalized else total
 
 
-def _intensities(sol: Solution, w: int, r):
+def _intensities(sol: Solution, w: int, r, kept=None):
     """<|E|^2> and <|H|^2> over the sphere of radius r, per point.
 
     In the host the incident part of every term is taken out and its exact
     sum (1) added back: the remaining terms |f_s|^2 + 2 Re(f_i* f_s) decay
     with the scattering coefficients, whereas the incident series alone needs
-    l ~ k r orders.
+    l ~ k r orders.  ``kept`` (weights (2, L), see ``_partial_waves``) keeps
+    chosen partial waves: each then carries its incident terms, summed.
+
+    Averaged over the sphere, the vector spherical harmonics are orthogonal:
+    each order and polarisation adds its own term, and there is no
+    interference between them -- the selections add up.
     """
     l = sol.orders
     offsets = (-1, 0, 1)
@@ -121,7 +126,7 @@ def _intensities(sol: Solution, w: int, r):
     sq = {p: [np.abs(f) ** 2 for f in fs] for p, fs in functions.items()}
     host = shell == sol.n_shells
     baseline = np.zeros(r.shape)
-    if host.any():
+    if host.any() and kept is None:
         scattered, _, _ = radial_functions(
             sol, w, r[host], offsets=offsets, with_incident=False, host_scattered_only=True
         )
@@ -130,24 +135,30 @@ def _intensities(sol: Solution, w: int, r):
                 f_i = f[host] - f_s
                 s2[host] = np.abs(f_s) ** 2 + 2 * np.real(np.conj(f_i) * f_s)
         baseline[host] = 1.0
+    tm, te = (1.0, 1.0) if kept is None else (kept[TM], kept[TE])
     fe_prev, fe, fe_next = sq[TM]
     fm_prev, fm, fm_next = sq[TE]
-    i_e = baseline + ((2 * l + 1) * fm + (l + 1) * fe_prev + l * fe_next).sum(axis=1) / 2
-    i_h = baseline + ((2 * l + 1) * fe + (l + 1) * fm_prev + l * fm_next).sum(axis=1) / 2
+    i_e = baseline + (te * (2 * l + 1) * fm + tm * ((l + 1) * fe_prev + l * fe_next)).sum(axis=1) / 2
+    i_h = baseline + (tm * (2 * l + 1) * fe + te * ((l + 1) * fm_prev + l * fm_next)).sum(axis=1) / 2
     eps = sol.n[w] ** 2 / sol.mu[w]
     return i_e, i_h * (np.abs(eps) / np.abs(sol.mu[w]))[shell], shell
 
 
-def energy_density(sol: Solution, r, prefactors=None, wavelength_index: int = 0, normalize=True) -> EnergyDensity:
+def energy_density(
+    sol: Solution, r, prefactors=None, wavelength_index: int = 0, normalize=True, orders=None, polarisations=(TM, TE)
+) -> EnergyDensity:
     """Energy density and averaged intensities at radii ``r``.
 
     ``prefactors = (G_e, G_m)`` per shell (default: non-dispersive).  Points
     on an interface belong to the outer shell; r = 0 is evaluated at 1e-9 R_0.
+    ``orders`` and ``polarisations`` keep only those partial waves, as in
+    :func:`near_field` (in the host with their incident terms, summed); over a
+    sphere the partial waves do not interfere, so disjoint selections add up.
     """
     w = wavelength_index
     r = np.maximum(np.atleast_1d(np.asarray(r, dtype=float)), 1e-9 * sol.radii[0])
     g_e, g_m = prefactors if prefactors is not None else _default_prefactors(sol, w)
-    i_e, i_h, shell = _intensities(sol, w, r)
+    i_e, i_h, shell = _intensities(sol, w, r, _partial_waves(sol.orders, orders, polarisations))
     d_e = np.pi * np.asarray(g_e)[shell] * i_e
     d_h = np.pi * np.asarray(g_m)[shell] * i_h
     if normalize:
@@ -183,9 +194,10 @@ def _boundary_functions(sol, w, s, radius, polarisation):
         return {o: (np.exp(la + log_psi[0, l + o]) + np.exp(lb + log_xi[0, l + o])) / x for o in (-1, 0, 1, 2)}, x
 
 
-def _lommel(sol, w, s, radius, lossy):
+def _lommel(sol, w, s, radius, lossy, kept=None):
     """Closed-form radial integrals at one boundary: (electric, magnetic)."""
     l = sol.orders
+    tm, te = (1.0, 1.0) if kept is None else (kept[TM], kept[TE])
     fe, x = _boundary_functions(sol, w, s, radius, TM)
     fm, _ = _boundary_functions(sol, w, s, radius, TE)
 
@@ -196,32 +208,41 @@ def _lommel(sol, w, s, radius, lossy):
         nu = l + o - 1
         return x * (np.abs(fa) ** 2 + np.abs(fb) ** 2) - (2 * nu + 1) * np.real(np.conj(fa) * fb)
 
-    e = np.sum((2 * l + 1) * pair(fm, 1) + (l + 1) * pair(fe, 0) + l * pair(fe, 2))
-    m = np.sum((2 * l + 1) * pair(fe, 1) + (l + 1) * pair(fm, 0) + l * pair(fm, 2))
+    e = np.sum(te * (2 * l + 1) * pair(fm, 1) + tm * ((l + 1) * pair(fe, 0) + l * pair(fe, 2)))
+    m = np.sum(tm * (2 * l + 1) * pair(fe, 1) + te * ((l + 1) * pair(fm, 0) + l * pair(fm, 2)))
     den = (x**2 - np.conj(x) ** 2) if lossy else 2 * x
     return 0.5 * radius**3 * e / den, 0.5 * radius**3 * m / den
 
 
-def _quadrature(sol, w, s, r_in, r_out, nodes=None):
+def _quadrature(sol, w, s, r_in, r_out, nodes=None, kept=None):
     """int <|E|^2> r^2 dr and int <|H|^2> r^2 dr over shell s."""
     nodes = nodes or int(max(64, sol.orders.size + 48, 6 * abs(sol.k[w, s]) * (r_out - r_in)))
     t, wt = gauss_legendre(nodes)
     half = 0.5 * (r_out - r_in)
     r = half * t + 0.5 * (r_out + r_in)
-    i_e, i_h, _ = _intensities(sol, w, r)
+    i_e, i_h, _ = _intensities(sol, w, r, kept)
     return np.sum(half * wt * i_e * r**2), np.sum(half * wt * i_h * r**2)
 
 
 def shell_energy(
-    sol: Solution, prefactors=None, wavelength_index: int = 0, normalize=True, method="auto"
+    sol: Solution,
+    prefactors=None,
+    wavelength_index: int = 0,
+    normalize=True,
+    method="auto",
+    orders=None,
+    polarisations=(TM, TE),
 ) -> ShellEnergy:
     """Electric and magnetic energy stored in each shell.
 
     ``method``: ``'auto'`` (closed form where well conditioned, quadrature for
     weak loss), ``'lommel'`` or ``'quadrature'`` (for cross-checks).
+    ``orders`` and ``polarisations`` keep only those partial waves; as for the
+    density, disjoint selections add up.
     """
     if method not in ("auto", "lommel", "quadrature"):
         raise ValueError("method must be 'auto', 'lommel' or 'quadrature'")
+    kept = _partial_waves(sol.orders, orders, polarisations)
     w = wavelength_index
     g_e, g_m = prefactors if prefactors is not None else _default_prefactors(sol, w)
     radii = sol.radii
@@ -235,12 +256,12 @@ def shell_energy(
         weak = k.imag != 0 and abs(k.imag) < WEAK_LOSS * abs(k)
         how = method if method != "auto" else ("quadrature" if weak else "lommel")
         if how == "quadrature":
-            e, m = _quadrature(sol, w, s, r_in, radii[s])
+            e, m = _quadrature(sol, w, s, r_in, radii[s], kept=kept)
             electric[s], magnetic[s] = e * g_e[s], m * g_m[s]  # intensity_h already carries |eps|/|mu|
         else:
             lossy = k.imag != 0
-            outer = _lommel(sol, w, s, radii[s], lossy)
-            inner = _lommel(sol, w, s, r_in, lossy) if r_in > 0 else (0.0, 0.0)
+            outer = _lommel(sol, w, s, radii[s], lossy, kept)
+            inner = _lommel(sol, w, s, r_in, lossy, kept) if r_in > 0 else (0.0, 0.0)
             electric[s] = np.real(outer[0] - inner[0]) * g_e[s]
             magnetic[s] = np.real(outer[1] - inner[1]) * g_m[s] * eps_over_mu[s]
         used.append(how)

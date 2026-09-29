@@ -27,7 +27,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .solver import Solution
+from .solver import TE, TM, Solution, _partial_waves
 
 __all__ = [
     "CrossSections",
@@ -133,18 +133,25 @@ def angular_functions(orders, theta):
     return pi[orders], tau[orders]
 
 
-def scattering_amplitudes(sol: Solution, theta):
+def scattering_amplitudes(sol: Solution, theta, orders=None, polarisations=(TM, TE)):
     """Scattering amplitudes (S_par, S_per), each of shape ``(W, len(theta))``.
 
     S_par = -S2 and S_per = -S1 in Bohren & Huffman's notation, the convention
     of Rasskazov, Carney & Moroz (2020); intensities and Stokes parameters are
     unaffected by the sign.  :func:`amplitude_matrix` gives S1..S4 themselves.
+
+    ``orders`` and ``polarisations`` (:data:`TM`, the electric multipoles a_l;
+    :data:`TE`, the magnetic b_l) keep only those partial waves, as in
+    :func:`near_field`: the far field of disjoint selections adds up amplitude
+    by amplitude, not in |S|^2, which carries their interference.
     """
     _achiral(sol, "scattering_amplitudes")
     l = sol.orders
     pi, tau = angular_functions(l, theta)
     weight = (2 * l + 1) / (l * (l + 1))
-    a, b = sol.a * weight, sol.b * weight
+    kept = _partial_waves(l, orders, polarisations)
+    tm, te = (1.0, 1.0) if kept is None else (kept[TM], kept[TE])
+    a, b = sol.a * weight * tm, sol.b * weight * te
     return -(a @ tau + b @ pi), -(a @ pi + b @ tau)
 
 

@@ -25,7 +25,7 @@ import numpy as np
 
 from .farfield import angular_functions
 from .riccati import log_riccati
-from .solver import TE, TM, Solution
+from .solver import TE, TM, Solution, _partial_waves
 
 __all__ = ["NearField", "near_field", "radial_functions"]
 
@@ -87,21 +87,6 @@ def radial_functions(
             lb = sol.log_b[p, shell, wavelength_index] + incident
             out[p] = [(np.exp(la + log_psi[:, l + o]) + np.exp(lb + log_xi[:, l + o])) / x[:, None] for o in offsets]
     return out, x, shell
-
-
-def _partial_waves(available, orders, polarisations):
-    """Weights (2, L) of the kept partial waves, or None when every one is kept."""
-    kept = set(np.atleast_1d(polarisations).tolist())
-    if not kept or not kept <= {TM, TE}:
-        raise ValueError("polarisations must name TM and/or TE")
-    if orders is None and kept == {TM, TE}:
-        return None
-    wanted = available if orders is None else np.unique(np.asarray(orders, dtype=int).ravel())
-    if wanted.size == 0 or wanted[0] < 1 or wanted[-1] > available[-1]:
-        raise ValueError(f"orders must lie in 1..{available[-1]}, the Solution's orders")
-    weights = np.zeros((2, available.size))
-    weights[sorted(kept)] = np.isin(available, wanted)
-    return weights
 
 
 def near_field(

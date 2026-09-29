@@ -14,7 +14,7 @@ the MATLAB code are fixed ([AUDIT.md](AUDIT.md)).
 |---|---|
 | solution of the sphere, batched over wavelengths | `solve` → `Solution` |
 | scattering / absorption / extinction, per multipole | `cross_sections` |
-| angular scattering amplitudes | `scattering_amplitudes` |
+| angular scattering amplitudes, whole or of chosen partial waves | `scattering_amplitudes`, `scattering_amplitudes(..., orders=, polarisations=)` |
 | amplitude and Mueller matrices (S1..S4, 4 × 4) | `amplitude_matrix`, `mueller_matrix` |
 | scattering pattern for any polarisation: dσ/dΩ, directivity, Stokes, helicity | `scattering_pattern` → `ScatteringPattern` |
 | cross sections and circular dichroism for both helicities | `helicity_cross_sections` |
@@ -22,8 +22,8 @@ the MATLAB code are fixed ([AUDIT.md](AUDIT.md)).
 | chiral emitters (coherent p + m), random or in-plane orientation averages, helicity-resolved power and g_lum | `dipole_far_field(..., magnetic_moment=, orientation=)`, `source_covariance` |
 | chiral (Pasteur) shells: T-matrix with TM–TE coupling | `solve_chiral` → `ChiralSolution` |
 | E and H near fields, whole or of chosen partial waves (orders; electric, magnetic) | `near_field`, `near_field(..., orders=, polarisations=)` |
-| orientation-averaged intensities and energy density | `energy_density` |
-| energy stored in each shell | `shell_energy` |
+| orientation-averaged intensities and energy density, whole or of chosen partial waves | `energy_density`, `energy_density(..., orders=, polarisations=)` |
+| energy stored in each shell, whole or of chosen partial waves | `shell_energy`, `shell_energy(..., orders=, polarisations=)` |
 | energy prefactors (Loudon, for Drude metals) | `electric_prefactor`, `energy_prefactors` |
 | radiative / nonradiative / total decay rates, radial and tangential dipoles | `decay_rates` → `DecayRates` |
 | decay rates of any source (p, m, quadrupole Q; fixed or orientation-averaged) in any lossless layer, chiral included: total (Purcell), radiative per helicity, absorbed per layer and per sheet | `emission_rates` → `EmissionRates` |
@@ -238,6 +238,10 @@ from a metal needs l ≈ 500–1000. PyStratify keeps the physics and changes th
   scattered field alone. A partial-wave field, `near_field(..., orders=, polarisations=)`, is the
   exception: it sums the incident wave's own terms of those orders, which is what such a field is,
   so that disjoint selections add up to their union and all orders together to the field itself.
+  `energy_density` and `shell_energy` take the same selection; averaged over a sphere the partial
+  waves do not interfere, so there the selections add up in energy, not only in field.
+  `scattering_amplitudes(..., orders=, polarisations=)` keeps chosen partial waves of the far
+  field: their amplitudes add up, their |S|² does not.
 * **Vectorised.** `solve` takes a whole spectrum at once (array operations over wavelength ×
   order; Python loops only over interfaces). Near fields and energy densities evaluate the
   special functions once per distinct kr for both polarisations.
@@ -321,7 +325,8 @@ pytest
   emitters inside and outside metal shells, against high-precision transfer matrices, closed-form
   against quadrature Ohmic loss, magnetic-dipole rates against transfer matrices (including
   μ ≠ 1 and magnetically lossy shells), and energy conservation of decay rates for electric and
-  magnetic dipoles, up to 17000 orders.
+  magnetic dipoles, up to 17000 orders. Partial-wave selections of the near field, the far field
+  and the energy add up to the whole, and an electric dipole alone has the dipole's pattern.
 * `test_farfield.py`: the amplitude matrix against textbook Mie with independently computed
   angular functions, the pattern as the far-zone limit of the near field (residual falling as
   1/kr), Bohren & Huffman's backscattering value, Mueller-matrix identities, directivity and
@@ -360,6 +365,17 @@ pytest
 
 `pystratify.references` holds the independent references (mpmath Mie decay rates and extinction,
 layered-sphere decay rates from transfer matrices, BHMIE); nothing in it shares code with the package.
+
+## Citing
+
+PyStratify implements the method of STRATIFY; please cite the paper,
+
+> I. L. Rasskazov, P. S. Carney and A. Moroz, "STRATIFY: a comprehensive and versatile MATLAB code
+> for a multilayered sphere," *OSA Continuum* **3**, 2290 (2020),
+> [doi:10.1364/OSAC.399979](https://doi.org/10.1364/OSAC.399979),
+
+and this repository at the version you used ([CITATION.cff](CITATION.cff)). Defects of the
+MATLAB code that PyStratify does not share are listed in [AUDIT.md](AUDIT.md).
 
 ## Licence
 

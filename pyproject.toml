@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pystratify"
-version = "0.6.0"
+version = "0.7.0"
 description = "Light scattering by multilayered spheres, after the recursive transfer-matrix method of STRATIFY"
 readme = "README.md"
 license = "GPL-3.0-or-later"

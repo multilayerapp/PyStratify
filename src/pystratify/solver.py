@@ -47,6 +47,23 @@ __all__ = ["Solution", "solve", "TM", "TE"]
 TM, TE = 0, 1
 
 
+def _partial_waves(available, orders, polarisations):
+    """Weights (2, L) of the kept partial waves, or None when every one is kept: the
+    ``orders=`` and ``polarisations=`` of the near field, the scattering amplitudes and
+    the energy."""
+    kept = set(np.atleast_1d(polarisations).tolist())
+    if not kept or not kept <= {TM, TE}:
+        raise ValueError("polarisations must name TM and/or TE")
+    if orders is None and kept == {TM, TE}:
+        return None
+    wanted = available if orders is None else np.unique(np.asarray(orders, dtype=int).ravel())
+    if wanted.size == 0 or wanted[0] < 1 or wanted[-1] > available[-1]:
+        raise ValueError(f"orders must lie in 1..{available[-1]}, the Solution's orders")
+    weights = np.zeros((2, available.size))
+    weights[sorted(kept)] = np.isin(available, wanted)
+    return weights
+
+
 def _log(a):
     with np.errstate(divide="ignore", invalid="ignore"):
         return np.log(a)
