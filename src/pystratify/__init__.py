@@ -45,7 +45,7 @@ from .sheets import Sheet, graphene_conductivity
 from .riccati import log_riccati
 from .solver import TE, TM, Solution, solve
 
-__version__ = "0.7.0"
+__version__ = "0.7.1"
 
 __all__ = [
     "solve",
