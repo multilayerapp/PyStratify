@@ -312,7 +312,8 @@ pytest
 
 * `test_normalized.py`: the normalized formulation (`normalized.py`: ψ'/ψ, ψξ and normalized j̄ only,
   reflection ratios swept outwards and inwards) against the solver, extended precision and the
-  unnormalized formulas.
+  unnormalized formulas, including emitters and interfaces at real zeros of ψ_l, the small real
+  part Re ψξ = ψ² and strongly amplifying shells.
 * `test_riccati.py`: special functions against mpmath in every regime above, and the
   Wronskian for |x| up to 8·10⁴.
 * `test_solver.py`: coefficients against 60-digit transfer matrices (including a 1-nm film,

@@ -4,10 +4,13 @@ Every per-order term is an explicit geometric factor times quantities of order
 unity built from three auxiliary functions of a single argument z,
 
     A_l(z) = psi_l'/psi_l                        (downward recurrence),
-    P_l(z) = psi_l xi_l = -i z jbar_l hbar_l/(2l+1)   (upward product recurrence, Yang 2003),
+    P_l(z) = psi_l xi_l = -i z jbar_l hbar_l/(2l+1) = i/(B_l - A_l),
     jbar_l(z) = (2l+1)!! j_l(z) / z^l            (from consecutive ratios, as a logarithm),
 
-with B_l = A_l + i/P_l.  The shell structure enters through the local
+with B_l = xi_l'/xi_l from its own upward recurrence.  P_l is formed order by
+order, so no product runs through a real zero of psi_l, and the ratios of jbar
+reuse the sums A_l + l/z rounded in the recurrence for A, so that P/jbar stays
+exact at such a zero (see :func:`auxiliary`).  The shell structure enters through the local
 reflection ratios rho = R xi/psi (swept outwards) and sigma = S psi/xi (swept
 inwards), carried across a shell by the propagator
 
@@ -45,6 +48,8 @@ __all__ = ["auxiliary", "log_double_factorial", "NormalizedRates", "normalized_d
 
 #: extra orders above max(L, |z|) at which the downward recurrence for A_l starts
 _A_HEADROOM = 20
+#: for Im z <= -_GAIN_SWITCH (strongly amplifying media) B_l is not recurred upwards (see auxiliary)
+_GAIN_SWITCH = 1.0
 
 
 def log_double_factorial(l):
@@ -56,33 +61,58 @@ def log_double_factorial(l):
 def auxiliary(z, L):
     """A_l, B_l, P_l and ln jbar_l for l = 0..L at the complex argument z (arrays of length L+1).
 
-    ``A``: downward recurrence A_{l-1} = l/z - 1/(A_l + l/z) from A = 0 at
-    l = max(L, |z|) + 20 (Lentz 1976, Wiscombe 1980).  ``P``, ``B``: upward
-    product recurrence P_l = P_{l-1} (l/z - A_{l-1})(l/z - B_{l-1}),
-    P_0 = (1 - exp(2iz))/2, B_0 = i, B_l = A_l + i/P_l.  ``log_jbar``:
-    jbar_l/jbar_{l-1} = (2l+1)/(z A_l + l), jbar_0 = sin z / z.
+    ``A``: downward recurrence A_{l-1} = l/z - 1/s_l, s_l = A_l + l/z = psi_{l-1}/psi_l,
+    from A = 0 at l = max(L, |z|) + 20 (Lentz 1976, Wiscombe 1980).
+
+    ``B``, ``P``: B_l = 1/(l/z - B_{l-1}) - l/z upwards from B_0 = i (xi has no zeros)
+    and P_l = i/(B_l - A_l) (Wronskian psi xi' - psi' xi = i), one order at a time.  A
+    product recurrence for P (Yang 2003) is a 0*inf form at a real zero of psi_{l-1},
+    whose small and large factors are rounded independently; here no product runs
+    through a zero, the cancellation of l/z - A_{l-1} for l >> |z| never occurs, and for
+    real z the small real part psi_l^2 = Im B_l/|B_l - A_l|^2 is a ratio of positive
+    factors.  In strongly amplifying media (Im z <= -1) the forward recurrence of B is
+    unstable, but psi has no zero within distance 1 of z: there P_l = P_{l-1} r_l
+    (r_l - i/P_{l-1}), r_l = 1/s_l, P_0 = (1 - exp(2iz))/2, and B_l = A_l + i/P_l.
+
+    ``log_jbar``: jbar_l/jbar_{l-1} = (2l+1)/(z s_l) with the very s_l rounded in the
+    recurrence for A, from jbar_0 = sin z/z, or from psi_0 = s_1 psi_1 when |s_1| < 1
+    (z near a zero of sin z).  At a real zero of psi_l the large ratio of order l + 1
+    then divides by the same rounded s_{l+1} that made jbar_l small, as P_l ~ i s_{l+1}
+    is, so jbar stays accurate and P/jbar exact.
     """
     z = complex(z)
     if z == 0:
         raise ValueError("argument 0")
     top = L + _A_HEADROOM + int(abs(z))
     A = np.empty(top + 1, complex)
+    s = np.empty(top + 1, complex)  # s_l = A_l + l/z, exactly as rounded in the recurrence
     A[top] = 0.0
     for l in range(top, 0, -1):
-        A[l - 1] = l / z - 1 / (A[l] + l / z)
-    A = A[: L + 1]
-    P = np.empty(L + 1, complex)
+        s[l] = A[l] + l / z
+        A[l - 1] = l / z - 1 / s[l]
+    A, s = A[: L + 1], s[: L + 1]
     B = np.empty(L + 1, complex)
-    P[0] = (1 - np.exp(2j * z)) / 2
     B[0] = 1j
-    for l in range(1, L + 1):
-        P[l] = P[l - 1] * (l / z - A[l - 1]) * (l / z - B[l - 1])
-        B[l] = A[l] + 1j / P[l]
+    if z.imag > -_GAIN_SWITCH:
+        for l in range(1, L + 1):
+            B[l] = 1 / (l / z - B[l - 1]) - l / z
+        with np.errstate(divide="ignore", invalid="ignore"):
+            P = 1j / (B - A)
+    else:
+        P = np.empty(L + 1, complex)
+        P[0] = (1 - np.exp(2j * z)) / 2
+        for l in range(1, L + 1):
+            r = 1 / s[l]  # psi_l/psi_{l-1}
+            P[l] = P[l - 1] * r * (r - 1j / P[l - 1])  # l/z - B_{l-1} = r - i/P_{l-1}
+            B[l] = A[l] + 1j / P[l]
     l = np.arange(1, L + 1)
     m = abs(z.imag)
     with np.errstate(divide="ignore", invalid="ignore"):
-        log_j0 = m + np.log((np.exp(1j * z - m) - np.exp(-1j * z - m)) / 2j) - np.log(z)
-        log_jbar = np.r_[log_j0, log_j0 + np.cumsum(np.log((2 * l + 1) / (z * A[1:] + l)))]
+        if L >= 1 and m < 1 and abs(s[1]) < 1:  # near a zero of sin z: psi_0 = s_1 psi_1
+            log_j0 = np.log(s[1] * (np.sin(z) / z - np.cos(z)) / z)
+        else:
+            log_j0 = m + np.log((np.exp(1j * z - m) - np.exp(-1j * z - m)) / 2j) - np.log(z)
+        log_jbar = np.r_[log_j0, log_j0 + np.cumsum(np.log((2 * l + 1) / (z * s[1:])))]
     return A, B, P, log_jbar
 
 
