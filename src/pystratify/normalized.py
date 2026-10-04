@@ -391,6 +391,198 @@ class _Sweep:
         return out
 
 
+#: helicity (W_+, W_-) amplitudes -> (TM, TE) = (a_+ - a_-, a_+ + a_-), W_s = M + s N
+_HEL_TO_TT = np.array([[1.0, -1.0], [1.0, 1.0]])
+_TT_TO_HEL = np.linalg.inv(_HEL_TO_TT)
+
+
+class _ChiralSweep:
+    """The emitter-independent part of the formulation for spheres with chiral (Pasteur) layers.
+
+    Per order, the regular and outgoing solutions are 2x2 matrices, rho = Xi R Psi^-1 and
+    sigma = Psi S Xi^-1 (Psi, Xi = diag over the helicity channels of a layer, k_s = k0 (n + s kappa)),
+    carried in the (TM, TE) basis, where the small TE parts stay apart from the TM ones.  Across a
+    layer element (c, e) of rho (helicity basis) gains [xi_c(b)/xi_c(a)][psi_e(a)/psi_e(b)], the
+    geometric factor (r_a/r_b)^(2l+2) times ratios of P and jbar at k_c r and k_e r (a scalar factor
+    in achiral layers).  With u = (1 + rho) a, u' = (A + B rho) a, the matching u~ = Cv u, u~' = Cd u'
+    (Cv = X~ C_v X^-1, Cd = X~ C_d X^-1, C_v and C_d of :mod:`pystratify.chiral`) gives
+
+        rho' = Lambda^-1 (a + b rho)(c + d rho)^-1 Lambda,      sigma = (sig~ a - c)^-1 (d - sig~ b),
+        a = Cd A - A~ Cv,  b = Cd B - A~ Cv,  c = B~ Cv - Cd A,  d = B~ Cv - Cd B,
+
+    sig~ = Lambda sigma' Lambda^-1 and Lambda = B~ - A~ = diag(i/P~), and the outgoing amplitudes
+    b~ = Lambda^-1 (b + a sigma) b.  The mismatches a and d are written as (l+1) E X^-1 and l E X^-1
+    plus differences of the small ratios r = psi_(l+1)/psi_l and X = xi_(l-1)/xi_l, with the contrast
+    matrix E = X~ C_d X^-1 - C_v in closed form in the (TM, TE) basis (exactly zero for identical media,
+    and its TE element exactly zero between achiral nonmagnetic media).  The emitter must be in an
+    achiral lossless shell.
+    """
+
+    def __init__(self, radii, n, kappa, mu, k0, L):
+        from .chiral import _inv2
+
+        self.radii, self.n, self.kappa, self.mu, self.k0, self.L = radii, n, kappa, mu, k0, L
+        N = radii.size
+        l = np.arange(1, L + 1)
+        self.l = l
+        self._inv2 = _inv2
+        sign = np.array([1.0, -1.0])
+        kc = k0 * (n[:, None] + sign * kappa[:, None])  # (N + 1, 2)
+        self.kc = kc
+        cache = {}
+
+        def aux(z):
+            key = complex(z)
+            if key not in cache:
+                cache[key] = auxiliary(z, L + 1)
+            return cache[key]
+
+        self.inner = [[aux(kc[j, c] * radii[j]) for c in (0, 1)] for j in range(N)]
+        self.outer = [[aux(kc[j + 1, c] * radii[j]) for c in (0, 1)] for j in range(N)]
+        H, Hi = _HEL_TO_TT, _TT_TO_HEL
+        self.coef, self.lam, self.lam_inv = [], [], []
+        for j in range(N):
+            x, xt = kc[j] * radii[j], kc[j + 1] * radii[j]  # (2,) helicity arguments
+            ai, ao = self.inner[j], self.outer[j]
+            A = np.stack([ai[c][0][l] for c in (0, 1)], -1)  # (L, 2)
+            B = np.stack([ai[c][1][l] for c in (0, 1)], -1)
+            At = np.stack([ao[c][0][l] for c in (0, 1)], -1)
+            Bt = np.stack([ao[c][1][l] for c in (0, 1)], -1)
+            r = np.stack([1 / (ai[c][0][l + 1] + (l + 1) / x[c]) for c in (0, 1)], -1)
+            rt = np.stack([1 / (ao[c][0][l + 1] + (l + 1) / xt[c]) for c in (0, 1)], -1)
+            Xr = np.stack([1 / (l / x[c] - ai[c][1][l - 1]) for c in (0, 1)], -1)
+            Xrt = np.stack([1 / (l / xt[c] - ao[c][1][l - 1]) for c in (0, 1)], -1)
+            n1, n2, k1, k2, m1, m2 = n[j], n[j + 1], kappa[j], kappa[j + 1], mu[j], mu[j + 1]
+            z = m2 * n1 / (m1 * n2)
+            cv = np.array([[1 + z, 1 - z], [1 - z, 1 + z]]) / 2
+            cd = np.array([[1 + z, z - 1], [z - 1, 1 + z]]) / 2
+            ratio = xt[:, None] / x[None, :]  # x~_c / x_e
+            Cv, Cd = cv * ratio, cd * ratio  # (2, 2)
+            # contrast matrix E = X~ C_d X^-1 - C_v in the (TM, TE) basis, from the material differences
+            D = n1 * n1 - k1 * k1
+            e_tm = (n1 * (m1 * (n2 - n1) * (n2 + n1) + n1 * n1 * (m1 - m2)) / (m1 * n2) + z * k1 * (k1 - k2)) / D
+            e_te = (n1 * n1 * (m2 - m1) / m1 + k1 * (k1 - k2)) / D
+            E = np.array([[e_tm, (z * k2 * n1 - n2 * k1) / D], [k2 * n1 - z * n2 * k1, e_te]])
+            E[1, 0] = E[1, 0] / D
+            xinv = H @ np.diag(1 / x) @ Hi  # X^-1 in the (TM, TE) basis
+            diag = lambda v: v[:, :, None] * np.eye(2)  # noqa: E731  (L, 2) -> (L, 2, 2)
+            small_a = -Cd[None] * r[:, None, :] + rt[:, :, None] * Cv[None]  # -Cd r + r~ Cv (helicity)
+            small_d = Xrt[:, :, None] * Cv[None] - Cd[None] * Xr[:, None, :]  # X~r Cv - Cd Xr
+            a = (l + 1)[:, None, None] * (E @ xinv) + H @ small_a @ Hi
+            d = l[:, None, None] * (E @ xinv) + H @ small_d @ Hi
+            b = H @ (Cd[None] * B[:, None, :] - At[:, :, None] * Cv[None]) @ Hi
+            c = H @ (Bt[:, :, None] * Cv[None] - Cd[None] * A[:, None, :]) @ Hi
+            self.coef.append((a, b, c, d))
+            lam_h = Bt - At  # i / P~ per helicity channel
+            self.lam.append(H @ diag(lam_h) @ Hi)
+            self.lam_inv.append(H @ diag(1 / lam_h) @ Hi)
+        with np.errstate(all="ignore"):
+            # outward: rho just outside each interface; inward: sigma on either side of each interface
+            self.rho_t = np.zeros((N, L, 2, 2), complex)
+            rho = np.zeros((L, 2, 2), complex)
+            for j in range(N):
+                if j:
+                    rho = self._across(j, self.rho_t[j - 1], "rho")
+                a, b, c, d = self.coef[j]
+                self.rho_t[j] = self.lam_inv[j] @ (a + b @ rho) @ _inv2(c + d @ rho) @ self.lam[j]
+            self.sig_in = np.zeros((N, L, 2, 2), complex)
+            self.sig_t = np.zeros((N, L, 2, 2), complex)
+            sig = np.zeros((L, 2, 2), complex)
+            for j in range(N - 1, -1, -1):
+                if j < N - 1:
+                    sig = self._across(j + 1, self.sig_in[j + 1], "sigma")
+                self.sig_t[j] = sig
+                a, b, c, d = self.coef[j]
+                st = self.lam[j] @ sig @ self.lam_inv[j]
+                self.sig_in[j] = _inv2(st @ a - c) @ (d - st @ b)
+
+    def _factors(self, j):
+        """Per-channel O(1) factors of layer j (0 < j < N) between a = R_(j-1) and b = R_j:
+        P(b)/P(a) and jbar(a)/jbar(b), (L, 2) each, and the geometric log (l+1) ln(a/b)."""
+        l = self.l
+        a_aux, b_aux = self.outer[j - 1], self.inner[j]
+        pr = np.stack([b_aux[c][2][l] / a_aux[c][2][l] for c in (0, 1)], -1)
+        jr = np.stack([np.exp(a_aux[c][3][l] - b_aux[c][3][l]) for c in (0, 1)], -1)
+        return pr, jr, (l + 1) * np.log(self.radii[j - 1] / self.radii[j])
+
+    def _across(self, j, m, what):
+        """rho carried outwards (or sigma inwards) across layer j, in the (TM, TE) basis."""
+        with np.errstate(under="ignore", over="ignore", invalid="ignore"):
+            pr, jr, geo = self._factors(j)
+            g = np.exp(2 * geo)[:, None, None]
+            if self.kappa[j] == 0:  # one k: a scalar factor
+                f = (pr[:, 0] * jr[:, 0] ** 2)[:, None, None]
+                return m * g * f
+            hel = _TT_TO_HEL @ m @ _HEL_TO_TT
+            base = jr[:, :, None] * jr[:, None, :]
+            hel = hel * g * base * (pr[:, :, None] if what == "rho" else pr[:, None, :])
+            return _HEL_TO_TT @ hel @ _TT_TO_HEL
+
+    def at(self, r):
+        """Per-order quantities at emitter radii ``r`` (P,) in achiral lossless shells: ``P``, ``A``,
+        ``B``, ``rp``, ``rx``, ``lj`` (P, L); ``rho``, ``sigma`` (P, L, 2, 2) in the (TM, TE) basis;
+        ``Fm`` (P, L, 2, 2), the host amplitudes (TM, TE) per unit (A~ + rho B~) of a source functional
+        (for kappa = 0 the scalar core, F = core (1 + rho)); ``x``, ``shell``, ``f_rad`` (P,)."""
+        radii, n, kappa, mu, L, l = self.radii, self.n, self.kappa, self.mu, self.L, self.l
+        N = radii.size
+        r = np.asarray(r, dtype=float).ravel()
+        shells = np.searchsorted(radii, r, side="right")
+        out = {name: np.zeros((r.size, L), complex) for name in ("P", "A", "B", "rp", "rx", "lj")}
+        for name in ("rho", "sigma", "Fm"):
+            out[name] = np.zeros((r.size, L, 2, 2), complex)
+        x_all = np.zeros(r.size)
+        kh = self.kc[N, 0].real
+        log_dfact = log_double_factorial(l)
+        for d in np.unique(shells):
+            idx = np.flatnonzero(shells == d)
+            if kappa[d] != 0 or n[d].imag != 0 or mu[d].imag != 0 or n[-1].imag != 0:
+                raise ValueError("the emitter's shell must be achiral and lossless, and the host lossless")
+            rd = r[idx]
+            x = self.kc[d, 0].real * rd
+            emit = _auxiliary_real(x, L + 1)
+            x_all[idx] = x
+            with np.errstate(all="ignore"):
+                if d:
+                    prop = _propagator(self.outer[d - 1][0], emit, radii[d - 1], rd, l)[..., None, None]
+                    rho = self.rho_t[d - 1][None] * prop
+                else:
+                    rho = np.zeros((idx.size, L, 2, 2), complex)
+                if d < N:
+                    prop = _propagator(emit, self.inner[d][0], rd, radii[d], l)[..., None, None]
+                    sig = self.sig_in[d][None] * prop
+                else:
+                    sig = np.zeros((idx.size, L, 2, 2), complex)
+                lj0 = emit[3][:, l]
+                if d == N:  # host emitter: psi(x0), no transmission
+                    scal = np.exp((l + 1) * np.log(x)[:, None] - log_dfact + lj0)
+                    fm = scal[..., None, None] * np.eye(2)
+                else:
+                    chain = np.broadcast_to(np.eye(2, dtype=complex), (L, 2, 2)).copy()
+                    for j in range(d, N):
+                        if j > d:  # outgoing amplitudes b = Xi beta across layer j, less (R_(j-1)/R_j)^(l+1)
+                            pr, jr, _ = self._factors(j)
+                            if kappa[j] == 0:
+                                chain = (pr[:, 0] * jr[:, 0])[:, None, None] * chain
+                            else:
+                                chain = _HEL_TO_TT @ ((pr * jr)[:, :, None] * (_TT_TO_HEL @ chain))
+                        a, b, _, _ = self.coef[j]
+                        chain = self.lam_inv[j] @ (b + a @ self.sig_in[j]) @ chain
+                    log_s = (l + 1) * np.log(kh * rd)[:, None] - log_dfact + lj0
+                    log_s = log_s - self.inner[d][0][3][l] + self.outer[N - 1][0][3][l]
+                    scal = np.exp(log_s) * (self.inner[d][0][2][l] / self.outer[N - 1][0][2][l])
+                    fm = scal[..., None, None] * chain[None]
+                fm = fm @ self._inv2(np.eye(2) - rho @ sig)
+            b = emit[1][:, l]
+            rp = 1 / (emit[0][:, l + 1] + (l + 1) / x[:, None])
+            rx = (l + 1) / x[:, None] - b
+            for name, v in (("P", emit[2][:, l]), ("A", emit[0][:, l]), ("B", b), ("rp", rp), ("rx", rx),
+                            ("lj", lj0), ("rho", rho), ("sigma", sig), ("Fm", fm)):  # fmt: skip
+                out[name][idx] = v
+        out["x"], out["shell"] = x_all, shells
+        out["f_rad"] = (n[shells] * mu[shells] / (n[-1] * mu[-1])).real
+        return out
+
+
 def _dipole_series(t, dipole):
     """Complex scattered terms (P, L, 2) [perp, par] (Re: total, Im: twice the shift) and radiative
     terms (P, L, 2) of a dipole, shell normalization, from the output of :meth:`_Sweep.at`."""

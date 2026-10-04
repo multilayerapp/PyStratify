@@ -51,7 +51,9 @@ limits ``total`` (not ``radiative`` or ``nonradiative``) of this logarithmic
 route to ~1e-9 relative at 1 nm, ~1e-5 at 0.1 nm (far worse for quadrupoles), and
 the l-sums stop at that rounding floor; the route flags it through the energy balance.
 
-For achiral layers, with or without sheets, the default route (``route='auto'``) takes the
+With every source in an achiral lossless layer - sheets and d-parameters allowed, or chiral
+layers elsewhere (2x2 maps of :class:`pystratify.normalized._ChiralSweep`) - the default route
+(``route='auto'``) takes the
 total, the frequency shift and the radiative rates from the normalized formulation
 (:mod:`pystratify.normalized`) instead: each source functional is split into its TM
 (odd in s) and TE (even in s) parts, value and derivative coefficients c_v, c_d, and
@@ -795,6 +797,59 @@ def _normalized_terms(t, x, kd, zd, src, quadrupole, tai, zh, kh):
     return free, refl, rad
 
 
+def _normalized_terms_chiral(t, x, kd, zd, src, quadrupole, tai, zh, kh):
+    """:func:`_normalized_terms` with chiral layers: rho and sigma are 2x2 (TM, TE) matrices
+    (:class:`pystratify.normalized._ChiralSweep`), symmetric by reciprocity, and each real functional
+    (vectors A~, B~ over TM and TE of one family) contributes
+
+        P [A~ sig A~ + B~ rho B~ + B~ rho sig A~ + (A~ + B~ rho) sig rho (1 - sig rho)^-1 (B~ + sig A~)],
+
+    the matrix form of P (rho B~^2 + sigma A~^2 + 2 rho sigma A~ B~)/(1 - rho sigma), written without
+    subtracting the free part.  The host amplitudes are Fm (A~ + rho B~) with the complex functionals."""
+    from .chiral import _inv2
+
+    l = np.arange(1, tai.shape[0] + 1)
+    cv, cd = _tetm_functionals(x, kd, zd, src, quadrupole, l)  # (P, K, L, F, 2)
+    rho, sig = t["rho"], t["sigma"]  # (P, L, 2, 2)
+    rp, rx = t["rp"][:, :, None, None], t["rx"][:, :, None, None]
+    rs = rho @ sig
+    m2 = sig @ rho @ _inv2(np.eye(2) - sig @ rho)
+
+    def quad(u, m, v):
+        return np.einsum("plfi,plij,plfj->plf", u, m, v)
+
+    forms = np.zeros(cv.shape[:1] + cv.shape[2:4], dtype=complex)  # (P, L, F)
+    for k in range(src.shape[1]):
+        for part in (np.real, np.imag):
+            ev, ed = part(cv[:, k]), part(cd[:, k])
+            if not (np.any(ev) or np.any(ed)):
+                continue
+            At, Bt = ev - ed * rp, ev - ed * rx  # (P, L, F, 2)
+            row = At + np.einsum("plfi,plij->plfj", Bt, rho)
+            col = Bt + np.einsum("plij,plfj->plfi", sig, At)
+            forms = forms + quad(At, sig, At) + quad(Bt, rho, Bt) + quad(Bt, rs, At) + quad(row, m2, col)
+    forms = t["P"][:, :, None] * forms
+    free_unit = zd * kd**2 / (zh * kh**2)
+    X2 = (x**2)[:, None]
+    refl = 1.5 * free_unit[:, None] * np.einsum("plf,lf->pl", forms, tai) / X2
+    with np.errstate(under="ignore"):
+        Ac, Bc = cv - cd * rp[:, None], cv - cd * rx[:, None]  # complex, (P, K, L, F, 2)
+        amp = np.einsum("plij,pklfj->pklfi", t["Fm"], Ac + np.einsum("plij,pklfj->pklfi", rho, Bc))
+        rad = np.stack(
+            [np.sum(np.abs(amp[..., TE] + s * amp[..., TM]) ** 2, axis=1) / 2 for s in (1.0, -1.0)], axis=-1
+        )  # (P, L, F, 2)
+    rad = 1.5 * (free_unit * t["f_rad"])[:, None, None] * np.einsum("plfs,lf->pls", rad, tai) / X2[..., None]
+    q2 = np.zeros(x.size)
+    for s in (1.0, -1.0):
+        q = src[:, :, :3] + 1j * s / zd * src[:, :, 3:6]
+        q2 = q2 + np.sum(np.abs(q) ** 2, axis=(1, 2))
+        if quadrupole:
+            qs = src[:, :, 6:15] + (1j * s / zd * src[:, :, 15:24] if src.shape[-1] == 24 else 0)
+            q2 = q2 + kd**2 / 120 * np.sum(np.abs(qs) ** 2, axis=(1, 2))
+    free = 0.5 * zd * kd**2 / (zh * kh**2) * q2
+    return free, refl, rad
+
+
 def _lommel_absorption(sol, r, shells, local, quadrupole, tol, nodes, tai):
     """Absorption per layer (P, N + 1) and per interface response (P, N; sheets, d-parameters) of sources
     ``local`` (P, K, 6, 15 or 24) in achiral layers, in the units of :func:`_source_terms`, and whether
@@ -889,20 +944,26 @@ def _lommel_absorption(sol, r, shells, local, quadrupole, tol, nodes, tai):
 _NORMALIZED_BLOCK = 4_000_000
 
 
-def _rates_normalized(radii, n, mu, wavelength, r, shells, local, tol, nodes, l_max, l_cap, quadrupole, sheets=None):
+def _rates_normalized(
+    radii, n, mu, wavelength, r, shells, local, tol, nodes, l_max, l_cap, quadrupole, sheets=None, kappa=None
+):
     """Total, shift and helicity-resolved radiative power from the normalized formulation; absorption
     per layer and per sheet from the logarithmic route (independent, so the energy balance remains a test).
+    With chiral layers (``kappa``) the 2x2 maps of :class:`pystratify.normalized._ChiralSweep` and the
+    absorption of :func:`solve_chiral`.
 
     Positions whose sums do not meet ``tol`` are recomputed with twice the orders (up to ``l_cap``).
     Returns total, shift (P,), radiative (P, 2), absorption (P, N + 1), free (P,), converged (P,)
     and the largest order used; units of :func:`_source_terms`."""
-    from .normalized import _Sweep
+    from .normalized import _ChiralSweep, _Sweep
 
     N, P = radii.size, r.size
     k = 2 * np.pi * n / wavelength
     eps = n * n / mu
     kappa0 = np.zeros(n.size, dtype=complex)
     lossy = bool(np.any((eps[:N].imag != 0) | (mu[:N].imag != 0)))
+    if kappa is not None:
+        lossy = lossy or bool(np.any(kappa[:N].imag != 0))
     zh, kh = (mu[N] / n[N]).real, k[N].real
     out = dict(
         total=np.zeros(P), shift=np.zeros(P), radiative=np.zeros((P, 2)), absorption=np.zeros((P, N + 1)),
@@ -922,7 +983,10 @@ def _rates_normalized(radii, n, mu, wavelength, r, shells, local, tol, nodes, l_
         nu = np.stack(nu, axis=1)
         with np.errstate(divide="ignore"):
             tai = np.where(nu > 0, 4 * np.pi / nu, 0.0)
-        sweep = _Sweep(radii, n, mu, k, L, sheets, 2 * np.pi / wavelength)
+        if kappa is None:
+            sweep = _Sweep(radii, n, mu, k, L, sheets, 2 * np.pi / wavelength)
+        else:
+            sweep = _ChiralSweep(radii, n, kappa, mu, 2 * np.pi / wavelength, L)
         K = local.shape[1]
         step = max(1, _NORMALIZED_BLOCK // (K * L * tai.shape[1] * 4))
         ok_core = np.zeros(todo.size, dtype=bool)
@@ -933,9 +997,8 @@ def _rates_normalized(radii, n, mu, wavelength, r, shells, local, tol, nodes, l_
                 part = here[start : start + step]
                 j = todo[part]
                 t = sweep.at(r[j])
-                free, refl, rad = _normalized_terms(
-                    t, t["x"], np.full(j.size, kd), zd, local[j], quadrupole, tai, zh, kh
-                )
+                terms = _normalized_terms if kappa is None else _normalized_terms_chiral
+                free, refl, rad = terms(t, t["x"], np.full(j.size, kd), zd, local[j], quadrupole, tai, zh, kh)
                 total = free + refl.real.sum(axis=1)
                 scale = np.abs(free + refl.sum(axis=1))
                 good = np.isfinite(scale) & (tail_estimate(np.moveaxis(np.abs(refl[:, -4:]), 1, 0)) <= tol * scale)
@@ -947,7 +1010,13 @@ def _rates_normalized(radii, n, mu, wavelength, r, shells, local, tol, nodes, l_
                 )  # fmt: skip
                 ok_core[part] = good
         ok_abs = np.ones(todo.size, dtype=bool)
-        if lossy or sheets:
+        if kappa is not None and lossy:  # chiral layers: absorption of the helicity-basis route
+            csol = solve_chiral(radii, n, kappa, wavelength, mu, l_max=L)
+            *_, absorption, surface, _, _, ok_abs = _rates_one(
+                csol, r[todo], shells[todo], local[todo], tol, nodes, quadrupole=quadrupole
+            )
+            out["absorption"][todo], out["sheet_absorption"][todo] = absorption, surface
+        elif lossy or sheets:
             sol = solve(radii, n, wavelength, mu, L, sheets=sheets)
             absorption, surface, ok_abs = _lommel_absorption(
                 sol, r[todo], shells[todo], local[todo], quadrupole, tol, nodes, tai
@@ -1036,9 +1105,11 @@ def emission_rates(
         the rates of the electric quadrupole Q_e = Q_m (duality).  Rates only (no far field).
     route : ``'auto'`` (default) or ``'normalized'`` - total, shift and radiative rates from
         the normalized formulation, in the TE/TM basis with real source weights, whenever
-        every layer is achiral (sheets included); absorption per layer and per sheet from
+        every source is in an achiral layer (sheets and d-parameters allowed; chiral layers
+        elsewhere, without sheets, through 2x2 maps); absorption per layer and per sheet from
         the logarithmic route - or ``'log'`` - everything from the helicity-basis logarithmic
-        route below, without the shift.  ``'auto'`` falls back to ``'log'`` for chiral layers.
+        route below, without the shift.  ``'auto'`` falls back to ``'log'`` for a source in a
+        chiral layer or chiral layers with sheets.
     """
     return _emission(
         radii, n, wavelength, position, moment, magnetic_moment, orientation, mu, kappa, dipole, normalization,
@@ -1171,9 +1242,16 @@ def _emission(
 
     if route not in ("auto", "normalized", "log"):
         raise ValueError("route must be 'auto', 'normalized' or 'log'")
-    normalized = route != "log" and not np.any(kappa) and directions is None
+    chiral = bool(np.any(kappa))
+    has_responses = bool(np.any(sigma) or np.any(zeta) or _feibelman_arrays(sheets, radii.size, 1) is not None)
+    normalized = (
+        route != "log" and directions is None and not (chiral and (has_responses or np.any(kappa[shells] != 0)))
+    )
     if route == "normalized" and not normalized:
-        raise ValueError("chiral layers are not yet part of the normalized formulation: use route='auto' or 'log'")
+        raise ValueError(
+            "chiral layers enter the normalized formulation only with every source in an achiral shell and no "
+            "sheets: use route='auto' or 'log'"
+        )
     if not normalized and _feibelman_arrays(sheets, radii.size, 1) is not None:
         raise ValueError("d-parameters (Feibelman) are on the normalized route only (achiral layers, no pattern)")
     if l_cap is None:
@@ -1181,7 +1259,7 @@ def _emission(
     if normalized:
         res, ok, L = _rates_normalized(
             radii, n, mu, wavelength, r, shells, local, tol, quadrature_nodes, l_max, l_cap, quadrupole is not None,
-            sheets,
+            sheets, kappa if chiral else None,
         )  # fmt: skip
         total, radiative, absorption, sheet_absorption, free, shift = (
             res[key] for key in ("total", "radiative", "absorption", "sheet_absorption", "free", "shift")
