@@ -43,7 +43,7 @@ import numpy as np
 
 from .convergence import truncation_order
 from .riccati import log_riccati
-from .sheets import _sheet_arrays, _sheet_terms
+from .sheets import _feibelman_arrays, _sheet_arrays, _sheet_terms
 from .solver import _batch, _side
 
 __all__ = ["ChiralSolution", "solve_chiral", "HELICITY_TO_TMTE", "log_matmul"]
@@ -320,6 +320,8 @@ def solve_chiral(radii, n, kappa, wavelength, mu=None, l_max=None, sheets=None) 
     # x - x' per helicity from the contrasts, not by subtraction of the products
     diff_n = (n_i - n_o)[..., None] + _SIGN * (kappa[:, :N] - kappa[:, 1:])[..., None]  # (W, N, 2)
 
+    if _feibelman_arrays(sheets, N, W) is not None:
+        raise NotImplementedError("d-parameters (Feibelman) are not part of the chiral solver: use solve()")
     sigma, zeta = _sheet_arrays(sheets, N, W)
     sheet_a, sheet_p, sheet_tau = _sheet_terms(sigma, zeta, k0, radii, l)
 

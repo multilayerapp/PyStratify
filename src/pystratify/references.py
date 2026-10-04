@@ -245,10 +245,17 @@ def _mp_matrices(l, te, iface, nn, mm, R, sheets):
                 ]
             )
             continue
-        sg, zt = sheets[j]
         i = mp.mpc(0, 1)
         yi, yo = nn[j] / mm[j], nn[j + 1] / mm[j + 1]
         cols = ((p, dp), (x, dx)), ((pt, dpt), (xt, dxt))
+        if sheets[j][0] == "feibelman":
+            left, right = _mp_feibelman(l, te, sheets[j][1:], cols, arg_in, arg_out, nn[j : j + 2], mm[j : j + 2], R[j])
+            (a, b), (c, d) = left
+            det = a * d - b * c
+            inv = [[d / det, -b / det], [-c / det, a / det]]
+            mats.append([[sum(inv[r][q] * right[q][col] for q in (0, 1)) for col in (0, 1)] for r in (0, 1)])
+            continue
+        sg, zt = sheets[j][1:]
         if te:
             left = [
                 [f[l] / arg_in for f, _ in cols[0]],
@@ -272,13 +279,58 @@ def _mp_matrices(l, te, iface, nn, mm, R, sheets):
     return mats
 
 
+def _mp_feibelman(l, te, params, cols, x_in, x_out, nn, mm, R):
+    """Rows (left, right) of the d-parameter matching, left (A, B)_inner = right (A, B)_outer, imposed on
+    the M and N fields (Gaussian, n from the metal into the other medium, [f] = f(other) - f(metal)):
+    [E_t] = -d_perp grad_t [E_n] and n x [H] = i k0 d_par [D_t], the jumps on the right from the
+    metal-side fields (D_n and E_t continuous at zeroth order); see :class:`pystratify.sheets.Feibelman`."""
+    d_perp, d_par, metal_outer = params
+    i = mp.mpc(0, 1)
+    yi, yo = nn[0] / mm[0], nn[1] / mm[1]
+    ei, eo = nn[0] ** 2 / mm[0], nn[1] ** 2 / mm[1]
+    k0 = x_in / (nn[0] * R)
+    g, de = l * (l + 1) / R, eo - ei
+    (inner, outer) = cols
+    if te:  # E_t = u/x X, n x H = i y u'/x X (n = r)
+        rows_v = ([f[l] / x_in for f, _ in inner], [f[l] / x_out for f, _ in outer])
+        if not metal_outer:  # i yo u+'/x+ = i yi u-'/x- + i k0 d_par de u-/x-
+            rows_d = ([(i * yi * df[l] + i * k0 * d_par * de * f[l]) / x_in for f, df in inner],
+                      [i * yo * df[l] / x_out for f, df in outer])  # fmt: skip
+        else:  # i yi u-'/x- = i yo u+'/x+ + i k0 d_par de u+/x+
+            rows_d = ([i * yi * df[l] / x_in for f, df in inner],
+                      [(i * yo * df[l] + i * k0 * d_par * de * f[l]) / x_out for f, df in outer])  # fmt: skip
+    else:  # E_t = u'/x (r x X), E_r = i sqrt(l(l+1)) u/x^2, r x H = -i y u/x (r x X)
+        if not metal_outer:
+            # E_t+ = E_t- - d_perp (eps-/eps+ - 1) grad_t E_r-;  r x H+ = r x H- + i k0 d_par de E_t-
+            rows_v = ([df[l] / x_in - d_perp * g * (ei / eo - 1) * f[l] / x_in**2 for f, df in inner],
+                      [df[l] / x_out for f, df in outer])  # fmt: skip
+            rows_d = ([-i * yi * f[l] / x_in + i * k0 * d_par * de * df[l] / x_in for f, df in inner],
+                      [-i * yo * f[l] / x_out for f, df in outer])  # fmt: skip
+        else:
+            # E_t- = E_t+ + d_perp (eps+/eps- - 1) grad_t E_r+;  r x H- = r x H+ + i k0 d_par de E_t+
+            rows_v = ([df[l] / x_in for f, df in inner],
+                      [df[l] / x_out + d_perp * g * (eo / ei - 1) * f[l] / x_out**2 for f, df in outer])  # fmt: skip
+            rows_d = ([-i * yi * f[l] / x_in for f, df in inner],
+                      [-i * yo * f[l] / x_out + i * k0 * d_par * de * df[l] / x_out for f, df in outer])  # fmt: skip
+    return [rows_v[0], rows_d[0]], [rows_v[1], rows_d[1]]
+
+
 def _mp_sheets(sheets):
-    """{interface: (sigma, zeta)} in mpmath from {interface: Sheet or conductivity}."""
+    """{interface: ('sheet', sigma, zeta) or ('feibelman', d_perp, d_par, metal_outer)} in mpmath from
+    {interface: Sheet, conductivity or Feibelman}."""
     out = {}
     for j, sheet in (sheets or {}).items():
+        if hasattr(sheet, "d_perp"):
+            out[int(j)] = (
+                "feibelman",
+                mp.mpc(complex(sheet.d_perp)),
+                mp.mpc(complex(sheet.d_par)),
+                sheet.metal == "outer",
+            )
+            continue
         sg, zt = (sheet.conductivity, sheet.normal) if hasattr(sheet, "normal") else (sheet, 0.0)
         if sg != 0 or zt != 0:
-            out[int(j)] = (mp.mpc(complex(sg)), mp.mpc(complex(zt)))
+            out[int(j)] = ("sheet", mp.mpc(complex(sg)), mp.mpc(complex(zt)))
     return out
 
 

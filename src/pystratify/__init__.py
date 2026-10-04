@@ -44,7 +44,7 @@ from .nearfield import NearField, near_field
 from .pairs import GreenDyadic, green_dyadic
 from .normalized import NormalizedRates, NormalizedTerms, normalized_decay_rates, normalized_terms
 from .rates import EmissionRates, emission_rates
-from .sheets import Sheet, graphene_conductivity
+from .sheets import Feibelman, Sheet, graphene_conductivity
 from .riccati import log_riccati
 from .solver import TE, TM, Solution, solve
 
@@ -84,6 +84,7 @@ __all__ = [
     "emission_rates",
     "EmissionRates",
     "locate_shell",
+    "Feibelman",
     "Sheet",
     "graphene_conductivity",
     "DRUDE",

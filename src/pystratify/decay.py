@@ -36,6 +36,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from .chiral import _log_add
 from .convergence import orders_needed as _orders_needed
 from .convergence import tail_estimate as _tail_estimate
 from .convergence import truncation_order
@@ -357,6 +358,11 @@ class _ShellLosses:
         self.loss_e = np.where(eps.imag > 0, eps.imag, 0.0)
         self.loss_m = np.where(mu.imag > 0, mu.imag * np.abs(eps / mu), 0.0)
         self.absorbing = [a for a in range(sol.n_shells) if self.loss_e[a] > 0 or self.loss_m[a] > 0]
+        # interfaces with a response (sheets, d-parameters) absorb through the jump of the radial flux
+        self.surfaces = []
+        if sol.responses is not None:
+            on = sum(np.abs(v[0]) + np.abs(v[1]) + np.abs(v[3]) for v in sol.responses.values())  # (W, N, L)
+            self.surfaces = [j for j in range(sol.radii.size) if np.any(on[0, j] != 0)]
         self.cache, self.rules, self.boundaries = {}, {}, {}
 
     def integral(self, a, side, pol, count, kind):
@@ -397,10 +403,52 @@ class _ShellLosses:
             return magnetic
         return electric if magnetic is None else np.logaddexp(electric, magnetic)
 
+    def log_surface_loss(self, j, side, pol, count):
+        """log of the power absorbed at interface j (a sheet or d-parameters) by the regular (``'below'``)
+        or outgoing (``'above'``) solution of polarisation ``pol``, in the units of :meth:`log_loss`: the
+        jump of the radial flux, Phi = Re(i u u'* c)/k0 with c = 1/(k mu*) (TE) or 1/(k* mu) (TM), so that
+        a shell absorbs [Phi]/k0 between its boundaries.  The matching without the response conserves the
+        flux exactly, so the jump is written with the response terms alone (no cancellation); complex
+        (a negative jump, from an active response, has imaginary part pi)."""
+        key = ("surface", j, side, pol, count)
+        if key not in self.cache:
+            sol = self.sol
+            L, l = sol.orders.size, sol.orders
+            k, mu = sol.k[0], sol.mu[0]
+            k0 = 2 * np.pi / sol.wavelength[0]
+            if side == "below":
+                la, lb = sol.log_a[pol, j, 0], sol.log_b[pol, j, 0]
+            else:
+                lb = sol.log_b_out[pol, j, 0]
+                la = lb + sol.log_s[pol, j, 0]
+            x = k[j] * sol.radii[j]
+            lps, lxs = log_riccati(np.array([x]), L + 1)
+            lp, lx = lps[0, l], lxs[0, l]
+            with np.errstate(all="ignore"):
+                d1 = np.exp(lps[0, l - 1] - lp) - l / x  # psi'/psi
+                d3 = np.exp(lxs[0, l - 1] - lx) - l / x  # xi'/xi
+                log_u = _log_add(la + lp, lb + lx)
+                w1, w3 = np.exp(la + lp - log_u), np.exp(lb + lx - log_u)
+                w1, w3 = np.where(np.isfinite(w1), w1, 0), np.where(np.isfinite(w3), w3, 0)
+                D = w1 * d1 + w3 * d3  # u'/u
+                tv, td, tau, tau_m1 = (v[0, j] for v in sol.responses[pol])
+                eta, mr = sol.n[0, j] / sol.n[0, j + 1], mu[j] / mu[j + 1]
+                c_v, c_d = (mr, eta) if pol == TM else (eta, mr)
+                plain = (1 / c_v, D / c_d)
+                delta = ((tau_m1 + tau * tv * D) / c_v, (tau_m1 * D - tau * td) / c_d)
+                c = 1 / (k[j + 1] * np.conj(mu[j + 1])) if pol == TE else 1 / (np.conj(k[j + 1]) * mu[j + 1])
+                form = plain[0] * np.conj(delta[1]) + delta[0] * np.conj(plain[1]) + delta[0] * np.conj(delta[1])
+                q = -np.real(1j * c * form) / k0**2
+                v = np.full(L, -np.inf, dtype=complex)
+                v[:count] = (2 * log_u.real + np.log(q + 0j))[:count]
+            self.cache[key] = v
+        return self.cache[key]
+
     def orders(self, r, tol, L):
         """Orders the loss series need: geometric in (r_< / r_>)^(2l) at the absorbing shells' nearest boundary."""
         sol = self.sol
-        bounds = np.array([b for a in self.absorbing for b in ((sol.radii[a - 1],) if a else ()) + (sol.radii[a],)])
+        bounds = [b for a in self.absorbing for b in ((sol.radii[a - 1],) if a else ()) + (sol.radii[a],)]
+        bounds = np.array(bounds + [sol.radii[j] for j in self.surfaces])
         if not bounds.size:
             return L
         q = np.max(np.minimum(bounds[None, :] / r[:, None], r[:, None] / bounds[None, :]))

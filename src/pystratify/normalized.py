@@ -213,13 +213,13 @@ class _Sweep:
     sigma on its inner (``sig_in``) and outer (``sig_t``) side.  :meth:`at` evaluates the
     per-order quantities at any number of emitter radii.
 
-    ``sheets`` = (sigma, zeta, k0), (N,) conductivities and normal lengths of 2D sheets on the
-    interfaces (:mod:`pystratify.sheets`) and the vacuum wavenumber: the transition conditions add
-    terms to the four coefficients of every Moebius map, as in :func:`pystratify.solve`, and the
-    matching of the amplitudes becomes value' = (value + t_v deriv)/tau, deriv' = (deriv - t_d value)/tau.
+    ``sheets`` are the interface responses of :mod:`pystratify.sheets` (2D sheets, d-parameters) and
+    ``k0`` the vacuum wavenumber: the matching becomes value' = tau (value + t_v deriv)/c_v,
+    deriv' = tau (deriv - t_d value)/c_d, which adds f t_d + t_v D~ D to the coefficients of every
+    Moebius map, as in :func:`pystratify.solve`.
     """
 
-    def __init__(self, radii, n, mu, k, L, sheets=None):
+    def __init__(self, radii, n, mu, k, L, sheets=None, k0=None):
         self.radii, self.n, self.mu, self.k, self.L = radii, n, mu, k, L
         N = radii.size
         l = np.arange(1, L + 1)
@@ -244,6 +244,12 @@ class _Sweep:
                     for a, z in zip(side, _args(k, radii, side is outer))
                 ]
             )
+        responses = None
+        if sheets:
+            from .sheets import _interface_terms
+
+            terms = _interface_terms(sheets, np.array([k0]), radii, n[None], mu[None], l)
+            responses = {q: tuple(v[0] for v in terms[q]) for q in terms}  # (N, L) each
         self.pol = {}
         for p in (TM, TE):
             c_v, c_d = (mr, eta) if p == TM else (eta, mr)
@@ -256,26 +262,21 @@ class _Sweep:
                 m11.append((l + 1) * g_minus_1[p][j] / xt - (f[j] * r_in - r_out))
                 m33.append((f[j] * X_in - X_out) - l * g_minus_1[p][j] / xt)
             # the maps rho' = (a + rho b)/(c + rho d) and sigma = (d - sigma' b)/(sigma' a - c) of every
-            # interface, with the sheet terms of pystratify.solve; tv, td, tau for the amplitudes
+            # interface, with the response terms; tv, td, tau also match the amplitudes
+            if responses is None:
+                tv, td = np.zeros((N, L), complex), np.zeros((N, L), complex)
+                tau, tau_m1 = np.ones((N, L), complex), np.zeros((N, L), complex)
+            else:
+                tv, td, tau, tau_m1 = responses[p]
             coef = []
-            tv, td, tau = np.zeros((N, L), complex), np.zeros((N, L), complex), np.ones((N, L), complex)
             for j in range(N):
                 A, B = inner[j][0][l], inner[j][1][l]
                 At, Bt = outer[j][0][l], outer[j][1][l]
                 a, b, c, d = m11[j], f[j] * B - At, Bt - f[j] * A, -m33[j]
-                if sheets is not None and (sheets[0][j] != 0 or sheets[1][j] != 0):
-                    sg, zt, k0 = sheets[0][j], sheets[1][j], sheets[2]
-                    z_in, z_out = mu_in[j] / n_in[j], mu_out[j] / n_out[j]
-                    if p == TE:  # the jump of H_t
-                        sh = 1j * z_out * sg
-                        a, b, c, d = a - sh, b - sh, c + sh, d + sh
-                        td[j] = 1j * z_in * sg
-                    else:  # the jumps of H_t and E_t
-                        sa = 1j * zt * l * (l + 1) / (k0 * radii[j] ** 2)
-                        sp = 1 - sa * sg / 4
-                        t, w = 1j * z_in * sg / sp, sa / (1j * z_out * sp)
-                        a, b, c, d = a - w - t * At * A, b - w - t * At * B, c + w + t * Bt * A, d + w + t * Bt * B
-                        tv[j], td[j], tau[j] = t, sa / (1j * z_in * sp), sp / (1 + sa * sg / 4)
+                if responses is not None:
+                    ftd = f[j] * td[j]
+                    a, b = a - ftd - tv[j] * At * A, b - ftd - tv[j] * At * B
+                    c, d = c + ftd + tv[j] * Bt * A, d + ftd + tv[j] * Bt * B
                 coef.append((a, b, c, d))
             # outward sweep: rho just outside each interface (rho_t)
             rho_t = np.zeros((N, L), complex)
@@ -295,7 +296,9 @@ class _Sweep:
                     sig_t[j] = sig
                     a, b, c, d = coef[j]
                     sig_in[j] = (d - sig * b) / (sig * a - c)
-            self.pol[p] = dict(c_v=c_v, c_d=c_d, rho_t=rho_t, sig_in=sig_in, sig_t=sig_t, tv=tv, td=td, tau=tau)
+            self.pol[p] = dict(
+                c_v=c_v, c_d=c_d, rho_t=rho_t, sig_in=sig_in, sig_t=sig_t, tv=tv, td=td, tau=tau, tau_m1=tau_m1
+            )
 
     def transmission(self, p, d, stop):
         """The outgoing solution carried outwards from shell ``d`` to shell ``stop`` > ``d``, polarization ``p``:
@@ -460,22 +463,11 @@ def _prepare(radii, n, mu, wavelength, r):
     return radii, n, mu, r, k
 
 
-def _sheet_tuple(sheets, N, wavelength):
-    """(sigma, zeta, k0) for :class:`_Sweep` from {interface: Sheet or conductivity}, or None."""
-    from .sheets import _sheet_arrays
-
-    sigma, zeta = _sheet_arrays(sheets, N, 1)
-    if not (np.any(sigma) or np.any(zeta)):
-        return None
-    return sigma[0], zeta[0], 2 * np.pi / wavelength
-
-
 def _evaluate(radii, n, mu, wavelength, r, k, l_max, tol, l_cap, sheets=None):
     """Sweep and emitter side at a given or automatic truncation: (terms dict, L, converged (P,))."""
     L = int(l_max) if l_max is not None else _starting_order(radii, n, wavelength, r, tol, l_cap)
-    sheets = _sheet_tuple(sheets, radii.size, wavelength)
     while True:
-        t = _Sweep(radii, n, mu, k, L, sheets).at(r)
+        t = _Sweep(radii, n, mu, k, L, sheets, 2 * np.pi / wavelength).at(r)
         ok = np.ones(r.size, bool)
         for dipole in ("electric", "magnetic"):
             ok &= _complex_converged(_dipole_series(t, dipole)[0], tol)
