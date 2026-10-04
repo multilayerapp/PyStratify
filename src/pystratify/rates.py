@@ -51,7 +51,7 @@ limits ``total`` (not ``radiative`` or ``nonradiative``) of this logarithmic
 route to ~1e-9 relative at 1 nm, ~1e-5 at 0.1 nm (far worse for quadrupoles), and
 the l-sums stop at that rounding floor; the route flags it through the energy balance.
 
-For achiral layers without sheets the default route (``route='auto'``) takes the
+For achiral layers, with or without sheets, the default route (``route='auto'``) takes the
 total, the frequency shift and the radiative rates from the normalized formulation
 (:mod:`pystratify.normalized`) instead: each source functional is split into its TM
 (odd in s) and TE (even in s) parts, value and derivative coefficients c_v, c_d, and
@@ -384,7 +384,6 @@ def _source_terms(sol, d, r, src, losses, chains, consts, sheets):
     host emitter the correction to the free part), absorption per layer (P, L, N + 1) and per sheet
     (P, L, N); normalised units."""
     L, N = sol.orders.size, sol.n_shells
-    ll = (sol.orders * (sol.orders + 1)).astype(float)
     nu, tai, c_refl, c_rad, c_abs, zh, kh = consts
     e = _emitter_side(sol, d, r, src, tai, nu.shape[1] == 5)
     kd, zd, q, quad = e["kd"], e["zd"], e["q"], e["quad"]
@@ -424,10 +423,27 @@ def _source_terms(sol, d, r, src, losses, chains, consts, sheets):
             v = np.exp(np.concatenate([log_al, log_be], axis=-1) + scale[None, None, :, None, :])
             form = np.real(np.einsum("pklfi,lij,pklfj->plf", np.conj(v), loss, v))
             absorbed[:, :c, a] = c_abs * np.einsum("plf,lf->pl", form, nu[:c])
-        # sheets: (c/8 pi) [Re sigma |<E_t>|^2 + k0 Im zeta |<D_n>|^2] over the sphere, fields
-        # averaged over both sides; D_r = i l(l+1) H_M / (k0 R)
-        k0 = 2 * np.pi / sol.wavelength[0]
-        on_sheets = np.zeros((r.size, L, N))
+    on_sheets = _on_sheets(sol, d, log_up, log_down, chains, c_abs, nu, sheets)
+    return free, (refl, floor), rad, rad_free, absorbed, on_sheets
+
+
+def _log_amplitudes(e, d, N):
+    """log xi amplitudes above the sources and log psi amplitudes below, from :func:`_emitter_side`."""
+    with np.errstate(all="ignore"):
+        log_up = _log(e["b_hat"] + e["src_psi"]) - e["log_xi"][:, None, :, None, :]
+        log_down = _log(e["a_hat"] + e["src_xi"]) - e["log_psi"][:, None, :, None, :]
+    return log_up, log_down
+
+
+def _on_sheets(sol, d, log_up, log_down, chains, c_abs, nu, sheets):
+    """Absorption per order and sheet (P, L, N) of sources in layer d with amplitudes ``log_up`` and
+    ``log_down``: (c/8 pi) [Re sigma |<E_t>|^2 + k0 Im zeta |<D_n>|^2] over the sphere, fields averaged
+    over both sides; D_r = i l(l+1) H_M / (k0 R)."""
+    L, N = sol.orders.size, sol.n_shells
+    ll = (sol.orders * (sol.orders + 1)).astype(float)
+    k0 = 2 * np.pi / sol.wavelength[0]
+    on_sheets = np.zeros((log_up.shape[0], L, N))
+    with np.errstate(all="ignore"):
         for j, (sigma, zeta) in sheets.items():
             sides = []
             for side in (j, j + 1):
@@ -442,7 +458,42 @@ def _source_terms(sol, d, r, src, losses, chains, consts, sheets):
             form = sigma.real * sol.radii[j] ** 2 * (np.abs(e_m) ** 2 + np.abs(e_n) ** 2)
             form = form + zeta.imag * (ll / k0)[None, None, :, None] * np.abs(h_m) ** 2
             on_sheets[:, :, j] = c_abs / k0 * np.einsum("pklf,lf->pl", form, nu)
-    return free, (refl, floor), rad, rad_free, absorbed, on_sheets
+    return on_sheets
+
+
+def _sheet_absorption(sol, r, shells, local, quadrupole, tol):
+    """Absorption per sheet (P, N) of sources ``local`` (P, K, ...) and whether every series met ``tol``
+    (P,), from the amplitudes of the logarithmic route (``sol`` of :func:`solve_chiral`): sums of
+    positive terms, independent of the normalized total and radiative power, so that the energy
+    balance remains a test.  Units of :func:`_source_terms`."""
+    L, N = sol.orders.size, sol.n_shells
+    l = sol.orders.astype(float)
+    ll = l * (l + 1)
+    n, mu = sol.n[0], sol.mu[0]
+    kh, zh = sol.k_helicity[0, N, 0].real, (mu[N] / n[N]).real
+    k0 = 2 * np.pi / sol.wavelength[0]
+    nu = [4 * np.pi * ll / (2 * l + 1)] + [2 * np.pi * ll**2 / (2 * l + 1)] * 2
+    if quadrupole:
+        nu += [2 * np.pi * ll**2 * (l - 1) * (l + 2) / (2 * l + 1)] * 2
+    nu = np.stack(nu, axis=1)
+    with np.errstate(divide="ignore"):
+        tai = np.where(nu > 0, 4 * np.pi / nu, 0.0)
+    c_abs = 3 * k0 / (32 * np.pi * zh * kh**2)
+    sheets = {j: (sol.sheet_sigma[0, j], sol.sheet_zeta[0, j]) for j in range(N)}
+    sheets = {j: v for j, v in sheets.items() if v[0] != 0 or v[1] != 0}
+    out, ok = np.zeros((r.size, N)), np.ones(r.size, dtype=bool)
+    step = max(1, _CHUNK // (local.shape[1] * L * 2 * nu.shape[1]))
+    for d in np.unique(shells):
+        chains = _chains(sol, d)
+        idx = np.flatnonzero(shells == d)
+        for start in range(0, idx.size, step):
+            i = idx[start : start + step]
+            e = _emitter_side(sol, d, r[i], local[i], tai, quadrupole)
+            on = _on_sheets(sol, d, *_log_amplitudes(e, d, N), chains, c_abs, nu, sheets)
+            for j in sheets:
+                out[i, j], ok_j = _series(on[..., j], 0.0, tol)
+                ok[i] &= ok_j
+    return out, ok
 
 
 def _legendre_derivatives(L, mu):
@@ -875,16 +926,17 @@ def _lommel_absorption(sol, r, shells, local, quadrupole, tol, nodes, tai):
 _NORMALIZED_BLOCK = 4_000_000
 
 
-def _rates_normalized(radii, n, mu, wavelength, r, shells, local, tol, nodes, l_max, l_cap, quadrupole):
+def _rates_normalized(radii, n, mu, wavelength, r, shells, local, tol, nodes, l_max, l_cap, quadrupole, sheets=None):
     """Total, shift and helicity-resolved radiative power from the normalized formulation; absorption
-    per layer from the logarithmic route (independent, so the energy balance remains a test).
+    per layer and per sheet from the logarithmic route (independent, so the energy balance remains a test).
 
     Positions whose sums do not meet ``tol`` are recomputed with twice the orders (up to ``l_cap``).
     Returns total, shift (P,), radiative (P, 2), absorption (P, N + 1), free (P,), converged (P,)
     and the largest order used; units of :func:`_source_terms`."""
-    from .normalized import _Sweep
+    from .normalized import _sheet_tuple, _Sweep
 
     N, P = radii.size, r.size
+    sheet_t = _sheet_tuple(sheets, N, wavelength)
     k = 2 * np.pi * n / wavelength
     eps = n * n / mu
     kappa0 = np.zeros(n.size, dtype=complex)
@@ -892,7 +944,7 @@ def _rates_normalized(radii, n, mu, wavelength, r, shells, local, tol, nodes, l_
     zh, kh = (mu[N] / n[N]).real, k[N].real
     out = dict(
         total=np.zeros(P), shift=np.zeros(P), radiative=np.zeros((P, 2)), absorption=np.zeros((P, N + 1)),
-        free=np.zeros(P),
+        free=np.zeros(P), sheet_absorption=np.zeros((P, N)),
     )  # fmt: skip
     ok = np.zeros(P, dtype=bool)
     used = 0
@@ -908,7 +960,7 @@ def _rates_normalized(radii, n, mu, wavelength, r, shells, local, tol, nodes, l_
         nu = np.stack(nu, axis=1)
         with np.errstate(divide="ignore"):
             tai = np.where(nu > 0, 4 * np.pi / nu, 0.0)
-        sweep = _Sweep(radii, n, mu, k, L)
+        sweep = _Sweep(radii, n, mu, k, L, sheet_t)
         K = local.shape[1]
         step = max(1, _NORMALIZED_BLOCK // (K * L * tai.shape[1] * 4))
         ok_core = np.zeros(todo.size, dtype=bool)
@@ -934,11 +986,16 @@ def _rates_normalized(radii, n, mu, wavelength, r, shells, local, tol, nodes, l_
                 ok_core[part] = good
         ok_abs = np.ones(todo.size, dtype=bool)
         if lossy:
-            sol = solve(radii, n, wavelength, mu, L)
+            sol = solve(radii, n, wavelength, mu, L, sheets=sheets)
             absorption, ok_abs = _lommel_absorption(
                 sol, r[todo], shells[todo], local[todo], quadrupole, tol, nodes, tai
             )
             out["absorption"][todo] = absorption
+        if sheet_t is not None:
+            csol = solve_chiral(radii, n, kappa0, wavelength, mu, l_max=L, sheets=sheets)
+            on_sheets, ok_sheets = _sheet_absorption(csol, r[todo], shells[todo], local[todo], quadrupole, tol)
+            out["sheet_absorption"][todo] = on_sheets
+            ok_abs &= ok_sheets
         ok[todo] = ok_core & ok_abs
         if l_max is not None or L >= l_cap:
             break
@@ -1022,10 +1079,9 @@ def emission_rates(
         the rates of the electric quadrupole Q_e = Q_m (duality).  Rates only (no far field).
     route : ``'auto'`` (default) or ``'normalized'`` - total, shift and radiative rates from
         the normalized formulation, in the TE/TM basis with real source weights, whenever
-        every layer is achiral and there are no sheets; absorption per layer from the
-        logarithmic route - or ``'log'`` - everything from the helicity-basis logarithmic
-        route below, without the shift.  ``'auto'`` falls back to ``'log'`` for chiral
-        layers and sheets.
+        every layer is achiral (sheets included); absorption per layer and per sheet from
+        the logarithmic route - or ``'log'`` - everything from the helicity-basis logarithmic
+        route below, without the shift.  ``'auto'`` falls back to ``'log'`` for chiral layers.
     """
     return _emission(
         radii, n, wavelength, position, moment, magnetic_moment, orientation, mu, kappa, dipole, normalization,
@@ -1158,21 +1214,19 @@ def _emission(
 
     if route not in ("auto", "normalized", "log"):
         raise ValueError("route must be 'auto', 'normalized' or 'log'")
-    normalized = route != "log" and not np.any(kappa) and not (np.any(sigma) or np.any(zeta)) and directions is None
+    normalized = route != "log" and not np.any(kappa) and directions is None
     if route == "normalized" and not normalized:
-        raise ValueError(
-            "chiral layers and sheets are not yet part of the normalized formulation: use route='auto' or 'log'"
-        )
+        raise ValueError("chiral layers are not yet part of the normalized formulation: use route='auto' or 'log'")
     if l_cap is None:
         l_cap = 20000 if normalized else 1200
     if normalized:
         res, ok, L = _rates_normalized(
-            radii, n, mu, wavelength, r, shells, local, tol, quadrature_nodes, l_max, l_cap, quadrupole is not None
+            radii, n, mu, wavelength, r, shells, local, tol, quadrature_nodes, l_max, l_cap, quadrupole is not None,
+            sheets,
+        )  # fmt: skip
+        total, radiative, absorption, sheet_absorption, free, shift = (
+            res[key] for key in ("total", "radiative", "absorption", "sheet_absorption", "free", "shift")
         )
-        total, radiative, absorption, free, shift = (
-            res[key] for key in ("total", "radiative", "absorption", "free", "shift")
-        )
-        sheet_absorption = np.zeros((r.size, radii.size))
     else:
         if l_max is not None:
             L = int(l_max)

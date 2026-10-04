@@ -217,7 +217,72 @@ def layered_decay_rates(radii, n, wavelength, r, orders, dps=150, mu=None, dipol
         return [float(scale[i] * tot[i]) for i in range(2)], [float(f_rad * scale[i] * rad[i]) for i in range(2)]
 
 
-def layered_green_forms(radii, n, wavelength, r, orders, dps=150, mu=None):
+def _mp_matrices(l, te, iface, nn, mm, R, sheets):
+    """Transfer matrices of order l (outer amplitudes -> inner) of every interface, in mpmath.
+
+    Without a sheet, W(psi, xi) times the matching matrix.  With a sheet (sigma, zeta) at interface j,
+    the generalised transition conditions of :mod:`pystratify.sheets` are imposed directly on the M and
+    N fields (Gaussian units, H = -i (n/mu) times the other family; E_r = i sqrt(l(l+1)) u/x^2 for N):
+
+        TE:  u-/x = u+/x~,
+             i (n-/mu-) u-'/x + (sigma/2) u-/x = i (n+/mu+) u+'/x~ - (sigma/2) u+/x~;
+        TM:  i (n-/mu-) u-/x - (sigma/2) u-'/x = i (n+/mu+) u+/x~ + (sigma/2) u+'/x~,
+             u-'/x - g (n-^2/mu-) u-/x^2 = u+'/x~ + g (n+^2/mu+) u+/x~^2,   g = zeta l(l+1)/(2 R_j),
+
+    with x = k_j R_j and x~ = k_(j+1) R_j, and the matrix solves that 2x2 system (an overall factor of
+    any interface cancels in the Green's forms).
+    """
+    mats = []
+    for j in range(len(R)):
+        (p, dp, x, dx), (pt, dpt, xt, dxt), arg_in, arg_out = iface[j]
+        if j not in sheets:
+            eta, mr = nn[j] / nn[j + 1], mm[j] / mm[j + 1]
+            a, b = (eta, mr) if te else (mr, eta)
+            mats.append(
+                [
+                    [dx[l] * pt[l] * a - x[l] * dpt[l] * b, dx[l] * xt[l] * a - x[l] * dxt[l] * b],
+                    [-dp[l] * pt[l] * a + p[l] * dpt[l] * b, -dp[l] * xt[l] * a + p[l] * dxt[l] * b],
+                ]
+            )
+            continue
+        sg, zt = sheets[j]
+        i = mp.mpc(0, 1)
+        yi, yo = nn[j] / mm[j], nn[j + 1] / mm[j + 1]
+        cols = ((p, dp), (x, dx)), ((pt, dpt), (xt, dxt))
+        if te:
+            left = [
+                [f[l] / arg_in for f, _ in cols[0]],
+                [(i * yi * df[l] + sg / 2 * f[l]) / arg_in for f, df in cols[0]],
+            ]
+            right = [
+                [f[l] / arg_out for f, _ in cols[1]],
+                [(i * yo * df[l] - sg / 2 * f[l]) / arg_out for f, df in cols[1]],
+            ]
+        else:
+            g = zt * l * (l + 1) / (2 * R[j])
+            ei, eo = nn[j] ** 2 / mm[j], nn[j + 1] ** 2 / mm[j + 1]
+            left = [[(i * yi * f[l] - sg / 2 * df[l]) / arg_in for f, df in cols[0]],
+                    [df[l] / arg_in - g * ei * f[l] / arg_in**2 for f, df in cols[0]]]  # fmt: skip
+            right = [[(i * yo * f[l] + sg / 2 * df[l]) / arg_out for f, df in cols[1]],
+                     [df[l] / arg_out + g * eo * f[l] / arg_out**2 for f, df in cols[1]]]  # fmt: skip
+        (a, b), (c, d) = left  # closed-form inverse: the columns differ by many orders of magnitude
+        det = a * d - b * c
+        inv = [[d / det, -b / det], [-c / det, a / det]]
+        mats.append([[sum(inv[r][q] * right[q][col] for q in (0, 1)) for col in (0, 1)] for r in (0, 1)])
+    return mats
+
+
+def _mp_sheets(sheets):
+    """{interface: (sigma, zeta)} in mpmath from {interface: Sheet or conductivity}."""
+    out = {}
+    for j, sheet in (sheets or {}).items():
+        sg, zt = (sheet.conductivity, sheet.normal) if hasattr(sheet, "normal") else (sheet, 0.0)
+        if sg != 0 or zt != 0:
+            out[int(j)] = (mp.mpc(complex(sg)), mp.mpc(complex(zt)))
+    return out
+
+
+def layered_green_forms(radii, n, wavelength, r, orders, dps=150, mu=None, sheets=None):
     """Per-order scattered Green's forms at an emitter at radius r in a lossless shell of a layered
     sphere, from the 2x2 transfer matrices of Moroz (2005) in mpmath.
 
@@ -248,22 +313,13 @@ def layered_green_forms(radii, n, wavelength, r, orders, dps=150, mu=None):
             dx = [None] + [x[l - 1] - l * x[l] / z for l in range(1, top + 1)]
             return p, dp, x, dx
 
-        iface = [(funcs(k[j] * R[j]), funcs(k[j + 1] * R[j])) for j in range(N)]
+        iface = [(funcs(k[j] * R[j]), funcs(k[j + 1] * R[j]), k[j] * R[j], k[j + 1] * R[j]) for j in range(N)]
+        sheet_map = _mp_sheets(sheets)
         d = sum(1 for Rj in radii if r >= Rj)
         pe, dpe, xe, dxe = funcs(k[d] * mp.mpf(r))
         for l in range(1, orders + 1):
             for pol, te in ((0, False), (1, True)):
-                mats = []
-                for j in range(N):
-                    (p, dp, x, dx), (pt, dpt, xt, dxt) = iface[j]
-                    eta, mr = nn[j] / nn[j + 1], mm[j] / mm[j + 1]
-                    a, b = (eta, mr) if te else (mr, eta)
-                    mats.append(
-                        [
-                            [dx[l] * pt[l] * a - x[l] * dpt[l] * b, dx[l] * xt[l] * a - x[l] * dxt[l] * b],
-                            [-dp[l] * pt[l] * a + p[l] * dpt[l] * b, -dp[l] * xt[l] * a + p[l] * dxt[l] * b],
-                        ]
-                    )
+                mats = _mp_matrices(l, te, iface, nn, mm, R, sheet_map)
                 A, B = mp.mpf(1), mp.mpf(0)
                 for j in range(d):  # inner -> outer through the inverse matrices
                     m = mats[j]
@@ -282,7 +338,7 @@ def layered_green_forms(radii, n, wavelength, r, orders, dps=150, mu=None):
     return out[0], out[1], out[2]
 
 
-def layered_green_sums(radii, n, wavelength, r, orders, dps=150, mu=None, dipole="electric"):
+def layered_green_sums(radii, n, wavelength, r, orders, dps=150, mu=None, dipole="electric", sheets=None):
     """Complex scattered Green's sums [perp, par] of an electric or magnetic dipole at radius r in a
     lossless shell of a layered sphere (mpmath; see :func:`layered_green_forms`).
 
@@ -307,7 +363,8 @@ def layered_green_sums(radii, n, wavelength, r, orders, dps=150, mu=None, dipole
             dx = [None] + [x[l - 1] - l * x[l] / z for l in range(1, top + 1)]
             return p, dp, x, dx
 
-        iface = [(funcs(k[j] * R[j]), funcs(k[j + 1] * R[j])) for j in range(N)]
+        iface = [(funcs(k[j] * R[j]), funcs(k[j + 1] * R[j]), k[j] * R[j], k[j + 1] * R[j]) for j in range(N)]
+        sheet_map = _mp_sheets(sheets)
         d = sum(1 for Rj in radii if r >= Rj)
         X = k[d] * mp.mpf(r)
         pe, dpe, xe, dxe = funcs(X)
@@ -316,17 +373,7 @@ def layered_green_sums(radii, n, wavelength, r, orders, dps=150, mu=None, dipole
         for l in range(1, orders + 1):
             G, Gd = {}, {}
             for te in (False, True):
-                mats = []
-                for j in range(N):
-                    (p, dp, x, dx), (pt, dpt, xt, dxt) = iface[j]
-                    eta, mr = nn[j] / nn[j + 1], mm[j] / mm[j + 1]
-                    a, b = (eta, mr) if te else (mr, eta)
-                    mats.append(
-                        [
-                            [dx[l] * pt[l] * a - x[l] * dpt[l] * b, dx[l] * xt[l] * a - x[l] * dxt[l] * b],
-                            [-dp[l] * pt[l] * a + p[l] * dpt[l] * b, -dp[l] * xt[l] * a + p[l] * dxt[l] * b],
-                        ]
-                    )
+                mats = _mp_matrices(l, te, iface, nn, mm, R, sheet_map)
                 A, B = mp.mpf(1), mp.mpf(0)
                 for j in range(d):  # inner -> outer through the inverse matrices
                     m = mats[j]

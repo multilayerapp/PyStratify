@@ -212,9 +212,14 @@ class _Sweep:
     the outward ratios rho just outside each interface (``rho_t``) and the inward ratios
     sigma on its inner (``sig_in``) and outer (``sig_t``) side.  :meth:`at` evaluates the
     per-order quantities at any number of emitter radii.
+
+    ``sheets`` = (sigma, zeta, k0), (N,) conductivities and normal lengths of 2D sheets on the
+    interfaces (:mod:`pystratify.sheets`) and the vacuum wavenumber: the transition conditions add
+    terms to the four coefficients of every Moebius map, as in :func:`pystratify.solve`, and the
+    matching of the amplitudes becomes value' = (value + t_v deriv)/tau, deriv' = (deriv - t_d value)/tau.
     """
 
-    def __init__(self, radii, n, mu, k, L):
+    def __init__(self, radii, n, mu, k, L, sheets=None):
         self.radii, self.n, self.mu, self.k, self.L = radii, n, mu, k, L
         N = radii.size
         l = np.arange(1, L + 1)
@@ -250,6 +255,28 @@ class _Sweep:
                 xt = k[j + 1] * radii[j]
                 m11.append((l + 1) * g_minus_1[p][j] / xt - (f[j] * r_in - r_out))
                 m33.append((f[j] * X_in - X_out) - l * g_minus_1[p][j] / xt)
+            # the maps rho' = (a + rho b)/(c + rho d) and sigma = (d - sigma' b)/(sigma' a - c) of every
+            # interface, with the sheet terms of pystratify.solve; tv, td, tau for the amplitudes
+            coef = []
+            tv, td, tau = np.zeros((N, L), complex), np.zeros((N, L), complex), np.ones((N, L), complex)
+            for j in range(N):
+                A, B = inner[j][0][l], inner[j][1][l]
+                At, Bt = outer[j][0][l], outer[j][1][l]
+                a, b, c, d = m11[j], f[j] * B - At, Bt - f[j] * A, -m33[j]
+                if sheets is not None and (sheets[0][j] != 0 or sheets[1][j] != 0):
+                    sg, zt, k0 = sheets[0][j], sheets[1][j], sheets[2]
+                    z_in, z_out = mu_in[j] / n_in[j], mu_out[j] / n_out[j]
+                    if p == TE:  # the jump of H_t
+                        sh = 1j * z_out * sg
+                        a, b, c, d = a - sh, b - sh, c + sh, d + sh
+                        td[j] = 1j * z_in * sg
+                    else:  # the jumps of H_t and E_t
+                        sa = 1j * zt * l * (l + 1) / (k0 * radii[j] ** 2)
+                        sp = 1 - sa * sg / 4
+                        t, w = 1j * z_in * sg / sp, sa / (1j * z_out * sp)
+                        a, b, c, d = a - w - t * At * A, b - w - t * At * B, c + w + t * Bt * A, d + w + t * Bt * B
+                        tv[j], td[j], tau[j] = t, sa / (1j * z_in * sp), sp / (1 + sa * sg / 4)
+                coef.append((a, b, c, d))
             # outward sweep: rho just outside each interface (rho_t)
             rho_t = np.zeros((N, L), complex)
             rho = np.zeros(L, complex)
@@ -257,9 +284,8 @@ class _Sweep:
                 for j in range(N):
                     if j:
                         rho = rho_t[j - 1] * _propagator(outer[j - 1], inner[j], radii[j - 1], radii[j], l)
-                    A, B = inner[j][0][l], inner[j][1][l]
-                    At, Bt = outer[j][0][l], outer[j][1][l]
-                    rho_t[j] = (m11[j] + rho * (f[j] * B - At)) / ((Bt - f[j] * A) - rho * m33[j])
+                    a, b, c, d = coef[j]
+                    rho_t[j] = (a + rho * b) / (c + rho * d)
                 # inward sweep: sigma just outside interface j (sig_t) and on its inner side (sig_in)
                 sig_in, sig_t = np.zeros((N, L), complex), np.zeros((N, L), complex)
                 sig = np.zeros(L, complex)
@@ -267,16 +293,15 @@ class _Sweep:
                     if j < N - 1:
                         sig = sig_in[j + 1] * _propagator(outer[j], inner[j + 1], radii[j], radii[j + 1], l)
                     sig_t[j] = sig
-                    A, B = inner[j][0][l], inner[j][1][l]
-                    At, Bt = outer[j][0][l], outer[j][1][l]
-                    sig_in[j] = (-m33[j] + sig * (At - f[j] * B)) / ((f[j] * A - Bt) + sig * m11[j])
-            self.pol[p] = dict(c_v=c_v, c_d=c_d, rho_t=rho_t, sig_in=sig_in, sig_t=sig_t)
+                    a, b, c, d = coef[j]
+                    sig_in[j] = (d - sig * b) / (sig * a - c)
+            self.pol[p] = dict(c_v=c_v, c_d=c_d, rho_t=rho_t, sig_in=sig_in, sig_t=sig_t, tv=tv, td=td, tau=tau)
 
     def transmission(self, p, d, stop):
         """The outgoing solution carried outwards from shell ``d`` to shell ``stop`` > ``d``, polarization ``p``:
         C_stop/C_d = (k_stop/k_d)^(l+1) exp(log) chain, with ``log`` the sum of log jbar(x~_j) - log jbar(x_j)
         over interfaces j = d..stop-1 and ``chain`` the product of P(x_j)/P(x~_j) and the better conditioned
-        of the value and derivative continuity ratios; (L,) each."""
+        of the value and derivative matching ratios (with the sheet terms); (L,) each."""
         q, l = self.pol[p], self.l
         inner, outer = self.inner, self.outer
         log, chain = np.zeros(self.L, complex), np.ones(self.L, complex)
@@ -285,11 +310,14 @@ class _Sweep:
                 sv, st = q["sig_in"][j], q["sig_t"][j]
                 A, B = inner[j][0][l], inner[j][1][l]
                 At, Bt = outer[j][0][l], outer[j][1][l]
-                value = (1 + sv) / (q["c_v"][j] * (1 + st))
-                deriv = (sv * A + B) / (q["c_d"][j] * (st * At + Bt))
-                cond_v = np.minimum(np.abs(1 + sv) / (1 + np.abs(sv)), np.abs(1 + st) / (1 + np.abs(st)))
+                tv, td, tau = q["tv"][j], q["td"][j], q["tau"][j]
+                v_in, d_in = (1 + sv) + tv * (sv * A + B), (sv * A + B) - td * (1 + sv)
+                value = tau * v_in / (q["c_v"][j] * (1 + st))
+                deriv = tau * d_in / (q["c_d"][j] * (st * At + Bt))
+                v_scale, d_scale = 1 + np.abs(sv), np.abs(sv * A) + np.abs(B)
+                cond_v = np.minimum(np.abs(v_in) / (v_scale + np.abs(tv) * d_scale), np.abs(1 + st) / (1 + np.abs(st)))
                 cond_d = np.minimum(
-                    np.abs(sv * A + B) / (np.abs(sv * A) + np.abs(B)),
+                    np.abs(d_in) / (d_scale + np.abs(td) * v_scale),
                     np.abs(st * At + Bt) / (np.abs(st * At) + np.abs(Bt)),
                 )
                 log = log + outer[j][3][l] - inner[j][3][l]
@@ -432,11 +460,22 @@ def _prepare(radii, n, mu, wavelength, r):
     return radii, n, mu, r, k
 
 
-def _evaluate(radii, n, mu, wavelength, r, k, l_max, tol, l_cap):
+def _sheet_tuple(sheets, N, wavelength):
+    """(sigma, zeta, k0) for :class:`_Sweep` from {interface: Sheet or conductivity}, or None."""
+    from .sheets import _sheet_arrays
+
+    sigma, zeta = _sheet_arrays(sheets, N, 1)
+    if not (np.any(sigma) or np.any(zeta)):
+        return None
+    return sigma[0], zeta[0], 2 * np.pi / wavelength
+
+
+def _evaluate(radii, n, mu, wavelength, r, k, l_max, tol, l_cap, sheets=None):
     """Sweep and emitter side at a given or automatic truncation: (terms dict, L, converged (P,))."""
     L = int(l_max) if l_max is not None else _starting_order(radii, n, wavelength, r, tol, l_cap)
+    sheets = _sheet_tuple(sheets, radii.size, wavelength)
     while True:
-        t = _Sweep(radii, n, mu, k, L).at(r)
+        t = _Sweep(radii, n, mu, k, L, sheets).at(r)
         ok = np.ones(r.size, bool)
         for dipole in ("electric", "magnetic"):
             ok &= _complex_converged(_dipole_series(t, dipole)[0], tol)
@@ -493,16 +532,18 @@ class NormalizedTerms:
         return _dipole_series(t, dipole)
 
 
-def normalized_terms(radii, n, wavelength, r, l_max=None, mu=None, tol=1e-13, l_cap=L_CAP) -> NormalizedTerms:
+def normalized_terms(
+    radii, n, wavelength, r, l_max=None, mu=None, tol=1e-13, l_cap=L_CAP, sheets=None
+) -> NormalizedTerms:
     """Per-order quantities of the normalized formulation at emitter radius or radii ``r``.
 
-    Geometry and materials as in :func:`pystratify.decay_rates` (one wavelength, lengths in
-    one unit); every emitter in a lossless shell, lossless host.  ``l_max`` is the number of
+    Geometry, materials and ``sheets`` as in :func:`pystratify.decay_rates` (one wavelength, lengths
+    in one unit); every emitter in a lossless shell, lossless host.  ``l_max`` is the number of
     multipoles; ``None`` starts from the estimate of :func:`~pystratify.decay_rates` and
     doubles (up to ``l_cap``) until the complex dipole series - rate and shift - meet ``tol``.
     """
     radii, n, mu, r, k = _prepare(radii, n, mu, wavelength, r)
-    t, L, ok = _evaluate(radii, n, mu, wavelength, r, k, l_max, tol, l_cap)
+    t, L, ok = _evaluate(radii, n, mu, wavelength, r, k, l_max, tol, l_cap, sheets)
     return NormalizedTerms(
         r=r,
         shell=t["shell"],
@@ -545,11 +586,11 @@ class NormalizedRates:
 
 
 def normalized_decay_rates(
-    radii, n, wavelength, r, l_max=None, mu=None, dipole="electric", terms=False, tol=1e-13, l_cap=L_CAP
+    radii, n, wavelength, r, l_max=None, mu=None, dipole="electric", terms=False, tol=1e-13, l_cap=L_CAP, sheets=None
 ):
     """Decay rates and frequency shift of an electric or magnetic dipole at radius ``r``.
 
-    Parameters as in :func:`pystratify.decay_rates` (one wavelength, lengths in one unit);
+    Parameters as in :func:`pystratify.decay_rates` (one wavelength, lengths in one unit, ``sheets``);
     ``l_max`` is the number of multipoles summed, ``None`` for the automatic truncation of
     :func:`normalized_terms` (``tol``, ``l_cap``).  Returns :class:`NormalizedRates` in the
     shell normalization.
@@ -559,7 +600,7 @@ def normalized_decay_rates(
     if np.ndim(r) != 0:
         raise ValueError("one emitter radius; use normalized_terms for many")
     radii, n, mu, rr, k = _prepare(radii, n, mu, wavelength, r)
-    t, L, ok = _evaluate(radii, n, mu, wavelength, rr, k, l_max, tol, l_cap)
+    t, L, ok = _evaluate(radii, n, mu, wavelength, rr, k, l_max, tol, l_cap, sheets)
     g, rad = _dipole_series(t, dipole)
     t_tot, t_rad = np.real(g[0]), rad[0]
     t_shift = 0.5 * np.imag(g[0])

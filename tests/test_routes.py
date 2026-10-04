@@ -166,8 +166,8 @@ def test_decay_rates_routes():
     assert norm.balance_error.max() < 1e-12
     with pytest.raises(ValueError):
         ps.decay_rates(radii, n, lam, [60.0], route="nope")
-    with pytest.raises(ValueError):
-        ps.decay_rates(radii, n, lam, [60.0], route="normalized", sheets={1: ps.Sheet(conductivity=0.01)})
+    sheet = ps.decay_rates(radii, n, lam, [60.0], route="normalized", sheets={1: ps.Sheet(conductivity=0.01)})
+    assert sheet.route == "normalized" and np.all(np.isfinite(sheet.shift))
 
 
 def test_decay_rates_next_to_a_lossless_sphere():

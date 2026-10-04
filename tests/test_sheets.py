@@ -208,3 +208,61 @@ def test_sheet_input_validation():
         ps.solve_chiral([50.0], [1.5, 1.0], [0.1, 0], LAM, sheets={0: np.nan})
     batch = ps.solve([50.0], [1.5, 1.0], [500.0, 600.0], sheets={0: [0.1, 0.2j]})
     assert np.allclose(batch.sheet_sigma[:, 0], [0.1, 0.2j])
+
+
+# ---- the normalized formulation with sheets -------------------------------------------------------
+
+GRAPHENE = ps.graphene_conductivity(1500.0, 0.4, 0.0066)
+TWO_SHEETS = {0: ps.Sheet(0.02 + 0.3j, 0.4 + 0.05j), 1: ps.Sheet(0.05 + 0.01j, 0.2 + 0.1j)}
+
+
+@pytest.mark.parametrize(
+    "radii, n, lam, r, sheets",
+    [
+        ([50.0], [1.5, 1.0], 1500.0, 51.0, {0: ps.Sheet(GRAPHENE)}),
+        ([50.0], [1.5, 1.33], 1500.0, 49.0, {0: ps.Sheet(GRAPHENE)}),
+        ([40.0, 50.0], [2.0, 1.4, 1.0], 900.0, 52.0, TWO_SHEETS),
+        ([40.0, 50.0], [2.0, 1.4, 1.0], 900.0, 45.0, TWO_SHEETS),
+    ],
+)
+def test_normalized_forms_with_sheets_against_extended_precision(radii, n, lam, r, sheets):
+    """S, S^m, S^d per order against mpmath transfer matrices built from the transition conditions on
+    the M and N fields (independent of the Moebius-map coefficients of the solvers)."""
+    from pystratify.references import layered_green_forms
+
+    L = 100
+    t = ps.normalized_terms(radii, n, lam, r, l_max=L, sheets=sheets)
+    for ref, form in zip(layered_green_forms(radii, n, lam, r, L, dps=80, sheets=sheets), (t.S, t.Sm, t.Sd)):
+        mine = (t.P * form)[:, 0]
+        assert np.max(np.abs(mine - ref) / np.abs(ref)) <= 1e-13
+
+
+def test_shift_with_sheets_against_extended_precision():
+    from pystratify.references import layered_green_sums
+
+    radii, n, lam, r = [40.0, 50.0], [2.0, 1.4, 1.0], 900.0, 53.0
+    rates = ps.decay_rates(radii, n, lam, r, sheets=TWO_SHEETS, normalization="shell", tol=1e-14)
+    g = np.array(layered_green_sums(radii, n, lam, r, 600, dps=60, sheets=TWO_SHEETS))
+    assert rates.route == "normalized" and rates.converged.all()
+    assert np.allclose(rates.total[0], 1 + g.real, rtol=1e-12, atol=0)
+    assert np.allclose(rates.shift[0], g.imag / 2, rtol=1e-12, atol=0)
+
+
+@pytest.mark.parametrize("gap", [1.0, 5.0, -1.0])
+@pytest.mark.parametrize("setup", ["graphene", "two sheets on gold"])
+def test_normalized_route_with_sheets_balance_and_log_route(setup, gap):
+    """total = radiative + absorbed in layers + absorbed in sheets (absorption from the logarithmic
+    route, so this is a test), and agreement with the logarithmic route where that converges."""
+    if setup == "graphene":
+        radii, n, lam, sheets = [50.0], [1.5, 1.0], 1500.0, {0: ps.Sheet(GRAPHENE)}
+    else:
+        radii, n, lam, sheets = [40.0, 50.0], [0.2 + 4j, 1.4, 1.0], 900.0, TWO_SHEETS
+    for moment in ([0, 0, 1.0], [1.0, 0, 0]):
+        kw = dict(sheets=sheets, warn=False)
+        out = ps.emission_rates(radii, n, lam, [0, 0, 50.0 + gap], moment, tol=1e-13, **kw)
+        log = ps.emission_rates(radii, n, lam, [0, 0, 50.0 + gap], moment, tol=1e-12, route="log", **kw)
+        absorbed = out.absorption.sum() + out.sheet_absorption.sum()
+        assert out.route == "normalized" and out.converged and log.converged
+        assert abs(out.total - out.radiative - absorbed) <= 3e-13 * out.total
+        assert abs(out.total - log.total) <= 3e-13 * out.total
+        assert np.max(np.abs(out.sheet_absorption - log.sheet_absorption)) <= 1e-13 * out.total

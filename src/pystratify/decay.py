@@ -518,8 +518,10 @@ def _rates_normalized(radii, n, mu, wavelength, r, shells, l_max, tol, normaliza
     return ratio * (1 + g.real), ratio * rad, ratio * nonrad, ratio * g.imag / 2, used, ok
 
 
-def _rates_with_sheets(radii, n, wavelength, r, mu, l_max, tol, normalization, dipole, nodes, l_cap, warn, sheets):
-    """Radial and tangential dipoles through the general route of :func:`~pystratify.emission_rates`."""
+def _rates_with_sheets(
+    radii, n, wavelength, r, mu, l_max, tol, normalization, dipole, nodes, l_cap, warn, sheets, route="auto"
+):
+    """Radial and tangential dipoles through :func:`~pystratify.emission_rates` (normalized by default)."""
     from .rates import emission_rates
 
     positions = np.column_stack([np.zeros_like(r), np.zeros_like(r), r])
@@ -539,6 +541,7 @@ def _rates_with_sheets(radii, n, wavelength, r, mu, l_max, tol, normalization, d
             warn=False,
             sheets=sheets,
             normalization="layer" if normalization == "shell" else "host",
+            route=route,
         )  # fmt: skip
         for moment in ([0, 0, 1.0], [1.0, 0, 0])
     ]
@@ -557,8 +560,8 @@ def _rates_with_sheets(radii, n, wavelength, r, mu, l_max, tol, normalization, d
         normalization=normalization,
         dipole=dipole,
         notes=notes,
-        shift=np.full((r.size, 2), np.nan),
-        route="log",
+        shift=np.stack([run.shift for run in runs], axis=1),
+        route=runs[0].route,
     )
 
 
@@ -599,11 +602,11 @@ def decay_rates(
         (an emitter 1 nm from a 1.3-um sphere at tol = 1e-9) takes ~1 s.
     sheets : 2D materials on interfaces (see :mod:`pystratify.sheets`); their
         absorption is part of the nonradiative rate.  Computed by
-        :func:`~pystratify.emission_rates` on its logarithmic route.
+        :func:`~pystratify.emission_rates` (same ``route``).
     route : ``'auto'`` (default) or ``'normalized'`` - total, radiative and shift
         from the normalized formulation, the loss integrals from the logarithmic
         route - or ``'log'`` - everything from the logarithmic route, without the
-        shift.  With ``sheets``, ``'auto'`` takes the logarithmic route.
+        shift.
     """
     radii = np.atleast_1d(np.asarray(radii, dtype=float))
     n = np.atleast_1d(np.asarray(n, dtype=complex))
@@ -628,11 +631,10 @@ def decay_rates(
     if route not in ("auto", "normalized", "log"):
         raise ValueError("route must be 'auto', 'normalized' or 'log'")
     if sheets:
-        if route == "normalized":
-            raise ValueError("sheets are not yet part of the normalized formulation: use route='auto' or 'log'")
         return _rates_with_sheets(
-            radii, n, wavelength, r, mu, l_max, tol, normalization, dipole, quadrature_nodes, l_cap, warn, sheets
-        )
+            radii, n, wavelength, r, mu, l_max, tol, normalization, dipole, quadrature_nodes, l_cap, warn, sheets,
+            route,
+        )  # fmt: skip
     if route != "log":
         total, radiative, nonradiative, shift, used, ok = _rates_normalized(
             radii, n, mu, wavelength, r, shells, l_max, tol, normalization, dipole, quadrature_nodes, l_cap
