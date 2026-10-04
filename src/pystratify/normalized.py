@@ -280,7 +280,7 @@ class _Sweep:
         N = radii.size
         r = np.asarray(r, dtype=float).ravel()
         shells = np.searchsorted(radii, r, side="right")
-        names = ("P", "A", "B", "rho", "sigma", "S", "Sm", "Sd", "F", "Fd", "rp", "rx", "Fr")
+        names = ("P", "A", "B", "rho", "sigma", "S", "Sm", "Sd", "F", "Fd", "rp", "rx", "Fr", "lj")
         out = {name: np.zeros((2, r.size, L), complex) for name in names}
         x_all = np.zeros(r.size, dtype=complex if np.any(k[np.unique(shells)].imag != 0) else float)
         inner, outer = self.inner, self.outer
@@ -340,7 +340,7 @@ class _Sweep:
                 for name, value in (
                     ("P", P), ("A", a), ("B", b), ("rho", rho_e), ("sigma", sig_e), ("S", S), ("Sm", Sm), ("Sd", Sd),
                     ("F", core * (1 + rho_e)), ("Fd", core * (a + rho_e * b)), ("rp", rp), ("rx", rx),
-                    ("Fr", core * (rp + rho_e * rx)),
+                    ("Fr", core * (rp + rho_e * rx)), ("lj", emit[3][:, l]),
                 ):  # fmt: skip
                     out[name][p, idx] = value
         out["x"] = x_all

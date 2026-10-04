@@ -41,6 +41,7 @@ from .farfield import (
     scattering_pattern,
 )
 from .nearfield import NearField, near_field
+from .pairs import GreenDyadic, green_dyadic
 from .normalized import NormalizedRates, NormalizedTerms, normalized_decay_rates, normalized_terms
 from .rates import EmissionRates, emission_rates
 from .sheets import Sheet, graphene_conductivity
@@ -93,6 +94,8 @@ __all__ = [
     "normalized_decay_rates",
     "casimir_polder",
     "CasimirPolder",
+    "green_dyadic",
+    "GreenDyadic",
     "shell_average",
     "ShellAverage",
     "spectral_density",
