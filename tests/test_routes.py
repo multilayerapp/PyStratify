@@ -97,10 +97,10 @@ def test_normalized_route_agrees_with_logarithmic_route(structure, source):
     assert np.isnan(b.shift)
     assert abs(a.radiative / b.radiative - 1) < 2e-14
     assert np.allclose(a.radiative_helicity, b.radiative_helicity, rtol=3e-14, atol=0)
-    assert np.allclose(a.absorption, b.absorption, rtol=1e-15, atol=0)
-    if b.balance_error < 1e-13:
+    if b.balance_error < 1e-13:  # where the logarithmic route conserves energy, its total and absorption agree
         assert abs(a.total / b.total - 1) < 3e-13
-    assert a.balance_error < 2e-13
+        assert np.allclose(a.absorption, b.absorption, rtol=1e-13, atol=1e-13 * a.total)
+    assert a.balance_error < 1e-13  # closed-form loss integrals against the normalized total
 
 
 @pytest.mark.parametrize("d", [1.0, 0.1, 0.05])

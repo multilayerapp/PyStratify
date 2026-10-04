@@ -339,37 +339,31 @@ def _ldos(side, derivative):
         return np.exp(2 * p).real + (bracket * np.exp(-side["log_delta"])).real
 
 
-def _rates_one(sol: Solution, r, shells, normalization, dipole, tol, quadrature_nodes, parts="all"):
-    """Terms of the six l-sums for a single-wavelength Solution; returns the converged sums.
+class _ShellLosses:
+    """Loss integrals of the absorbing shells of a single-wavelength Solution, cached.
 
-    ``parts='nonradiative'`` computes only the loss sums (the others stay 0)."""
-    l = sol.orders
-    L = l.size
-    N = sol.n_shells
-    n, mu = sol.n[0], sol.mu[0]
-    eps = n**2 / mu
-    k = sol.k[0]
-    radial_pol, other_pol = (TM, TE) if dipole == "electric" else (TE, TM)
-    integral_kind = {TM: 0, TE: 1}
-    # Ohmic loss Im(eps)|E|^2 and magnetic loss Im(mu)|H|^2; in shell a, H = -i (n/mu) x (E of the
-    # other polarisation's radial form), so the magnetic loss uses the other integral kind, times |eps/mu|
-    loss_e = np.where(eps.imag > 0, eps.imag, 0.0)
-    loss_m = np.where(mu.imag > 0, mu.imag * np.abs(eps / mu), 0.0)
-    absorbing = [a for a in range(N) if loss_e[a] > 0 or loss_m[a] > 0]
-    # The Ohmic-loss series converges like (r_< / r_>)^(2l) at the absorbing shell's
-    # nearest boundary - usually far sooner than the LDOS series, which also feels
-    # nearby dielectric interfaces.  Integrate only that many orders (checked below).
-    bounds = np.array([b for a in absorbing for b in ((sol.radii[a - 1],) if a else ()) + (sol.radii[a],)])
-    if bounds.size:
-        q = np.max(np.minimum(bounds[None, :] / r[:, None], r[:, None] / bounds[None, :]))
-        l_abs = int(min(L, max(32, _orders_needed(q, tol, L))))
-    else:
-        l_abs = L
-    cache, rules, boundaries = {}, {}, {}
+    ``log_loss(a, side, pol, count)`` is the log of int (Im eps |E|^2 + Im mu |H|^2) over shell a
+    of the regular (``side='below'``, plane-wave normalisation) or outgoing (``'above'``, B = 1 in
+    the host) solution of polarisation ``pol``, orders 1..count (-inf beyond), from closed-form
+    Lommel boundary terms or, for weak loss or a closed form that cancels, Gauss-Legendre quadrature.
+    """
 
-    def integral(a, side, pol, count, kind):
+    def __init__(self, sol: Solution, quadrature_nodes=None):
+        self.sol, self.nodes = sol, quadrature_nodes
+        n, mu = sol.n[0], sol.mu[0]
+        eps = n**2 / mu
+        # Ohmic loss Im(eps)|E|^2 and magnetic loss Im(mu)|H|^2; in shell a, H = -i (n/mu) x (E of the
+        # other polarisation's radial form), so the magnetic loss uses the other integral kind, times |eps/mu|
+        self.loss_e = np.where(eps.imag > 0, eps.imag, 0.0)
+        self.loss_m = np.where(mu.imag > 0, mu.imag * np.abs(eps / mu), 0.0)
+        self.absorbing = [a for a in range(sol.n_shells) if self.loss_e[a] > 0 or self.loss_m[a] > 0]
+        self.cache, self.rules, self.boundaries = {}, {}, {}
+
+    def integral(self, a, side, pol, count, kind):
+        sol, L = self.sol, self.sol.orders.size
+        k = sol.k[0]
         key = (a, side, pol, count, kind)
-        if key not in cache:
+        if key not in self.cache:
             if side == "below":  # regular solution in shell a, plane-wave normalisation
                 la, lb = sol.log_a[pol, a, 0], sol.log_b[pol, a, 0]
             else:  # outgoing solution in shell a, B = 1 in the host
@@ -377,30 +371,58 @@ def _rates_one(sol: Solution, r, shells, normalization, dipole, tol, quadrature_
                 la = lb + sol.log_s[pol, a, 0]
             la, lb = la[:count], lb[:count]
             result, cancellation = None, np.inf
-            if quadrature_nodes is None and abs(k[a].imag) >= WEAK_LOSS * abs(k[a]):
-                if (a, count) not in boundaries:
+            if self.nodes is None and abs(k[a].imag) >= WEAK_LOSS * abs(k[a]):
+                if (a, count) not in self.boundaries:
                     radii = [sol.radii[a]] + ([sol.radii[a - 1]] if a else [])
-                    boundaries[a, count] = [_lommel_boundary(k[a], radius, count) for radius in radii]
-                *result, cancellation = _log_lommel_integrals(sol, a, count, la, lb, boundaries[a, count])
+                    self.boundaries[a, count] = [_lommel_boundary(k[a], radius, count) for radius in radii]
+                *result, cancellation = _log_lommel_integrals(sol, a, count, la, lb, self.boundaries[a, count])
             if cancellation > _LOMMEL_MAX_CANCELLATION:  # weak loss, or a closed form that cancels
-                if (a, count) not in rules:
-                    rules[a, count] = _quadrature_rule(sol, a, count, quadrature_nodes)
-                result = _log_absorption_integrals(sol, a, rules[a, count], la, lb)
+                if (a, count) not in self.rules:
+                    self.rules[a, count] = _quadrature_rule(sol, a, count, self.nodes)
+                result = _log_absorption_integrals(sol, a, self.rules[a, count], la, lb)
             for which in (0, 1):
                 v = np.full(L, -np.inf, dtype=complex)
                 v[:count] = result[which]
-                cache[a, side, pol, count, which] = v
-        return cache[key]
+                self.cache[a, side, pol, count, which] = v
+        return self.cache[key]
 
-    def log_loss(a, side, pol, count):
+    def log_loss(self, a, side, pol, count):
         """log of the loss integral of shell a for polarisation pol, electric plus magnetic."""
-        kind = integral_kind[pol]
+        kind = {TM: 0, TE: 1}[pol]
+        loss_e, loss_m = self.loss_e[a], self.loss_m[a]
         with np.errstate(divide="ignore"):
-            electric = np.log(loss_e[a]) + integral(a, side, pol, count, kind).real if loss_e[a] > 0 else None
-            magnetic = np.log(loss_m[a]) + integral(a, side, pol, count, 1 - kind).real if loss_m[a] > 0 else None
+            electric = np.log(loss_e) + self.integral(a, side, pol, count, kind).real if loss_e > 0 else None
+            magnetic = np.log(loss_m) + self.integral(a, side, pol, count, 1 - kind).real if loss_m > 0 else None
         if electric is None:
             return magnetic
         return electric if magnetic is None else np.logaddexp(electric, magnetic)
+
+    def orders(self, r, tol, L):
+        """Orders the loss series need: geometric in (r_< / r_>)^(2l) at the absorbing shells' nearest boundary."""
+        sol = self.sol
+        bounds = np.array([b for a in self.absorbing for b in ((sol.radii[a - 1],) if a else ()) + (sol.radii[a],)])
+        if not bounds.size:
+            return L
+        q = np.max(np.minimum(bounds[None, :] / r[:, None], r[:, None] / bounds[None, :]))
+        return int(min(L, max(32, _orders_needed(q, tol, L))))
+
+
+def _rates_one(sol: Solution, r, shells, normalization, dipole, tol, quadrature_nodes, parts="all"):
+    """Terms of the six l-sums for a single-wavelength Solution; returns the converged sums.
+
+    ``parts='nonradiative'`` computes only the loss sums (the others stay 0)."""
+    l = sol.orders
+    L = l.size
+    n, mu = sol.n[0], sol.mu[0]
+    k = sol.k[0]
+    radial_pol, other_pol = (TM, TE) if dipole == "electric" else (TE, TM)
+    losses = _ShellLosses(sol, quadrature_nodes)
+    absorbing = losses.absorbing
+    # The Ohmic-loss series converges like (r_< / r_>)^(2l) at the absorbing shell's
+    # nearest boundary - usually far sooner than the LDOS series, which also feels
+    # nearby dielectric interfaces.  Integrate only that many orders (checked below).
+    l_abs = losses.orders(r, tol, L)
+    log_loss = losses.log_loss
 
     c_radial = l * (l + 1) * (2 * l + 1)
     c_tangential = 2 * l + 1

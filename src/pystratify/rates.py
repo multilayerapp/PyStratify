@@ -78,7 +78,7 @@ from .emission import _local_frame, source_covariance
 from .energy import gauss_legendre
 from .riccati import log_riccati
 from .sheets import _sheet_arrays
-from .solver import TE, TM
+from .solver import TE, TM, solve
 
 __all__ = ["EmissionRates", "emission_rates"]
 
@@ -787,6 +787,90 @@ def _normalized_terms(t, x, kd, zd, src, quadrupole, tai, zh, kh):
     return free, refl, rad
 
 
+def _lommel_absorption(sol, r, shells, local, quadrupole, tol, nodes, tai):
+    """Absorption per layer (P, N + 1) of sources ``local`` (P, K, 6, 15 or 24) in achiral layers, in the
+    units of :func:`_source_terms`, and whether every loss series met ``tol`` (P,).
+
+    The field of a source in an absorbing shell a is the regular (a below the emitter) or outgoing
+    (a above) solution of that shell, with the amplitude of the source functional applied to the
+    other solution at the source, as for the dipoles of :mod:`pystratify.decay`; the radial loss
+    integrals are those of :class:`pystratify.decay._ShellLosses` (closed-form Lommel terms, O(L) in
+    time and memory), and families and polarizations add (orthogonal vector harmonics).  The
+    functionals are applied in the ratio form c_v f - c_d f_(l+1) of :func:`_tetm_functionals`, with
+    f_(l+1) the same combination of Riccati functions of order l + 1.
+    """
+    from .decay import _ShellLosses
+
+    L, N = sol.orders.size, sol.n_shells
+    l = sol.orders
+    n, mu, k = sol.n[0], sol.mu[0], sol.k[0]
+    zh, kh = (mu[N] / n[N]).real, k[N].real
+    losses = _ShellLosses(sol, nodes)
+    absorption = np.zeros((r.size, N + 1))
+    ok = np.ones(r.size, dtype=bool)
+    if not losses.absorbing:
+        return absorption, ok
+
+    def log1p(z):
+        with np.errstate(all="ignore"):
+            return np.log(1 + np.exp(z))
+
+    for d in np.unique(shells):
+        idx = np.flatnonzero(shells == d)
+        x = (k[d] * r[idx]).real
+        zd, kd = (mu[d] / n[d]).real, k[d].real
+        cv, cd = _tetm_functionals(x, np.full(idx.size, kd), zd, local[idx], quadrupole, l)
+        lps, lxs = log_riccati(x.astype(complex), L + 1)  # orders 0..L+1
+        lp, lp1, lx, lx1 = lps[:, l], lps[:, l + 1], lxs[:, l], lxs[:, l + 1]
+        pre = 1.5 * zd * kd**2 / (zh * kh**2) * kd**3 * (mu[d] / n[d] ** 2).real
+        amp = {}  # log (u, u_(l+1), normalisation) of the solution at the source that continues into the shell
+        for p in (TM, TE):
+            log_r, log_s = sol.log_r[p, d, 0], sol.log_s[p, d, 0]
+            with np.errstate(all="ignore"):
+                log_delta = np.log(1 - np.exp(log_r + log_s))
+            # below the emitter: u_out = S psi + xi over the regular solution of shell d (A_d)
+            amp[p, "below"] = (
+                lx + log1p(log_s + lp - lx),
+                lx1 + log1p(log_s + lp1 - lx1),
+                log_delta + sol.log_a[p, d, 0],
+            )
+            # above it: u_in = psi + R xi over the outgoing solution (B_out,d)
+            amp[p, "above"] = (
+                lp + log1p(log_r + lx - lp),
+                lp1 + log1p(log_r + lx1 - lp1),
+                log_delta + sol.log_b_out[p, d, 0],
+            )
+        start = losses.orders(r[idx], tol, L)
+        for a in losses.absorbing:
+            side = "below" if a < d else "above"
+            for count in dict.fromkeys((start, L)):
+                terms = np.zeros((idx.size, L))
+                for p in (TM, TE):
+                    log_loss = losses.log_loss(a, side, p, count)
+                    lu, lu1, ref = amp[p, side]
+                    with np.errstate(all="ignore"):
+                        m = np.maximum(lu.real, lu1.real)
+                        m = np.where(np.isfinite(m), m, 0.0)
+                        eu, eu1 = np.exp(lu - m), np.exp(lu1 - m)
+                        scale = 2 * (m - ref.real) + log_loss[None, :]  # (P, L)
+                    for kk in range(local.shape[1]):
+                        f = cv[:, kk, :, :, p] * eu[:, :, None] - cd[:, kk, :, :, p] * eu1[:, :, None]  # (P, L, F)
+                        with np.errstate(all="ignore"):
+                            w = np.exp(2 * np.log(np.abs(f)) + scale[:, :, None])
+                        terms += np.einsum("plf,lf->pl", np.where(np.isfinite(w), w, 0.0), tai) / x[:, None] ** 2
+                terms = pre * terms
+                total = terms.sum(axis=1)
+                tail = tail_estimate(np.moveaxis(terms[:, :count][:, -4:], 1, 0))
+                scale = np.maximum(total, np.finfo(float).tiny)
+                if count == L or np.all(
+                    tail <= 0.1 * tol * scale
+                ):  # as decay_rates: shorter sums only when clearly done
+                    break
+            absorption[idx, a] = total
+            ok[idx] &= tail <= tol * scale
+    return absorption, ok
+
+
 #: complex numbers per block of positions in the normalized route (bounds the memory of long sweeps)
 _NORMALIZED_BLOCK = 4_000_000
 
@@ -850,9 +934,9 @@ def _rates_normalized(radii, n, mu, wavelength, r, shells, local, tol, nodes, l_
                 ok_core[part] = good
         ok_abs = np.ones(todo.size, dtype=bool)
         if lossy:
-            sol = solve_chiral(radii, n, kappa0, wavelength, mu, l_max=L)
-            *_, absorption, _, _, _, ok_abs = _rates_one(
-                sol, r[todo], shells[todo], local[todo], tol, nodes, quadrupole
+            sol = solve(radii, n, wavelength, mu, L)
+            absorption, ok_abs = _lommel_absorption(
+                sol, r[todo], shells[todo], local[todo], quadrupole, tol, nodes, tai
             )
             out["absorption"][todo] = absorption
         ok[todo] = ok_core & ok_abs
