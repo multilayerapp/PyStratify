@@ -272,6 +272,30 @@ class _Sweep:
                     sig_in[j] = (-m33[j] + sig * (At - f[j] * B)) / ((f[j] * A - Bt) + sig * m11[j])
             self.pol[p] = dict(c_v=c_v, c_d=c_d, rho_t=rho_t, sig_in=sig_in, sig_t=sig_t)
 
+    def transmission(self, p, d, stop):
+        """The outgoing solution carried outwards from shell ``d`` to shell ``stop`` > ``d``, polarization ``p``:
+        C_stop/C_d = (k_stop/k_d)^(l+1) exp(log) chain, with ``log`` the sum of log jbar(x~_j) - log jbar(x_j)
+        over interfaces j = d..stop-1 and ``chain`` the product of P(x_j)/P(x~_j) and the better conditioned
+        of the value and derivative continuity ratios; (L,) each."""
+        q, l = self.pol[p], self.l
+        inner, outer = self.inner, self.outer
+        log, chain = np.zeros(self.L, complex), np.ones(self.L, complex)
+        with np.errstate(all="ignore"):
+            for j in range(d, stop):
+                sv, st = q["sig_in"][j], q["sig_t"][j]
+                A, B = inner[j][0][l], inner[j][1][l]
+                At, Bt = outer[j][0][l], outer[j][1][l]
+                value = (1 + sv) / (q["c_v"][j] * (1 + st))
+                deriv = (sv * A + B) / (q["c_d"][j] * (st * At + Bt))
+                cond_v = np.minimum(np.abs(1 + sv) / (1 + np.abs(sv)), np.abs(1 + st) / (1 + np.abs(st)))
+                cond_d = np.minimum(
+                    np.abs(sv * A + B) / (np.abs(sv * A) + np.abs(B)),
+                    np.abs(st * At + Bt) / (np.abs(st * At) + np.abs(Bt)),
+                )
+                log = log + outer[j][3][l] - inner[j][3][l]
+                chain = chain * np.where(cond_v >= cond_d, value, deriv) * inner[j][2][l] / outer[j][2][l]
+        return log, chain
+
     def at(self, r):
         """Per-order quantities at emitter radii ``r`` (P,), each lossless: dict of (2, P, L) arrays
         indexed [TM, TE] (``P``, ``A``, ``B``, ``rho``, ``sigma``, ``S``, ``Sm``, ``Sd``, ``F``, ``Fd``),
@@ -298,7 +322,7 @@ class _Sweep:
             x_all[idx] = x
             for p in (TM, TE):
                 q = self.pol[p]
-                rho_t, sig_in, sig_t, c_v, c_d = q["rho_t"], q["sig_in"], q["sig_t"], q["c_v"], q["c_d"]
+                rho_t, sig_in = q["rho_t"], q["sig_in"]
                 with np.errstate(all="ignore"):
                     if d:
                         rho_e = rho_t[d - 1] * _propagator(outer[d - 1], emit, radii[d - 1], rd, l)
@@ -322,21 +346,8 @@ class _Sweep:
                     log_amp = (l + 1) * np.log(k[-1].real * rd + 0j)[:, None] - log_double_factorial(l) + emit[3][:, l]
                     if k[-1].imag != 0:
                         log_amp = np.full_like(log_amp, np.nan)
-                    chain = np.ones(L, complex)
-                    for j in range(d, N):
-                        sv, st = sig_in[j], sig_t[j]
-                        A, B = inner[j][0][l], inner[j][1][l]
-                        At, Bt = outer[j][0][l], outer[j][1][l]
-                        value = (1 + sv) / (c_v[j] * (1 + st))
-                        deriv = (sv * A + B) / (c_d[j] * (st * At + Bt))
-                        cond_v = np.minimum(np.abs(1 + sv) / (1 + np.abs(sv)), np.abs(1 + st) / (1 + np.abs(st)))
-                        cond_d = np.minimum(
-                            np.abs(sv * A + B) / (np.abs(sv * A) + np.abs(B)),
-                            np.abs(st * At + Bt) / (np.abs(st * At) + np.abs(Bt)),
-                        )
-                        log_amp = log_amp + outer[j][3][l] - inner[j][3][l]
-                        chain = chain * np.where(cond_v >= cond_d, value, deriv) * inner[j][2][l] / outer[j][2][l]
-                    core = np.exp(log_amp) * chain / delta
+                    log_c, chain = self.transmission(p, d, N)
+                    core = np.exp(log_amp + log_c) * chain / delta
                 for name, value in (
                     ("P", P), ("A", a), ("B", b), ("rho", rho_e), ("sigma", sig_e), ("S", S), ("Sm", Sm), ("Sd", Sd),
                     ("F", core * (1 + rho_e)), ("Fd", core * (a + rho_e * b)), ("rp", rp), ("rx", rx),
