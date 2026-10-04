@@ -33,6 +33,8 @@ the MATLAB code are fixed ([AUDIT.md](AUDIT.md)).
 | multipole truncation | `truncation_order` |
 | decay rates and frequency (Lamb) shift of ED and MD emitters from normalized quantities, at any distance from an interface, with automatic truncation | `normalized_decay_rates` → `NormalizedRates` (`.shift`) |
 | per-order Green's forms at the source (value, mixed and derivative forms; radiated amplitudes), for many emitter radii at once | `normalized_terms` → `NormalizedTerms` |
+| emitters spread through a shell: volume- and orientation-averaged rates and quantum yield, with a cutoff next to absorbing layers | `shell_average` → `ShellAverage` |
+| spectral density J(ω) and frequency shift over wavelength, for a dipole of fixed moment (Wigner–Weisskopf kernel) | `spectral_density` → `SpectralDensity` |
 | extended-precision and classical references | `pystratify.references` |
 
 No optical constants are shipped: pass n + ik from a database such as

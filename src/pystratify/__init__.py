@@ -18,6 +18,7 @@ from .convergence import truncation_order
 from .decay import DecayRates, decay_rates, locate_shell
 from .drude import DRUDE, DrudeModel, free_path_correction, surface_damping_wavelength
 from .emission import EmissionPattern, dipole_far_field, source_covariance
+from .ensemble import ShellAverage, SpectralDensity, shell_average, spectral_density
 from .energy import (
     EnergyDensity,
     ShellEnergy,
@@ -89,6 +90,10 @@ __all__ = [
     "surface_damping_wavelength",
     "log_riccati",
     "normalized_decay_rates",
+    "shell_average",
+    "ShellAverage",
+    "spectral_density",
+    "SpectralDensity",
     "normalized_terms",
     "NormalizedTerms",
     "NormalizedRates",
