@@ -13,11 +13,13 @@ Quick start::
     ps.cross_sections(sol).q_ext                         # (401,)
 """
 
+from .casimir import CasimirPolder, casimir_polder
 from .chiral import ChiralSolution, solve_chiral
 from .convergence import truncation_order
 from .decay import DecayRates, decay_rates, locate_shell
 from .drude import DRUDE, DrudeModel, free_path_correction, surface_damping_wavelength
 from .emission import EmissionPattern, dipole_far_field, source_covariance
+from .ensemble import ShellAverage, SpectralDensity, shell_average, spectral_density
 from .energy import (
     EnergyDensity,
     ShellEnergy,
@@ -39,13 +41,14 @@ from .farfield import (
     scattering_pattern,
 )
 from .nearfield import NearField, near_field
-from .normalized import NormalizedRates, normalized_decay_rates
+from .pairs import GreenDyadic, green_dyadic
+from .normalized import NormalizedRates, NormalizedTerms, normalized_decay_rates, normalized_terms
 from .rates import EmissionRates, emission_rates
-from .sheets import Sheet, graphene_conductivity
+from .sheets import Feibelman, Sheet, graphene_conductivity
 from .riccati import log_riccati
 from .solver import TE, TM, Solution, solve
 
-__version__ = "0.7.1"
+__version__ = "0.8.0"
 
 __all__ = [
     "solve",
@@ -81,6 +84,7 @@ __all__ = [
     "emission_rates",
     "EmissionRates",
     "locate_shell",
+    "Feibelman",
     "Sheet",
     "graphene_conductivity",
     "DRUDE",
@@ -89,5 +93,15 @@ __all__ = [
     "surface_damping_wavelength",
     "log_riccati",
     "normalized_decay_rates",
+    "casimir_polder",
+    "CasimirPolder",
+    "green_dyadic",
+    "GreenDyadic",
+    "shell_average",
+    "ShellAverage",
+    "spectral_density",
+    "SpectralDensity",
+    "normalized_terms",
+    "NormalizedTerms",
     "NormalizedRates",
 ]

@@ -20,6 +20,13 @@ Losses are Im(eps)|E|^2 + Im(mu)|H|^2 in every lossy shell.  The total rate
 is computed independently of the radiative and loss parts,
 and ``balance_error = |total - rad - nonrad| / total`` checks energy
 conservation.
+
+By default (``route='auto'``) the total and radiative rates and the frequency
+shift come from the normalized formulation (:mod:`pystratify.normalized`), whose
+per-order terms keep full precision at any distance from an interface; the loss
+integrals stay on the logarithmic route above, so the energy balance compares two
+independent computations.  ``route='log'`` takes everything from the logarithmic
+route, which within ~1 nm of a lossless interface loses ~1e-8 in the total rate.
 """
 
 from __future__ import annotations
@@ -29,6 +36,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from .chiral import _log_add
+from .convergence import orders_needed as _orders_needed
+from .convergence import tail_estimate as _tail_estimate
 from .convergence import truncation_order
 from .energy import WEAK_LOSS, gauss_legendre
 from .riccati import log_riccati
@@ -47,6 +57,10 @@ class DecayRates:
     """Normalised decay rates, arrays of shape ``(len(r), 2)``.
 
     Column 0: radial (perpendicular) dipole; column 1: tangential (parallel).
+    ``shift`` is the frequency shift (omega - omega_0) in units of the same free
+    rate as the rates (exp(-i omega t); the free self-energy is part of omega_0),
+    NaN on the logarithmic route; ``route`` names the route of ``total``,
+    ``radiative`` and ``shift``: ``'normalized'`` or ``'log'``.
     """
 
     r: np.ndarray
@@ -59,6 +73,8 @@ class DecayRates:
     normalization: str
     dipole: str
     notes: tuple = field(default_factory=tuple)
+    shift: np.ndarray | None = None
+    route: str = "log"
 
     @property
     def balance_error(self) -> np.ndarray:
@@ -266,20 +282,6 @@ def _log_absorption_integrals(sol: Solution, a: int, rule, log_amp_psi, log_amp_
         return np.log(tm) + 2 * shift, np.log(te) + 2 * shift
 
 
-def _tail_estimate(terms):
-    """Remainder of a series estimated from its last terms (axis 0 = order).
-
-    The decay-rate series are asymptotically geometric in l, ratio
-    (r_< / r_>)^2 times a polynomial, so the neglected tail is ~ t_L q/(1 - q)
-    with q the worst recent ratio: far larger than t_L when q -> 1.  +inf
-    where the terms are not decreasing.
-    """
-    a = np.abs(terms[-4:])
-    with np.errstate(all="ignore"):
-        q = np.max(a[1:] / a[:-1], axis=0)
-        return np.where(a[-1] == 0, 0.0, np.where(q < 1, a[-1] * q / (1 - q), np.inf))
-
-
 def _converged_sum(terms, tol):
     """Sum over orders (axis 1 of (P, L, K)) with a remainder-based convergence test.
 
@@ -297,13 +299,6 @@ def _converged_sum(terms, tol):
     converged = (stop == L) & np.all(tail <= tol * scale, axis=1)
     total[stop == 0] = np.nan
     return total, np.where(stop >= 4, stop, 0), converged
-
-
-def _orders_needed(q, tol, l_cap):
-    """Orders for a geometric series of ratio q^2 to leave a tail below tol."""
-    if q >= 1:
-        return l_cap
-    return 1.25 * np.log(tol * (1 - q * q)) / (2 * np.log(q)) + 16
 
 
 def _emitter_side(sol, d, x, pol):
@@ -345,35 +340,36 @@ def _ldos(side, derivative):
         return np.exp(2 * p).real + (bracket * np.exp(-side["log_delta"])).real
 
 
-def _rates_one(sol: Solution, r, shells, normalization, dipole, tol, quadrature_nodes):
-    """Terms of the six l-sums for a single-wavelength Solution; returns the converged sums."""
-    l = sol.orders
-    L = l.size
-    N = sol.n_shells
-    n, mu = sol.n[0], sol.mu[0]
-    eps = n**2 / mu
-    k = sol.k[0]
-    radial_pol, other_pol = (TM, TE) if dipole == "electric" else (TE, TM)
-    integral_kind = {TM: 0, TE: 1}
-    # Ohmic loss Im(eps)|E|^2 and magnetic loss Im(mu)|H|^2; in shell a, H = -i (n/mu) x (E of the
-    # other polarisation's radial form), so the magnetic loss uses the other integral kind, times |eps/mu|
-    loss_e = np.where(eps.imag > 0, eps.imag, 0.0)
-    loss_m = np.where(mu.imag > 0, mu.imag * np.abs(eps / mu), 0.0)
-    absorbing = [a for a in range(N) if loss_e[a] > 0 or loss_m[a] > 0]
-    # The Ohmic-loss series converges like (r_< / r_>)^(2l) at the absorbing shell's
-    # nearest boundary - usually far sooner than the LDOS series, which also feels
-    # nearby dielectric interfaces.  Integrate only that many orders (checked below).
-    bounds = np.array([b for a in absorbing for b in ((sol.radii[a - 1],) if a else ()) + (sol.radii[a],)])
-    if bounds.size:
-        q = np.max(np.minimum(bounds[None, :] / r[:, None], r[:, None] / bounds[None, :]))
-        l_abs = int(min(L, max(32, _orders_needed(q, tol, L))))
-    else:
-        l_abs = L
-    cache, rules, boundaries = {}, {}, {}
+class _ShellLosses:
+    """Loss integrals of the absorbing shells of a single-wavelength Solution, cached.
 
-    def integral(a, side, pol, count, kind):
+    ``log_loss(a, side, pol, count)`` is the log of int (Im eps |E|^2 + Im mu |H|^2) over shell a
+    of the regular (``side='below'``, plane-wave normalisation) or outgoing (``'above'``, B = 1 in
+    the host) solution of polarisation ``pol``, orders 1..count (-inf beyond), from closed-form
+    Lommel boundary terms or, for weak loss or a closed form that cancels, Gauss-Legendre quadrature.
+    """
+
+    def __init__(self, sol: Solution, quadrature_nodes=None):
+        self.sol, self.nodes = sol, quadrature_nodes
+        n, mu = sol.n[0], sol.mu[0]
+        eps = n**2 / mu
+        # Ohmic loss Im(eps)|E|^2 and magnetic loss Im(mu)|H|^2; in shell a, H = -i (n/mu) x (E of the
+        # other polarisation's radial form), so the magnetic loss uses the other integral kind, times |eps/mu|
+        self.loss_e = np.where(eps.imag > 0, eps.imag, 0.0)
+        self.loss_m = np.where(mu.imag > 0, mu.imag * np.abs(eps / mu), 0.0)
+        self.absorbing = [a for a in range(sol.n_shells) if self.loss_e[a] > 0 or self.loss_m[a] > 0]
+        # interfaces with a response (sheets, d-parameters) absorb through the jump of the radial flux
+        self.surfaces = []
+        if sol.responses is not None:
+            on = sum(np.abs(v[0]) + np.abs(v[1]) + np.abs(v[3]) for v in sol.responses.values())  # (W, N, L)
+            self.surfaces = [j for j in range(sol.radii.size) if np.any(on[0, j] != 0)]
+        self.cache, self.rules, self.boundaries = {}, {}, {}
+
+    def integral(self, a, side, pol, count, kind):
+        sol, L = self.sol, self.sol.orders.size
+        k = sol.k[0]
         key = (a, side, pol, count, kind)
-        if key not in cache:
+        if key not in self.cache:
             if side == "below":  # regular solution in shell a, plane-wave normalisation
                 la, lb = sol.log_a[pol, a, 0], sol.log_b[pol, a, 0]
             else:  # outgoing solution in shell a, B = 1 in the host
@@ -381,30 +377,100 @@ def _rates_one(sol: Solution, r, shells, normalization, dipole, tol, quadrature_
                 la = lb + sol.log_s[pol, a, 0]
             la, lb = la[:count], lb[:count]
             result, cancellation = None, np.inf
-            if quadrature_nodes is None and abs(k[a].imag) >= WEAK_LOSS * abs(k[a]):
-                if (a, count) not in boundaries:
+            if self.nodes is None and abs(k[a].imag) >= WEAK_LOSS * abs(k[a]):
+                if (a, count) not in self.boundaries:
                     radii = [sol.radii[a]] + ([sol.radii[a - 1]] if a else [])
-                    boundaries[a, count] = [_lommel_boundary(k[a], radius, count) for radius in radii]
-                *result, cancellation = _log_lommel_integrals(sol, a, count, la, lb, boundaries[a, count])
+                    self.boundaries[a, count] = [_lommel_boundary(k[a], radius, count) for radius in radii]
+                *result, cancellation = _log_lommel_integrals(sol, a, count, la, lb, self.boundaries[a, count])
             if cancellation > _LOMMEL_MAX_CANCELLATION:  # weak loss, or a closed form that cancels
-                if (a, count) not in rules:
-                    rules[a, count] = _quadrature_rule(sol, a, count, quadrature_nodes)
-                result = _log_absorption_integrals(sol, a, rules[a, count], la, lb)
+                if (a, count) not in self.rules:
+                    self.rules[a, count] = _quadrature_rule(sol, a, count, self.nodes)
+                result = _log_absorption_integrals(sol, a, self.rules[a, count], la, lb)
             for which in (0, 1):
                 v = np.full(L, -np.inf, dtype=complex)
                 v[:count] = result[which]
-                cache[a, side, pol, count, which] = v
-        return cache[key]
+                self.cache[a, side, pol, count, which] = v
+        return self.cache[key]
 
-    def log_loss(a, side, pol, count):
+    def log_loss(self, a, side, pol, count):
         """log of the loss integral of shell a for polarisation pol, electric plus magnetic."""
-        kind = integral_kind[pol]
+        kind = {TM: 0, TE: 1}[pol]
+        loss_e, loss_m = self.loss_e[a], self.loss_m[a]
         with np.errstate(divide="ignore"):
-            electric = np.log(loss_e[a]) + integral(a, side, pol, count, kind).real if loss_e[a] > 0 else None
-            magnetic = np.log(loss_m[a]) + integral(a, side, pol, count, 1 - kind).real if loss_m[a] > 0 else None
+            electric = np.log(loss_e) + self.integral(a, side, pol, count, kind).real if loss_e > 0 else None
+            magnetic = np.log(loss_m) + self.integral(a, side, pol, count, 1 - kind).real if loss_m > 0 else None
         if electric is None:
             return magnetic
         return electric if magnetic is None else np.logaddexp(electric, magnetic)
+
+    def log_surface_loss(self, j, side, pol, count):
+        """log of the power absorbed at interface j (a sheet or d-parameters) by the regular (``'below'``)
+        or outgoing (``'above'``) solution of polarisation ``pol``, in the units of :meth:`log_loss`: the
+        jump of the radial flux, Phi = Re(i u u'* c)/k0 with c = 1/(k mu*) (TE) or 1/(k* mu) (TM), so that
+        a shell absorbs [Phi]/k0 between its boundaries.  The matching without the response conserves the
+        flux exactly, so the jump is written with the response terms alone (no cancellation); complex
+        (a negative jump, from an active response, has imaginary part pi)."""
+        key = ("surface", j, side, pol, count)
+        if key not in self.cache:
+            sol = self.sol
+            L, l = sol.orders.size, sol.orders
+            k, mu = sol.k[0], sol.mu[0]
+            k0 = 2 * np.pi / sol.wavelength[0]
+            if side == "below":
+                la, lb = sol.log_a[pol, j, 0], sol.log_b[pol, j, 0]
+            else:
+                lb = sol.log_b_out[pol, j, 0]
+                la = lb + sol.log_s[pol, j, 0]
+            x = k[j] * sol.radii[j]
+            lps, lxs = log_riccati(np.array([x]), L + 1)
+            lp, lx = lps[0, l], lxs[0, l]
+            with np.errstate(all="ignore"):
+                d1 = np.exp(lps[0, l - 1] - lp) - l / x  # psi'/psi
+                d3 = np.exp(lxs[0, l - 1] - lx) - l / x  # xi'/xi
+                log_u = _log_add(la + lp, lb + lx)
+                w1, w3 = np.exp(la + lp - log_u), np.exp(lb + lx - log_u)
+                w1, w3 = np.where(np.isfinite(w1), w1, 0), np.where(np.isfinite(w3), w3, 0)
+                D = w1 * d1 + w3 * d3  # u'/u
+                tv, td, tau, tau_m1 = (v[0, j] for v in sol.responses[pol])
+                eta, mr = sol.n[0, j] / sol.n[0, j + 1], mu[j] / mu[j + 1]
+                c_v, c_d = (mr, eta) if pol == TM else (eta, mr)
+                plain = (1 / c_v, D / c_d)
+                delta = ((tau_m1 + tau * tv * D) / c_v, (tau_m1 * D - tau * td) / c_d)
+                c = 1 / (k[j + 1] * np.conj(mu[j + 1])) if pol == TE else 1 / (np.conj(k[j + 1]) * mu[j + 1])
+                form = plain[0] * np.conj(delta[1]) + delta[0] * np.conj(plain[1]) + delta[0] * np.conj(delta[1])
+                q = -np.real(1j * c * form) / k0**2
+                v = np.full(L, -np.inf, dtype=complex)
+                v[:count] = (2 * log_u.real + np.log(q + 0j))[:count]
+            self.cache[key] = v
+        return self.cache[key]
+
+    def orders(self, r, tol, L):
+        """Orders the loss series need: geometric in (r_< / r_>)^(2l) at the absorbing shells' nearest boundary."""
+        sol = self.sol
+        bounds = [b for a in self.absorbing for b in ((sol.radii[a - 1],) if a else ()) + (sol.radii[a],)]
+        bounds = np.array(bounds + [sol.radii[j] for j in self.surfaces])
+        if not bounds.size:
+            return L
+        q = np.max(np.minimum(bounds[None, :] / r[:, None], r[:, None] / bounds[None, :]))
+        return int(min(L, max(32, _orders_needed(q, tol, L))))
+
+
+def _rates_one(sol: Solution, r, shells, normalization, dipole, tol, quadrature_nodes, parts="all"):
+    """Terms of the six l-sums for a single-wavelength Solution; returns the converged sums.
+
+    ``parts='nonradiative'`` computes only the loss sums (the others stay 0)."""
+    l = sol.orders
+    L = l.size
+    n, mu = sol.n[0], sol.mu[0]
+    k = sol.k[0]
+    radial_pol, other_pol = (TM, TE) if dipole == "electric" else (TE, TM)
+    losses = _ShellLosses(sol, quadrature_nodes)
+    absorbing = losses.absorbing
+    # The Ohmic-loss series converges like (r_< / r_>)^(2l) at the absorbing shell's
+    # nearest boundary - usually far sooner than the LDOS series, which also feels
+    # nearby dielectric interfaces.  Integrate only that many orders (checked below).
+    l_abs = losses.orders(r, tol, L)
+    log_loss = losses.log_loss
 
     c_radial = l * (l + 1) * (2 * l + 1)
     c_tangential = 2 * l + 1
@@ -421,16 +487,17 @@ def _rates_one(sol: Solution, r, shells, normalization, dipole, tol, quadrature_
             with np.errstate(under="ignore", over="ignore"):
                 return np.exp(2 * np.real(v))
 
-        # radiative: F = u_in / (B_out,d Delta)
-        f_e = e["u_in"] - e["log_b_out"] - e["log_delta"]
-        df_e = e["du_in"] - e["log_b_out"] - e["log_delta"]
-        f_m = m["u_in"] - m["log_b_out"] - m["log_delta"]
-        terms[idx, :, 0] = 1.5 / xx**4 * f_rad * c_radial * mag2(f_e)
-        terms[idx, :, 1] = 0.75 / xx**2 * f_rad * c_tangential * (mag2(f_m) + mag2(df_e))
+        if parts == "all":
+            # radiative: F = u_in / (B_out,d Delta)
+            f_e = e["u_in"] - e["log_b_out"] - e["log_delta"]
+            df_e = e["du_in"] - e["log_b_out"] - e["log_delta"]
+            f_m = m["u_in"] - m["log_b_out"] - m["log_delta"]
+            terms[idx, :, 0] = 1.5 / xx**4 * f_rad * c_radial * mag2(f_e)
+            terms[idx, :, 1] = 0.75 / xx**2 * f_rad * c_tangential * (mag2(f_m) + mag2(df_e))
 
-        # total, from the local density of states
-        terms[idx, :, 4] = 1.5 / xx**4 * f_tot * c_radial * _ldos(e, False)
-        terms[idx, :, 5] = 0.75 / xx**2 * f_tot * c_tangential * (_ldos(m, False) + _ldos(e, True))
+            # total, from the local density of states
+            terms[idx, :, 4] = 1.5 / xx**4 * f_tot * c_radial * _ldos(e, False)
+            terms[idx, :, 5] = 0.75 / xx**2 * f_tot * c_tangential * (_ldos(m, False) + _ldos(e, True))
 
         def nonradiative(count):
             out = np.zeros((idx.size, L, 2))
@@ -463,8 +530,46 @@ def _rates_one(sol: Solution, r, shells, normalization, dipole, tol, quadrature_
     return _converged_sum(terms, tol)
 
 
-def _rates_with_sheets(radii, n, wavelength, r, mu, l_max, tol, normalization, dipole, nodes, l_cap, warn, sheets):
-    """Radial and tangential dipoles through the general route of :func:`~pystratify.emission_rates`."""
+def _rates_normalized(radii, n, mu, wavelength, r, shells, l_max, tol, normalization, dipole, nodes, l_cap):
+    """Total, radiative and shift from the normalized formulation, losses from the logarithmic route.
+
+    Positions are summed until the complex series (rate and shift) and the loss sums meet ``tol``;
+    those that do not are recomputed with twice the orders (up to ``l_cap``).  Returns the rates,
+    the orders used and convergence per position, all in the requested normalization."""
+    from .normalized import _dipole_sums, _starting_order, _Sweep
+
+    k = 2 * np.pi * n / wavelength
+    eps = n**2 / mu
+    absorbing = bool(np.any((eps[:-1].imag != 0) | (mu[:-1].imag != 0)))
+    P = r.size
+    g = np.zeros((P, 2), complex)
+    rad = np.zeros((P, 2))
+    nonrad = np.zeros((P, 2))
+    used = np.zeros(P, dtype=int)
+    ok = np.zeros(P, dtype=bool)
+    todo = np.arange(P)
+    L = int(l_max) if l_max is not None else _starting_order(radii, n, wavelength, r, tol, l_cap)
+    while todo.size:
+        g[todo], rad[todo], ok_core = _dipole_sums(_Sweep(radii, n, mu, k, L), r[todo], dipole, tol)
+        ok_loss = np.ones(todo.size, dtype=bool)
+        if absorbing:
+            sol = solve(radii, n, wavelength, mu, L)
+            values, _, ok_loss = _rates_one(sol, r[todo], shells[todo], "shell", dipole, tol, nodes, "nonradiative")
+            nonrad[todo] = values[:, 2:4]
+        used[todo] = L
+        ok[todo] = ok_core & ok_loss
+        if l_max is not None or L >= l_cap:
+            break
+        todo = todo[~ok[todo]]
+        L = min(2 * L, l_cap)
+    ratio = np.array([_normalization(n, mu, d, normalization, dipole)[2] for d in shells])[:, None]
+    return ratio * (1 + g.real), ratio * rad, ratio * nonrad, ratio * g.imag / 2, used, ok
+
+
+def _rates_with_sheets(
+    radii, n, wavelength, r, mu, l_max, tol, normalization, dipole, nodes, l_cap, warn, sheets, route="auto"
+):
+    """Radial and tangential dipoles through :func:`~pystratify.emission_rates` (normalized by default)."""
     from .rates import emission_rates
 
     positions = np.column_stack([np.zeros_like(r), np.zeros_like(r), r])
@@ -484,6 +589,7 @@ def _rates_with_sheets(radii, n, wavelength, r, mu, l_max, tol, normalization, d
             warn=False,
             sheets=sheets,
             normalization="layer" if normalization == "shell" else "host",
+            route=route,
         )  # fmt: skip
         for moment in ([0, 0, 1.0], [1.0, 0, 0])
     ]
@@ -502,6 +608,8 @@ def _rates_with_sheets(radii, n, wavelength, r, mu, l_max, tol, normalization, d
         normalization=normalization,
         dipole=dipole,
         notes=notes,
+        shift=np.stack([run.shift for run in runs], axis=1),
+        route=runs[0].route,
     )
 
 
@@ -519,8 +627,9 @@ def decay_rates(
     l_cap=20000,
     warn=True,
     sheets=None,
+    route="auto",
 ) -> DecayRates:
-    """Radiative, nonradiative and total decay rates of a dipole emitter.
+    """Radiative, nonradiative and total decay rates and the frequency shift of a dipole emitter.
 
     Parameters
     ----------
@@ -541,7 +650,15 @@ def decay_rates(
         (an emitter 1 nm from a 1.3-um sphere at tol = 1e-9) takes ~1 s.
     sheets : 2D materials on interfaces (see :mod:`pystratify.sheets`); their
         absorption is part of the nonradiative rate.  Computed by
-        :func:`~pystratify.emission_rates`.
+        :func:`~pystratify.emission_rates` (same ``route``).
+    route : ``'auto'`` (default) or ``'normalized'`` - total, radiative and shift
+        from the normalized formulation, the loss integrals from the logarithmic
+        route - or ``'log'`` - everything from the logarithmic route, without the
+        shift.  Limitation: the loss integrals (``nonradiative``) use the amplitudes
+        of the logarithmic solver on every route, accurate to ~1e-13 relative 1 nm
+        from an absorbing layer, ~1e-12 at 0.1 nm and ~1e-11 at 0.05 nm (where 10^3 to
+        10^4 orders are summed); total, radiative and shift are not affected, and
+        ``balance_error`` shows the difference.
     """
     radii = np.atleast_1d(np.asarray(radii, dtype=float))
     n = np.atleast_1d(np.asarray(n, dtype=complex))
@@ -563,9 +680,38 @@ def decay_rates(
     shells = locate_shell(radii, r)
     if np.any(eps[shells].imag != 0) or np.any(n[shells].imag != 0):
         raise ValueError("emitter inside an absorbing or gain shell: the rates are undefined")
+    if route not in ("auto", "normalized", "log"):
+        raise ValueError("route must be 'auto', 'normalized' or 'log'")
     if sheets:
         return _rates_with_sheets(
-            radii, n, wavelength, r, mu, l_max, tol, normalization, dipole, quadrature_nodes, l_cap, warn, sheets
+            radii, n, wavelength, r, mu, l_max, tol, normalization, dipole, quadrature_nodes, l_cap, warn, sheets,
+            route,
+        )  # fmt: skip
+    if route != "log":
+        total, radiative, nonradiative, shift, used, ok = _rates_normalized(
+            radii, n, mu, wavelength, r, shells, l_max, tol, normalization, dipole, quadrature_nodes, l_cap
+        )
+        notes = ()
+        if not ok.all():
+            notes = (
+                f"l-sum not converged to tol={tol:g} at {np.count_nonzero(~ok)} of {ok.size} position(s) "
+                f"with l_max={used.max()}; the emitter is very close to an interface",
+            )
+            if warn:
+                warnings.warn(notes[0], RuntimeWarning, stacklevel=2)
+        return DecayRates(
+            r=r,
+            radiative=radiative,
+            nonradiative=nonradiative,
+            total=total,
+            shell=shells,
+            orders_used=used,
+            converged=ok,
+            normalization=normalization,
+            dipole=dipole,
+            notes=notes,
+            shift=shift,
+            route="normalized",
         )
 
     if l_max is not None:
@@ -603,4 +749,6 @@ def decay_rates(
         normalization=normalization,
         dipole=dipole,
         notes=notes,
+        shift=np.full((r.size, 2), np.nan),
+        route="log",
     )

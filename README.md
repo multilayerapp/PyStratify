@@ -25,13 +25,19 @@ the MATLAB code are fixed ([AUDIT.md](AUDIT.md)).
 | orientation-averaged intensities and energy density, whole or of chosen partial waves | `energy_density`, `energy_density(..., orders=, polarisations=)` |
 | energy stored in each shell, whole or of chosen partial waves | `shell_energy`, `shell_energy(..., orders=, polarisations=)` |
 | energy prefactors (Loudon, for Drude metals) | `electric_prefactor`, `energy_prefactors` |
-| radiative / nonradiative / total decay rates, radial and tangential dipoles | `decay_rates` → `DecayRates` |
-| decay rates of any source (p, m, quadrupole Q; fixed or orientation-averaged) in any lossless layer, chiral included: total (Purcell), radiative per helicity, absorbed per layer and per sheet | `emission_rates` → `EmissionRates` |
+| radiative / nonradiative / total decay rates and frequency shift, radial and tangential dipoles (normalized formulation by default, `route="log"` for the logarithmic one) | `decay_rates` → `DecayRates` |
+| decay rates and frequency shift of any source (p, m, electric and magnetic quadrupoles; fixed or orientation-averaged) in any lossless layer, chiral included: total (Purcell), radiative per helicity, absorbed per layer and per sheet; normalized formulation whenever every source is in an achiral layer (sheets, d-parameters and chiral layers elsewhere included) | `emission_rates` → `EmissionRates` |
 | electric-quadrupole emitters: far field and rates | `dipole_far_field(..., quadrupole=)`, `emission_rates(..., quadrupole=)` |
 | 2D materials on interfaces: in-plane conductivity and out-of-plane response; thin films; graphene | `solve(..., sheets=)`, `solve_chiral(..., sheets=)`, `Sheet`, `Sheet.from_film`, `graphene_conductivity` |
+| Feibelman d-parameters of metal surfaces (mesoscopic boundary conditions; the Mie theory of Gonçalves et al. 2020 for a sphere) | `solve(..., sheets={j: Feibelman(d_perp, d_par, metal=)})`, `emission_rates`, `decay_rates` |
 | thin-shell electron free-path correction | `free_path_correction`, `DRUDE` |
 | multipole truncation | `truncation_order` |
-| decay rates from normalized quantities (reference formulation) | `normalized_decay_rates` |
+| decay rates and frequency (Lamb) shift of ED and MD emitters from normalized quantities, at any distance from an interface, with automatic truncation | `normalized_decay_rates` → `NormalizedRates` (`.shift`) |
+| per-order Green's forms at the source (value, mixed and derivative forms; radiated amplitudes), for many emitter radii at once | `normalized_terms` → `NormalizedTerms` |
+| emitters spread through a shell: volume- and orientation-averaged rates and quantum yield, with a cutoff next to absorbing layers | `shell_average` → `ShellAverage` |
+| spectral density J(ω) and frequency shift over wavelength, for a dipole of fixed moment (Wigner–Weisskopf kernel) | `spectral_density` → `SpectralDensity` |
+| Casimir–Polder potential of an atom at any distance (normalized series at imaginary frequency) | `casimir_polder` → `CasimirPolder` |
+| two-point Green's dyadic between any two points in lossless shells (energy transfer, dipole–dipole coupling, collective decay), normalized | `green_dyadic` → `GreenDyadic` |
 | extended-precision and classical references | `pystratify.references` |
 
 No optical constants are shipped: pass n + ik from a database such as
@@ -262,16 +268,55 @@ spheres; for lossless chiral multilayers its total rate equals the independent r
 radiated power to 1e-11, per helicity to 1e-12; with absorbing, magnetic and chiral layers, gold
 and sheets, total = radiative + absorbed holds to ~1e-12 even 0.1 nm from an interface; the
 orientation-averaged rate of a chiral molecule beside a small chiral sphere converges to
-Guzatov & Klimov's quasi-static Eq. 46 as (k₀a)² for both enantiomers. One limit: within ~1 nm of
-a *lossless* interface the reflected part of the total rate is the small real part of large
-evanescent terms, so rounding limits `total` to ~1e-9 (1 nm) … 1e-5 (0.1 nm) relative, while
-`radiative` and `nonradiative` stay accurate (`balance_error` shows it). Quadrupole couplings
+Guzatov & Klimov's quasi-static Eq. 46 as (k₀a)² for both enantiomers. On the logarithmic route
+(`route="log"`), within ~1 nm of a *lossless* interface the reflected part of the total rate is the
+small real part of large evanescent terms, so rounding limits `total` to ~1e-9 (1 nm) … 1e-5
+(0.1 nm) relative (the route flags it through the energy balance); the normalized route, the
+default, keeps full precision there (see *Normalized formulation* below). Quadrupole couplings
 agree with 40-digit finite differences of the vector wave functions to 1e-14, and a pair of
 opposite dipoles ±p at r₀ ± δ/2, computed by the reciprocity route, converges to the quadrupole
 3(pδ + δp) − 2(p·δ)I plus the current loop (ik₀/2)p × δ to 1e-12 in amplitude, near and inside
 chiral particles. A sheet is the O(d²)-accurate limit of the explicit film it replaces, and
 graphene-coated-sphere resonances sit on the quasi-static condition
 ε₁l + ε₂(l+1) + iσl(l+1)/(k₀R) = 0 within the (k₀R)² retardation shift.
+
+**Normalized formulation (the default route).** Every per-order term at a source is an explicit
+geometric factor times quantities of order unity built from ψ'/ψ, ψξ and the normalized Bessel
+function j̄ (`normalized.py`): the reflection ratios ρ, σ are swept through Möbius maps whose
+mismatches come from the material contrasts, and near a lossless interface the small real parts of
+the nearly reactive high-order terms are carried multiplicatively, so total rate, radiative rate and
+frequency shift keep full relative precision at any distance (energy balance ≤ 1e-14 down to
+0.05 nm from lossless interfaces). Interface responses - sheets (averaged transition conditions)
+and Feibelman d-parameters (linearized from the metal side) - add terms to the same maps through
+one matching form, value′ = τ(value + t_v deriv)/c_v, deriv′ = τ(deriv − t_d value)/c_d. Chiral
+layers enter as 2 × 2 maps in the (TM, TE) basis, with the leading mismatches written through a
+closed-form contrast matrix (its TE element is exactly zero between achiral nonmagnetic media,
+where the helicity basis would lose ε(l/x)² of the TE terms). Absorption is computed independently
+- Lommel boundary terms for layers, the jump of the radial flux for interface responses - so the
+energy balance remains a test.
+
+**Known limitations.**
+
+* *Absorption next to metal.* The absorbed power (per layer and per interface response, i.e.
+  `EmissionRates.absorption`, `.sheet_absorption` and `DecayRates.nonradiative`) is computed from
+  the amplitudes of the logarithmic solver, whose logarithms grow like l ln(l/x). Within a few
+  tenths of a nanometre of an absorbing layer, where 10³–10⁴ orders are summed, this limits the
+  absorption to ~1e-13 relative at 1 nm, ~1e-12 at 0.1 nm and ~1e-11 at 0.05 nm (visible as the
+  energy balance total − radiative − absorbed). Total rate, radiative rate and frequency shift come
+  from the normalized formulation and are not affected.
+* *Quadrupoles deep in a subwavelength lossless core.* There the outgoing solution is nearly a
+  standing wave and the radiative part 1 + Re S of the low orders is a small difference: ~1e-14 for
+  dipoles and 5–8e-14 for quadrupoles in a core of index contrast 3.5, worse for smaller cores and
+  higher multipoles.
+* *Chiral layers.* The normalized route needs every source in an achiral layer and no sheets in a
+  structure with chiral layers; otherwise `route="auto"` takes the logarithmic route, with its
+  limit next to lossless interfaces. With absorbing layers in a chiral structure the absorption is
+  still integrated by quadrature, O(L^2): within ~0.5 nm of an absorbing layer (10^3-10^4 orders)
+  this becomes slow (minutes to hours per position), and its accuracy is ~1e-12 at 1 nm.
+* *d-parameters.* The mesoscopic boundary conditions are first order in d; they are applied
+  linearized from the metal side (exact for d∥ = 0, and exactly the sphere Mie coefficients of
+  Gonçalves et al., Nat. Commun. 11, 366 (2020)); with both d⊥ and d∥ nonzero, other second-order
+  readings differ by d⊥d∥ l(l+1)/R².
 
 Typical timings on one core:
 
@@ -281,14 +326,14 @@ Typical timings on one core:
 | 601-wavelength spectrum, 6-interface matryoshka | 70 ms |
 | x = 500 sphere, all orders | 8 ms |
 | 300 × 300 near-field map | 1.4 s |
-| decay rates at 100 emitter positions 0.5–25 nm from an Au nanoshell | 0.4 s |
-| the same from 0.1 nm (6700 orders) | 2.4 s |
+| decay rates at 100 emitter positions 0.5–25 nm from an Au nanoshell | 0.15 s |
+| the same from 0.1 nm (6700 orders) | 0.85 s |
 | 601-wavelength spectrum, Au nanoshell with a chiral shell, both helicities | 46 ms |
 | scattering pattern on a 181 × 361 (θ, φ) grid | 10 ms |
 | dipole emission pattern on a 181 × 361 grid | 90 ms |
 | orientation-averaged chiral emitter inside a chiral shell, 181 × 361 grid | 0.12 s |
-| `emission_rates`, 100 positions, chiral source, orientation average, chiral + Au multilayer | 0.4 s |
-| `emission_rates`, one position 10 nm / 1 nm from gold (p + m, quadrupole) | 40 ms / 1.3 s |
+| `emission_rates`, 100 positions, chiral source, orientation average, chiral + Au multilayer | 0.6 s |
+| `emission_rates`, one position 10 nm / 1 nm from gold (p + m, quadrupole) | 4 ms / 25–85 ms |
 | quadrupole emission pattern, 181 × 361 grid, emitter on / off the grid's axis | 0.15 s / 1.1 s |
 | 601-wavelength spectrum, graphene-coated sphere | 10 ms |
 
@@ -314,6 +359,16 @@ pytest
   reflection ratios swept outwards and inwards) against the solver, extended precision and the
   unnormalized formulas, including emitters and interfaces at real zeros of ψ_l, the small real
   part Re ψξ = ψ² and strongly amplifying shells.
+* `test_routes.py`: the normalized route of `decay_rates` and `emission_rates` against the
+  logarithmic one for every source (dipoles, chiral p ∥ m, general p + m, all electric- and
+  magnetic-quadrupole components, orientation averages), energy conservation 1 to 0.05 nm from
+  lossless interfaces, the energy-balance flag of the logarithmic route, the shift of a chiral
+  emitter as the weighted sum of its electric and magnetic shifts, and the magnetic quadrupole by
+  duality (a dual multilayer gives it the rates of the electric one).
+* `test_shift.py`: the per-order Green's forms of `normalized_terms` and the frequency shift
+  against mpmath transfer matrices (`references.layered_green_forms`, `layered_green_sums`),
+  the quasi-static limit −Re r/(2 Im r) of the shift near gold, the automatic truncation
+  (which includes the reactive tail the shift needs) and the vectorized emitter side.
 * `test_riccati.py`: special functions against mpmath in every regime above, and the
   Wronskian for |x| up to 8·10⁴.
 * `test_solver.py`: coefficients against 60-digit transfer matrices (including a 1-nm film,
@@ -363,6 +418,23 @@ pytest
   total = radiated and energy balance with quadrupoles, the dipole-pair limit in amplitude, the
   two far-field routes against each other, pattern quadrature, the icosahedral design, and
   current-loop moments.
+* `test_pairs.py`: the two-point Green's dyadic (`green_dyadic`): the multipole series of the free
+  field against the closed-form free dyadic, reciprocity, the coinciding limit (decay rates and
+  shift), the radial two-point forms in one shell and across a gold shell (transmission chain)
+  against mpmath order by order, and the interface conditions approached from either side.
+* `test_feibelman.py`: Feibelman d-parameters against the mesoscopic Mie theory of Gonçalves et
+  al. (2020), Eqs. (4a) and (13a); the per-order forms of a nanoshell with d-parameters on both
+  surfaces against mpmath matrices built from the boundary conditions; energy balance including
+  the surface absorption; the TE response as the sheet σ = ik₀d∥(ε_other − ε_metal).
+* `test_chiral_normalized.py`: chiral layers in the normalized formulation: the achiral limit is
+  the scalar sweep, the 2 × 2 reflection matrices against 80-digit 4 × 4 transfer matrices, energy
+  balance, agreement with the logarithmic route and mirror symmetry for chiral emitters, and
+  emitters inside a chiral layer routed to the logarithmic formulation.
+* `test_ensemble.py`: shell averages (free space, graded nodes, the d_min⁻² cutoff next to gold,
+  the thin-shell limit) and the spectral density J(ω).
+* `test_casimir.py`: the Casimir–Polder sums at imaginary frequency against mpmath transfer
+  matrices, the non-retarded limit −C₃/d³ next to a large Drude sphere, and the convergence of the
+  frequency quadrature.
 
 `pystratify.references` holds the independent references (mpmath Mie decay rates and extinction,
 layered-sphere decay rates from transfer matrices, BHMIE); nothing in it shares code with the package.

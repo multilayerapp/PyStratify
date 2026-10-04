@@ -39,7 +39,7 @@ import numpy as np
 
 from .convergence import truncation_order
 from .riccati import log_riccati
-from .sheets import _sheet_arrays, _sheet_terms
+from .sheets import _feibelman_arrays, _interface_terms, _sheet_arrays
 
 __all__ = ["Solution", "solve", "TM", "TE"]
 
@@ -142,6 +142,8 @@ class Solution:
     log_s: np.ndarray
     sheet_sigma: np.ndarray | None = None  # (W, N): 2D sheets at the interfaces (see pystratify.sheets)
     sheet_zeta: np.ndarray | None = None  # (W, N)
+    # matching terms of sheets and d-parameters, {TM: (tv, td, tau, tau - 1), TE: ...}, each (W, N, L)
+    responses: dict | None = None
 
     @property
     def has_sheets(self) -> bool:
@@ -228,8 +230,9 @@ def solve(radii, n, wavelength, mu=None, l_max=None, sheets=None, regime="far") 
     mu : like ``n``, relative permeabilities (default 1).
     l_max : truncation order; default :func:`truncation_order` for the
         shortest wavelength and ``regime``.
-    sheets : 2D materials at interfaces, ``{j: Sheet(...)}`` or ``{j: conductivity}``
-        with j the interface index (0 = surface of the core); see :mod:`pystratify.sheets`.
+    sheets : interface responses, ``{j: Sheet(...)}``, ``{j: conductivity}`` or
+        ``{j: Feibelman(...)}`` (d-parameters) with j the interface index (0 = surface of
+        the core); see :mod:`pystratify.sheets`.
     regime : ``'far'`` (cross sections, far field, fields away from the
         surface; Wiscombe) or ``'near'`` (fields at the surface; Allardice &
         Le Ru), used only when ``l_max`` is None.
@@ -261,8 +264,10 @@ def solve(radii, n, wavelength, mu=None, l_max=None, sheets=None, regime="far") 
     eta = (n_in / n_out)[..., None]
     mu_ratio = (mu_in / mu_out)[..., None]
     sigma, zeta = _sheet_arrays(sheets, N, W)
-    sheet_a, sheet_p, sheet_tau = _sheet_terms(sigma, zeta, 2 * np.pi / wavelength, radii, orders)
-    z_in, z_out, sg = (mu_in / n_in)[..., None], (mu_out / n_out)[..., None], sigma[..., None]
+    dparams = _feibelman_arrays(sheets, N, W)
+    responses = None
+    if np.any(sigma) or np.any(zeta) or dparams is not None:
+        responses = _interface_terms(sheets, 2 * np.pi / wavelength, radii, n, mu, orders)
     # g - 1 with g = f x'/x, from the contrast directly (no cancellation for similar media)
     g_minus_1 = {
         TM: ((mu_in * (n_out - n_in) * (n_out + n_in) + n_in**2 * (mu_in - mu_out)) / (mu_out * n_in**2))[..., None],
@@ -282,20 +287,17 @@ def solve(radii, n, wavelength, mu=None, l_max=None, sheets=None, regime="far") 
         m33 = (f * X_in - X_out) - lead_xi * g_minus_1[p]  # f D3 - D3'
         f_d1_minus_d3 = f * d1_in - d3_out
         d1_minus_f_d3 = d1_out - f * d3_in
-        # 2D sheets (pystratify.sheets): TE sees the jump of H_t, TM that of H_t and of E_t;
-        # the matching becomes value' = (value + t_value deriv) / tau, deriv' = (deriv - t_deriv value) / tau
-        if p == TE:
-            s = 1j * z_out * sg
-            m11, m33 = m11 - s, m33 - s
-            d1_minus_f_d3, f_d1_minus_d3 = d1_minus_f_d3 + s, f_d1_minus_d3 - s
-            t_value, t_deriv, tau = np.zeros_like(sg), 1j * z_in * sg, np.ones_like(sg)
-        else:
-            t = 1j * z_in * sg / sheet_p
-            w = sheet_a / (1j * z_out * sheet_p)
-            m11, m33 = m11 - w - t * d1_out * d1_in, m33 - w - t * d3_out * d3_in
-            d1_minus_f_d3 = d1_minus_f_d3 + w + t * d1_out * d3_in
-            f_d1_minus_d3 = f_d1_minus_d3 - w - t * d3_out * d1_in
-            t_value, t_deriv, tau = t, sheet_a / (1j * z_in * sheet_p), sheet_tau
+        # interface responses (pystratify.sheets: 2D sheets, d-parameters): the matching becomes
+        # value' = tau (value + t_value deriv) / c_v, deriv' = tau (deriv - t_deriv value) / c_d, which adds
+        # f t_deriv + t_value D' D (D = D1 or D3 on either side) to the mismatches
+        t_value, t_deriv = np.zeros((W, N, l_max), complex), np.zeros((W, N, l_max), complex)
+        tau = np.ones((W, N, l_max), complex)
+        if responses is not None:
+            t_value, t_deriv, tau, _ = responses[p]
+            ftd = f * t_deriv
+            m11, m33 = m11 - ftd - t_value * d1_out * d1_in, m33 - ftd - t_value * d3_out * d3_in
+            d1_minus_f_d3 = d1_minus_f_d3 + ftd + t_value * d1_out * d3_in
+            f_d1_minus_d3 = f_d1_minus_d3 - ftd - t_value * d3_out * d1_in
 
         # regular solution, outwards: rho' = [m11 + rho (f D3 - D1')] / [(D3' - f D1) - rho m33]
         log_rho_in = np.full((W, N, l_max), -np.inf, dtype=complex)
@@ -380,4 +382,5 @@ def solve(radii, n, wavelength, mu=None, l_max=None, sheets=None, regime="far") 
         log_s=log_s,
         sheet_sigma=sigma,
         sheet_zeta=zeta,
+        responses=responses,
     )

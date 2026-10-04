@@ -39,7 +39,7 @@ def test_auxiliary_functions_against_log_riccati():
 @pytest.mark.parametrize("dipole", ["electric", "magnetic"])
 @pytest.mark.parametrize("radii, n, mu, wavelength, r", CASES)
 def test_normalized_equals_solver(radii, n, mu, wavelength, r, dipole):
-    main = ps.decay_rates(radii, n, wavelength, [r], mu, dipole=dipole, normalization="shell", tol=1e-11)
+    main = ps.decay_rates(radii, n, wavelength, [r], mu, dipole=dipole, normalization="shell", tol=1e-11, route="log")
     norm = ps.normalized_decay_rates(radii, n, wavelength, r, main.orders_used[0], mu, dipole)
     assert np.allclose(norm.total, main.total[0], rtol=1e-9, atol=0)
     assert np.allclose(norm.radiative, main.radiative[0], rtol=1e-11, atol=0)

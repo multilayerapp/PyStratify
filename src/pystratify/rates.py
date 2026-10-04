@@ -47,8 +47,21 @@ normalised to the power of the same source in the unbounded host (or, with
 ``normalization='layer'``, in the unbounded medium of its own layer, chiral
 if that layer is).  Within ~1 nm of a lossless interface the reflected part
 of the total is the small real part of large evanescent terms: rounding then
-limits ``total`` (not ``radiative`` or ``nonradiative``) to ~1e-9 relative at
-1 nm, ~1e-5 at 0.1 nm, and the l-sums stop at that rounding floor.
+limits ``total`` (not ``radiative`` or ``nonradiative``) of this logarithmic
+route to ~1e-9 relative at 1 nm, ~1e-5 at 0.1 nm (far worse for quadrupoles), and
+the l-sums stop at that rounding floor; the route flags it through the energy balance.
+
+With every source in an achiral lossless layer - sheets and d-parameters allowed, or chiral
+layers elsewhere (2x2 maps of :class:`pystratify.normalized._ChiralSweep`) - the default route
+(``route='auto'``) takes the
+total, the frequency shift and the radiative rates from the normalized formulation
+(:mod:`pystratify.normalized`) instead: each source functional is split into its TM
+(odd in s) and TE (even in s) parts, value and derivative coefficients c_v, c_d, and
+the reflected power is sum_p P_p (W_vv S + 2 W_vd S^m + W_dd S^d) with the real
+weights W_vv = sum |c_v|^2, W_vd = sum Re(c_v* c_d), W_dd = sum |c_d|^2 over the
+sources, which keeps full precision at any distance; the helicity of the radiation
+comes from the TM and TE amplitudes in the host.  Absorption per layer stays on the
+logarithmic route, so the energy balance remains an independent test.
 """
 
 from __future__ import annotations
@@ -61,11 +74,13 @@ import numpy as np
 
 from .chiral import _log, _log_add, log_matmul, solve_chiral
 from .convergence import truncation_order
+from .convergence import tail_estimate
 from .decay import _orders_needed, _tail_estimate, locate_shell
 from .emission import _local_frame, source_covariance
 from .energy import gauss_legendre
 from .riccati import log_riccati
-from .sheets import _sheet_arrays
+from .sheets import _feibelman_arrays, _sheet_arrays
+from .solver import TE, TM, solve
 
 __all__ = ["EmissionRates", "emission_rates"]
 
@@ -86,6 +101,9 @@ class EmissionRates:
     (P, N) = power absorbed by the 2D sheet on each interface, ``free_in_layer``
     = free power of the source in the unbounded medium of its own layer over
     that in the host (depends on the source's handedness in a chiral layer).
+    ``shift`` (P,) is the frequency shift (omega - omega_0) in units of the same
+    free power (exp(-i omega t); the free self-energy is part of omega_0), NaN on
+    the logarithmic route; ``route`` is ``'normalized'`` or ``'log'``.
     """
 
     position: np.ndarray
@@ -101,6 +119,8 @@ class EmissionRates:
     normalization: str
     orientation: str
     notes: tuple = field(default_factory=tuple)
+    shift: np.ndarray | None = None
+    route: str = "log"
 
     @property
     def nonradiative(self) -> np.ndarray:
@@ -159,8 +179,8 @@ def _parity(perm):
     return swaps % 2
 
 
-def _group_covariance(p, m, quadrupole, orientation):
-    """<s s^H> of s = (p, m, vec Q) for a fixed source or averaged over rigid rotations: the
+def _group_covariance(p, m, quadrupole, orientation, magnetic_quadrupole=None):
+    """<s s^H> of s = (p, m, vec Q[, vec Q_m]) for a fixed source or averaged over rigid rotations: the
     icosahedral group ('isotropic') or 8 turns about an axis, both exact for these rank <= 4 moments."""
     if isinstance(orientation, str) and orientation == "fixed":
         rotations = [np.eye(3)]
@@ -176,9 +196,13 @@ def _group_covariance(p, m, quadrupole, orientation):
         turn = np.array([[0, -axis[2], axis[1]], [axis[2], 0, -axis[0]], [-axis[1], axis[0], 0]])
         angles = 2 * np.pi * np.arange(8) / 8
         rotations = [np.eye(3) + np.sin(t) * turn + (1 - np.cos(t)) * turn @ turn for t in angles]
-    cov = np.zeros((15, 15), dtype=complex)
+    size = 15 if magnetic_quadrupole is None else 24
+    cov = np.zeros((size, size), dtype=complex)
     for r in rotations:
-        s = np.concatenate([r @ p, r @ m, (r @ quadrupole @ r.T).ravel()])
+        s = [r @ p, r @ m, (r @ quadrupole @ r.T).ravel()]
+        if magnetic_quadrupole is not None:
+            s.append((r @ magnetic_quadrupole @ r.T).ravel())
+        s = np.concatenate(s)
         cov += np.outer(s, np.conj(s))
     return cov / len(rotations)
 
@@ -262,7 +286,7 @@ def _functionals(dlog, x, k, q, quad, ll):
     frame, emitter on z): m = 0, even and odd m = 1 and, with a quadrupole, even and odd m = 2.
 
     Divided by f/x; (P, K, L, F, 2) from f'/f (P, L, 2), x = k r0 (P, 2), k (2,),
-    q = p + i s m / Z_d (P, K, 2, 3) and Q (P, K, 3, 3) or ``None``.  The gradients
+    q = p + i s m / Z_d (P, K, 2, 3) and Q (P, K, 2, 3, 3) = Q_e + i s Q_m / Z_d per channel, or ``None``.  The gradients
     of M and N at the axis are closed forms in f'/f, x and l (checked against finite
     differences of the Bohren-Huffman functions in the tests).
     """
@@ -275,11 +299,13 @@ def _functionals(dlog, x, k, q, quad, ll):
     fo = h * qx + _SIGN * h * dd * qy
     if quad is None:
         return np.stack([f0, fe, fo], axis=3)
+    if quad.ndim == 4:  # the same quadrupole in both channels
+        quad = quad[:, :, None]
     c, kk, lf = _SIGN, k[None, None, None, :], ll[None, None, :, None]
     l = (np.sqrt(4 * ll + 1) - 1) / 2
     d2 = ((l - 1) * l * (l + 1) * (l + 2) / 8)[None, None, :, None]
     qxx, qyy, qzz, qxy, qxz, qyz = (
-        quad[:, :, i, j][:, :, None, None] for i, j in ((0, 0), (1, 1), (2, 2), (0, 1), (0, 2), (1, 2))
+        quad[:, :, :, i, j][:, :, None, :] for i, j in ((0, 0), (1, 1), (2, 2), (0, 1), (0, 2), (1, 2))
     )
     tilt = 2 * lf / xx**2 - 2 * dd / xx - 1
     f0 = f0 + (kk / xx) * c * ((lf / xx - h * dd) * (qxx + qyy) + lf * (dd - 2 / xx) * qzz) / 6
@@ -327,7 +353,12 @@ def _emitter_side(sol, d, r, src, tai, quadrupole):
         d3 = np.swapaxes(np.exp(lx[..., l - 1] - lx[..., l]) - l / x[..., None], 1, 2)
         gamma = np.exp(log_psi + log_xi)  # psi xi / x^2
     q = src[:, :, None, :3] + (1j * _SIGN / zd)[None, None, :, None] * src[:, :, None, 3:6]  # (P, K, 2, 3)
-    quad = src[..., 6:].reshape(src.shape[:2] + (3, 3)) if quadrupole else None
+    quad = None
+    if quadrupole:  # Q_s = Q_e + i s Q_m / Z_d, as q_s = p + i s m / Z_d (duality)
+        quad = np.repeat(src[:, :, None, 6:15], 2, axis=2)
+        if src.shape[-1] == 24:
+            quad = quad + (1j * _SIGN / zd)[None, None, :, None] * src[:, :, None, 15:24]
+        quad = quad.reshape(src.shape[:2] + (2, 3, 3))
     pi_psi, pi_xi = (_functionals(dl, x, kd, q, quad, ll) for dl in (d1, d3))
     bar_quad = None if quad is None else np.conj(quad)
     bar_psi, bar_xi = (_functionals(dl, x, kd, np.conj(q), bar_quad, ll) for dl in (d1, d3))
@@ -355,7 +386,6 @@ def _source_terms(sol, d, r, src, losses, chains, consts, sheets):
     host emitter the correction to the free part), absorption per layer (P, L, N + 1) and per sheet
     (P, L, N); normalised units."""
     L, N = sol.orders.size, sol.n_shells
-    ll = (sol.orders * (sol.orders + 1)).astype(float)
     nu, tai, c_refl, c_rad, c_abs, zh, kh = consts
     e = _emitter_side(sol, d, r, src, tai, nu.shape[1] == 5)
     kd, zd, q, quad = e["kd"], e["zd"], e["q"], e["quad"]
@@ -370,7 +400,7 @@ def _source_terms(sol, d, r, src, losses, chains, consts, sheets):
     floor = c_refl * 16 * np.finfo(float).eps * amplify * np.sum(np.abs(terms), axis=(1, 3, 4))
     q2 = np.sum(np.abs(q) ** 2, axis=(1, 3))  # (P, 2)
     if quad is not None:  # free quadrupole power: (k^2 / 120) sum |Q_ij|^2 in units of |p|^2 (Jackson 9.49 / 9.24)
-        q2 = q2 + (kd**2 / 120)[None, :] * np.sum(np.abs(quad) ** 2, axis=(1, 2, 3))[:, None]
+        q2 = q2 + (kd**2 / 120)[None, :] * np.sum(np.abs(quad) ** 2, axis=(1, 3, 4))
     free = 0.5 * (zd * kd**2 / (zh * kh**2)) @ q2.T  # (P,)
     with np.errstate(all="ignore"):
         log_up = _log(b_hat + src_psi) - log_xi[:, None, :, None, :]  # xi amplitudes above r0
@@ -395,10 +425,19 @@ def _source_terms(sol, d, r, src, losses, chains, consts, sheets):
             v = np.exp(np.concatenate([log_al, log_be], axis=-1) + scale[None, None, :, None, :])
             form = np.real(np.einsum("pklfi,lij,pklfj->plf", np.conj(v), loss, v))
             absorbed[:, :c, a] = c_abs * np.einsum("plf,lf->pl", form, nu[:c])
-        # sheets: (c/8 pi) [Re sigma |<E_t>|^2 + k0 Im zeta |<D_n>|^2] over the sphere, fields
-        # averaged over both sides; D_r = i l(l+1) H_M / (k0 R)
-        k0 = 2 * np.pi / sol.wavelength[0]
-        on_sheets = np.zeros((r.size, L, N))
+    on_sheets = _on_sheets(sol, d, log_up, log_down, chains, c_abs, nu, sheets)
+    return free, (refl, floor), rad, rad_free, absorbed, on_sheets
+
+
+def _on_sheets(sol, d, log_up, log_down, chains, c_abs, nu, sheets):
+    """Absorption per order and sheet (P, L, N) of sources in layer d with amplitudes ``log_up`` and
+    ``log_down``: (c/8 pi) [Re sigma |<E_t>|^2 + k0 Im zeta |<D_n>|^2] over the sphere, fields averaged
+    over both sides; D_r = i l(l+1) H_M / (k0 R)."""
+    L, N = sol.orders.size, sol.n_shells
+    ll = (sol.orders * (sol.orders + 1)).astype(float)
+    k0 = 2 * np.pi / sol.wavelength[0]
+    on_sheets = np.zeros((log_up.shape[0], L, N))
+    with np.errstate(all="ignore"):
         for j, (sigma, zeta) in sheets.items():
             sides = []
             for side in (j, j + 1):
@@ -413,7 +452,7 @@ def _source_terms(sol, d, r, src, losses, chains, consts, sheets):
             form = sigma.real * sol.radii[j] ** 2 * (np.abs(e_m) ** 2 + np.abs(e_n) ** 2)
             form = form + zeta.imag * (ll / k0)[None, None, :, None] * np.abs(h_m) ** 2
             on_sheets[:, :, j] = c_abs / k0 * np.einsum("pklf,lf->pl", form, nu)
-    return free, (refl, floor), rad, rad_free, absorbed, on_sheets
+    return on_sheets
 
 
 def _legendre_derivatives(L, mu):
@@ -497,6 +536,8 @@ def _pattern(sol, d, r, frame, position, local, sources, directions, current):
     from .emission import _spherical_basis
 
     N = sol.n_shells
+    if local.shape[-1] > 15:
+        raise ValueError("far fields of magnetic quadrupoles are not implemented")
     quad = local.shape[-1] == 15
     l = sol.orders.astype(float)
     ll = l * (l + 1)
@@ -630,7 +671,363 @@ def _rates_one(sol, r, shells, local, tol, nodes, quadrupole=False):
     for j in sheets:
         sheet_absorption[:, j], ok_j = _series(on_sheets[..., j], 0.0, tol)
         ok &= ok_j
-    return total, radiative, absorption, sheet_absorption, free, ok & ok_abs
+    return total, radiative, absorption, sheet_absorption, free, ok, ok_abs
+
+
+def _tetm_functionals(x, kd, zd, src, quadrupole, l):
+    """The source functionals of :func:`_functionals` in an achiral layer, split into the parts
+    odd (TM, the N modes) and even (TE, the M modes) in the helicity s of W_s = M + s N.
+
+    Returns coefficients ``cv``, ``cd`` (P, K, L, F, 2), last axis [TM, TE], such that the
+    functional of family F (m = 0, 1e, 1o[, 2e, 2o]) and polarization p is cv - cd r, with
+    r = f_{l+1}/f_l of the radial function f (psi or xi), i.e. cv - cd (l+1)/x + cd f'/f
+    (divided by f/x, as :func:`_functionals`).  The quadrupole parts of cv are written so
+    that their leading small-x terms cancel analytically (e.g. A - 2/x = (l-1)/x - r for
+    Q_zz).  x = k_d r0 (P,), kd (P,) and zd the wavenumber and Z = mu/n of the layer, src
+    (P, K, 6, 15 or 24) the local sources (p, m[, Q[, Q_m]]); a magnetic quadrupole enters by
+    duality, Q_s = Q + i s Q_m/Z, like m in q_s = p + i s m/Z.  Every coefficient is a real
+    factor times one source component.
+    """
+    P, K = src.shape[:2]
+    L = l.size
+    ll = (l * (l + 1)).astype(float)
+    F = 5 if quadrupole else 3
+    cv = np.zeros((P, K, L, F, 2), dtype=complex)
+    cd = np.zeros_like(cv)
+    X = x[:, None, None]
+    H = (ll / 2)[None, None, :]
+    up = ((l + 1) / 1.0)[None, None, :] / X  # (l+1)/x: f'/f = (l+1)/x - r
+    px, py, pz = (src[:, :, i][:, :, None] for i in range(3))
+    mx, my, mz = (src[:, :, 3 + i][:, :, None] / zd for i in range(3))
+    cv[..., 0, TM] = 2 * H / X * pz
+    cv[..., 0, TE] = 1j * 2 * H / X * mz
+    cd[..., 1, TM], cv[..., 1, TM] = H * px, -1j * H * my + H * px * up
+    cd[..., 1, TE], cv[..., 1, TE] = 1j * H * mx, -H * py + 1j * H * mx * up
+    cv[..., 2, TE], cd[..., 2, TE] = H * px + 1j * H * my * up, 1j * H * my
+    cv[..., 2, TM], cd[..., 2, TM] = 1j * H * mx + H * py * up, H * py
+    if quadrupole:
+        parts = [(src[:, :, 6:15], (TM, TE))]
+        if src.shape[-1] == 24:  # duality: Q_s = Q_e + i s Q_m / Z swaps the parity in s, so TM <-> TE
+            parts.append((1j * src[:, :, 15:24] / zd, (TE, TM)))
+        for vec, (odd, even) in parts:
+            Q = vec.reshape(P, K, 3, 3)
+            qxx, qyy, qzz, qxy, qxz, qyz = (
+                Q[:, :, i, j][:, :, None] for i, j in ((0, 0), (1, 1), (2, 2), (0, 1), (0, 2), (1, 2))
+            )
+            kk = kd[:, None, None]
+            lf = ll[None, None, :]
+            lm = (l - 1.0)[None, None, :]
+            d2 = ((l - 1) * l * (l + 1) * (l + 2) / 8)[None, None, :]
+            # m = 0, odd: (k/x) [(lf/x - h f'/f)(Qxx + Qyy) + lf (f'/f - 2/x) Qzz]/6
+            cv[..., 0, odd] += kk * lf * lm / (6 * X**2) * (qzz - (qxx + qyy) / 2)
+            cd[..., 0, odd] += kk / X * (-H * (qxx + qyy) + lf * qzz) / 6
+            # m = 1: h k [s Qxz t + Qyz (2/x - f'/f)]/6 and h k [Qxz (f'/f - 2/x) + s Qyz t]/6,
+            # t = 2 lf/x^2 - 2 f'/f/x - 1 = 2 (l+1)(l-1)/x^2 - 1 + 2 r/x
+            tilt = 2 * (l + 1.0)[None, None, :] * lm / X**2 - 1
+            cv[..., 1, odd] += H * kk * qxz * tilt / 6
+            cd[..., 1, odd] += H * kk * qxz * (-2 / X) / 6
+            cv[..., 1, even] += H * kk * qyz * (-lm / X) / 6
+            cd[..., 1, even] += -H * kk * qyz / 6
+            cv[..., 2, even] += H * kk * qxz * (lm / X) / 6
+            cd[..., 2, even] += H * kk * qxz / 6
+            cv[..., 2, odd] += H * kk * qyz * tilt / 6
+            cd[..., 2, odd] += H * kk * qyz * (-2 / X) / 6
+            # m = 2: 2 d2 k/x [s f'/f (Qxx - Qyy) - 2 Qxy]/6 and 2 d2 k/x [(Qxx - Qyy) + 2 s f'/f Qxy]/6
+            c2 = 2 * d2 * kk / X / 6
+            cd[..., 3, odd] += c2 * (qxx - qyy)
+            cv[..., 3, odd] += c2 * (qxx - qyy) * up
+            cv[..., 3, even] += c2 * (-2 * qxy)
+            cv[..., 4, even] += c2 * (qxx - qyy)
+            cd[..., 4, odd] += c2 * (2 * qxy)
+            cv[..., 4, odd] += c2 * (2 * qxy) * up
+    return cv, cd
+
+
+def _normalized_terms(t, x, kd, zd, src, quadrupole, tai, zh, kh):
+    """Per-order terms of sources ``src`` (P, K, 6 or 15) at positions of one achiral lossless
+    layer, from the normalized quantities ``t`` of :meth:`pystratify.normalized._Sweep.at`.
+
+    Returns the free power (P,), the complex reflected terms (P, L) (Re: power, Im: twice the
+    frequency shift) and the radiated power per helicity (P, L, 2), including the direct part
+    for an emitter in the host; units of :func:`_source_terms`.
+
+    Only the real symmetric part of c c^H enters the reflected power (the Green's forms are
+    symmetric), and with c = c' + i c'' it is c' c'^T + c'' c''^T: each source contributes the
+    forms of two *real* functionals e = e_v - e_d r (see :func:`_tetm_functionals`), evaluated
+    directly as P (rho B~^2 + sigma A~^2 + 2 rho sigma A~ B~)/(1 - rho sigma), A~ = e_v - e_d r_psi,
+    B~ = e_v - e_d r_xi.
+    Real coefficients keep the small parts of the normalized quantities at full precision, and a
+    near cancellation between the value and the derivative coupling (a quadrupole near the
+    centre) is paid once, in A~ and B~.  Helicity is formed only from the radiated amplitudes,
+    (a_TE + s a_TM)/2 for W_s = M + s N.
+    """
+    l = np.arange(1, tai.shape[0] + 1)
+    cv, cd = _tetm_functionals(x, kd, zd, src, quadrupole, l)
+    pick = lambda a: np.moveaxis(a, 0, -1)[:, :, None, :]  # noqa: E731  (2, P, L) -> (P, L, 1, 2)
+    rp, rx, rho, sig = pick(t["rp"]), pick(t["rx"]), pick(t["rho"]), pick(t["sigma"])
+    delta = 1 - rho * sig
+    forms = np.zeros(cv.shape[:1] + cv.shape[2:], dtype=complex)  # (P, L, F, 2)
+    for k in range(src.shape[1]):
+        for part in (np.real, np.imag):
+            ev, ed = part(cv[:, k]), part(cd[:, k])
+            if not (np.any(ev) or np.any(ed)):
+                continue
+            At, Bt = ev - ed * rp, ev - ed * rx
+            forms = forms + (rho * Bt**2 + sig * At**2 + 2 * rho * sig * At * Bt) / delta
+    forms = pick(t["P"]) * forms
+    free_unit = zd * kd**2 / (zh * kh**2)  # free power of a unit electric dipole in the layer
+    X2 = (x**2)[:, None]
+    refl = 1.5 * free_unit[:, None] * np.einsum("plfc,lf->pl", forms, tai) / X2
+    Fv = np.moveaxis(t["F"], 0, -1)[:, None, :, None, :]  # (P, 1, L, 1, 2)
+    Fr = np.moveaxis(t["Fr"], 0, -1)[:, None, :, None, :]
+    with np.errstate(under="ignore"):
+        amp = cv * Fv - cd * Fr  # host amplitudes per source, order, family and polarization
+        rad = np.stack(
+            [np.sum(np.abs(amp[..., TE] + s * amp[..., TM]) ** 2, axis=1) / 2 for s in (1.0, -1.0)], axis=-1
+        )  # (P, L, F, 2)
+    rad = 1.5 * (free_unit * t["f_rad"])[:, None, None] * np.einsum("plfs,lf->pls", rad, tai) / X2[..., None]
+    q2 = np.zeros(x.size)
+    for s in (1.0, -1.0):
+        q = src[:, :, :3] + 1j * s / zd * src[:, :, 3:6]
+        q2 = q2 + np.sum(np.abs(q) ** 2, axis=(1, 2))
+        if quadrupole:
+            qs = src[:, :, 6:15] + (1j * s / zd * src[:, :, 15:24] if src.shape[-1] == 24 else 0)
+            q2 = q2 + kd**2 / 120 * np.sum(np.abs(qs) ** 2, axis=(1, 2))
+    free = 0.5 * zd * kd**2 / (zh * kh**2) * q2
+    return free, refl, rad
+
+
+def _normalized_terms_chiral(t, x, kd, zd, src, quadrupole, tai, zh, kh):
+    """:func:`_normalized_terms` with chiral layers: rho and sigma are 2x2 (TM, TE) matrices
+    (:class:`pystratify.normalized._ChiralSweep`), symmetric by reciprocity, and each real functional
+    (vectors A~, B~ over TM and TE of one family) contributes
+
+        P [A~ sig A~ + B~ rho B~ + B~ rho sig A~ + (A~ + B~ rho) sig rho (1 - sig rho)^-1 (B~ + sig A~)],
+
+    the matrix form of P (rho B~^2 + sigma A~^2 + 2 rho sigma A~ B~)/(1 - rho sigma), written without
+    subtracting the free part.  The host amplitudes are Fm (A~ + rho B~) with the complex functionals."""
+    from .chiral import _inv2
+
+    l = np.arange(1, tai.shape[0] + 1)
+    cv, cd = _tetm_functionals(x, kd, zd, src, quadrupole, l)  # (P, K, L, F, 2)
+    rho, sig = t["rho"], t["sigma"]  # (P, L, 2, 2)
+    rp, rx = t["rp"][:, :, None, None], t["rx"][:, :, None, None]
+    rs = rho @ sig
+    m2 = sig @ rho @ _inv2(np.eye(2) - sig @ rho)
+
+    def quad(u, m, v):
+        return np.einsum("plfi,plij,plfj->plf", u, m, v)
+
+    forms = np.zeros(cv.shape[:1] + cv.shape[2:4], dtype=complex)  # (P, L, F)
+    for k in range(src.shape[1]):
+        for part in (np.real, np.imag):
+            ev, ed = part(cv[:, k]), part(cd[:, k])
+            if not (np.any(ev) or np.any(ed)):
+                continue
+            At, Bt = ev - ed * rp, ev - ed * rx  # (P, L, F, 2)
+            row = At + np.einsum("plfi,plij->plfj", Bt, rho)
+            col = Bt + np.einsum("plij,plfj->plfi", sig, At)
+            forms = forms + quad(At, sig, At) + quad(Bt, rho, Bt) + quad(Bt, rs, At) + quad(row, m2, col)
+    forms = t["P"][:, :, None] * forms
+    free_unit = zd * kd**2 / (zh * kh**2)
+    X2 = (x**2)[:, None]
+    refl = 1.5 * free_unit[:, None] * np.einsum("plf,lf->pl", forms, tai) / X2
+    with np.errstate(under="ignore"):
+        Ac, Bc = cv - cd * rp[:, None], cv - cd * rx[:, None]  # complex, (P, K, L, F, 2)
+        amp = np.einsum("plij,pklfj->pklfi", t["Fm"], Ac + np.einsum("plij,pklfj->pklfi", rho, Bc))
+        rad = np.stack(
+            [np.sum(np.abs(amp[..., TE] + s * amp[..., TM]) ** 2, axis=1) / 2 for s in (1.0, -1.0)], axis=-1
+        )  # (P, L, F, 2)
+    rad = 1.5 * (free_unit * t["f_rad"])[:, None, None] * np.einsum("plfs,lf->pls", rad, tai) / X2[..., None]
+    q2 = np.zeros(x.size)
+    for s in (1.0, -1.0):
+        q = src[:, :, :3] + 1j * s / zd * src[:, :, 3:6]
+        q2 = q2 + np.sum(np.abs(q) ** 2, axis=(1, 2))
+        if quadrupole:
+            qs = src[:, :, 6:15] + (1j * s / zd * src[:, :, 15:24] if src.shape[-1] == 24 else 0)
+            q2 = q2 + kd**2 / 120 * np.sum(np.abs(qs) ** 2, axis=(1, 2))
+    free = 0.5 * zd * kd**2 / (zh * kh**2) * q2
+    return free, refl, rad
+
+
+def _lommel_absorption(sol, r, shells, local, quadrupole, tol, nodes, tai):
+    """Absorption per layer (P, N + 1) and per interface response (P, N; sheets, d-parameters) of sources
+    ``local`` (P, K, 6, 15 or 24) in achiral layers, in the units of :func:`_source_terms`, and whether
+    every loss series met ``tol`` (P,).  An interface absorbs the jump of the radial flux
+    (:meth:`pystratify.decay._ShellLosses.log_surface_loss`).
+
+    The field of a source in an absorbing shell a is the regular (a below the emitter) or outgoing
+    (a above) solution of that shell, with the amplitude of the source functional applied to the
+    other solution at the source, as for the dipoles of :mod:`pystratify.decay`; the radial loss
+    integrals are those of :class:`pystratify.decay._ShellLosses` (closed-form Lommel terms, O(L) in
+    time and memory), and families and polarizations add (orthogonal vector harmonics).  The
+    functionals are applied in the ratio form c_v f - c_d f_(l+1) of :func:`_tetm_functionals`, with
+    f_(l+1) the same combination of Riccati functions of order l + 1.
+    """
+    from .decay import _ShellLosses
+
+    L, N = sol.orders.size, sol.n_shells
+    l = sol.orders
+    n, mu, k = sol.n[0], sol.mu[0], sol.k[0]
+    zh, kh = (mu[N] / n[N]).real, k[N].real
+    losses = _ShellLosses(sol, nodes)
+    absorption, surface = np.zeros((r.size, N + 1)), np.zeros((r.size, N))
+    ok = np.ones(r.size, dtype=bool)
+    items = [("layer", a) for a in losses.absorbing] + [("surface", j) for j in losses.surfaces]
+    if not items:
+        return absorption, surface, ok
+
+    def log1p(z):
+        with np.errstate(all="ignore"):
+            return np.log(1 + np.exp(z))
+
+    for d in np.unique(shells):
+        idx = np.flatnonzero(shells == d)
+        x = (k[d] * r[idx]).real
+        zd, kd = (mu[d] / n[d]).real, k[d].real
+        cv, cd = _tetm_functionals(x, np.full(idx.size, kd), zd, local[idx], quadrupole, l)
+        lps, lxs = log_riccati(x.astype(complex), L + 1)  # orders 0..L+1
+        lp, lp1, lx, lx1 = lps[:, l], lps[:, l + 1], lxs[:, l], lxs[:, l + 1]
+        pre = 1.5 * zd * kd**2 / (zh * kh**2) * kd**3 * (mu[d] / n[d] ** 2).real
+        amp = {}  # log (u, u_(l+1), normalisation) of the solution at the source that continues into the shell
+        for p in (TM, TE):
+            log_r, log_s = sol.log_r[p, d, 0], sol.log_s[p, d, 0]
+            with np.errstate(all="ignore"):
+                log_delta = np.log(1 - np.exp(log_r + log_s))
+            # below the emitter: u_out = S psi + xi over the regular solution of shell d (A_d)
+            amp[p, "below"] = (
+                lx + log1p(log_s + lp - lx),
+                lx1 + log1p(log_s + lp1 - lx1),
+                log_delta + sol.log_a[p, d, 0],
+            )
+            # above it: u_in = psi + R xi over the outgoing solution (B_out,d)
+            amp[p, "above"] = (
+                lp + log1p(log_r + lx - lp),
+                lp1 + log1p(log_r + lx1 - lp1),
+                log_delta + sol.log_b_out[p, d, 0],
+            )
+        start = losses.orders(r[idx], tol, L)
+        for kind, a in items:  # a shell, or an interface (whose inner side is shell a)
+            side = "below" if a < d else "above"
+            for count in dict.fromkeys((start, L)):
+                terms = np.zeros((idx.size, L))
+                for p in (TM, TE):
+                    if kind == "layer":
+                        log_loss = losses.log_loss(a, side, p, count)
+                    else:
+                        log_loss = losses.log_surface_loss(a, side, p, count)
+                    lu, lu1, ref = amp[p, side]
+                    with np.errstate(all="ignore"):
+                        m = np.maximum(lu.real, lu1.real)
+                        m = np.where(np.isfinite(m), m, 0.0)
+                        eu, eu1 = np.exp(lu - m), np.exp(lu1 - m)
+                        scale = 2 * (m - ref.real) + log_loss[None, :]  # (P, L)
+                    for kk in range(local.shape[1]):
+                        f = cv[:, kk, :, :, p] * eu[:, :, None] - cd[:, kk, :, :, p] * eu1[:, :, None]  # (P, L, F)
+                        with np.errstate(all="ignore"):
+                            w = np.real(np.exp(2 * np.log(np.abs(f)) + scale[:, :, None]))
+                        terms += np.einsum("plf,lf->pl", np.where(np.isfinite(w), w, 0.0), tai) / x[:, None] ** 2
+                terms = pre * terms
+                total = terms.sum(axis=1)
+                tail = tail_estimate(np.moveaxis(terms[:, :count][:, -4:], 1, 0))
+                scale = np.maximum(np.abs(total), np.finfo(float).tiny)
+                if count == L or np.all(
+                    tail <= 0.1 * tol * scale
+                ):  # as decay_rates: shorter sums only when clearly done
+                    break
+            (absorption if kind == "layer" else surface)[idx, a] = total
+            ok[idx] &= tail <= tol * scale
+    return absorption, surface, ok
+
+
+#: complex numbers per block of positions in the normalized route (bounds the memory of long sweeps)
+_NORMALIZED_BLOCK = 4_000_000
+
+
+def _rates_normalized(
+    radii, n, mu, wavelength, r, shells, local, tol, nodes, l_max, l_cap, quadrupole, sheets=None, kappa=None
+):
+    """Total, shift and helicity-resolved radiative power from the normalized formulation; absorption
+    per layer and per sheet from the logarithmic route (independent, so the energy balance remains a test).
+    With chiral layers (``kappa``) the 2x2 maps of :class:`pystratify.normalized._ChiralSweep` and the
+    absorption of :func:`solve_chiral`.
+
+    Positions whose sums do not meet ``tol`` are recomputed with twice the orders (up to ``l_cap``).
+    Returns total, shift (P,), radiative (P, 2), absorption (P, N + 1), free (P,), converged (P,)
+    and the largest order used; units of :func:`_source_terms`."""
+    from .normalized import _ChiralSweep, _Sweep
+
+    N, P = radii.size, r.size
+    k = 2 * np.pi * n / wavelength
+    eps = n * n / mu
+    kappa0 = np.zeros(n.size, dtype=complex)
+    lossy = bool(np.any((eps[:N].imag != 0) | (mu[:N].imag != 0)))
+    if kappa is not None:
+        lossy = lossy or bool(np.any(kappa[:N].imag != 0))
+    zh, kh = (mu[N] / n[N]).real, k[N].real
+    out = dict(
+        total=np.zeros(P), shift=np.zeros(P), radiative=np.zeros((P, 2)), absorption=np.zeros((P, N + 1)),
+        free=np.zeros(P), sheet_absorption=np.zeros((P, N)),
+    )  # fmt: skip
+    ok = np.zeros(P, dtype=bool)
+    used = 0
+    todo = np.arange(P)
+    L = int(l_max) if l_max is not None else _starting_order(radii, n, kappa0, wavelength, r, tol, l_cap)
+    while todo.size:
+        used = max(used, L)
+        l = np.arange(1, L + 1).astype(float)
+        ll = l * (l + 1)
+        nu = [4 * np.pi * ll / (2 * l + 1)] + [2 * np.pi * ll**2 / (2 * l + 1)] * 2
+        if quadrupole:
+            nu += [2 * np.pi * ll**2 * (l - 1) * (l + 2) / (2 * l + 1)] * 2
+        nu = np.stack(nu, axis=1)
+        with np.errstate(divide="ignore"):
+            tai = np.where(nu > 0, 4 * np.pi / nu, 0.0)
+        if kappa is None:
+            sweep = _Sweep(radii, n, mu, k, L, sheets, 2 * np.pi / wavelength)
+        else:
+            sweep = _ChiralSweep(radii, n, kappa, mu, 2 * np.pi / wavelength, L)
+        K = local.shape[1]
+        step = max(1, _NORMALIZED_BLOCK // (K * L * tai.shape[1] * 4))
+        ok_core = np.zeros(todo.size, dtype=bool)
+        for d in np.unique(shells[todo]):
+            here = np.flatnonzero(shells[todo] == d)
+            zd, kd = (mu[d] / n[d]).real, k[d].real
+            for start in range(0, here.size, step):
+                part = here[start : start + step]
+                j = todo[part]
+                t = sweep.at(r[j])
+                terms = _normalized_terms if kappa is None else _normalized_terms_chiral
+                free, refl, rad = terms(t, t["x"], np.full(j.size, kd), zd, local[j], quadrupole, tai, zh, kh)
+                total = free + refl.real.sum(axis=1)
+                scale = np.abs(free + refl.sum(axis=1))
+                good = np.isfinite(scale) & (tail_estimate(np.moveaxis(np.abs(refl[:, -4:]), 1, 0)) <= tol * scale)
+                rad_sum = rad.sum(axis=1)
+                tail = tail_estimate(np.moveaxis(rad[:, -4:].sum(axis=-1), 1, 0))
+                good &= tail <= tol * np.maximum(rad_sum.sum(axis=1), np.finfo(float).tiny)
+                out["total"][j], out["shift"][j], out["radiative"][j], out["free"][j] = (
+                    total, refl.imag.sum(axis=1) / 2, rad_sum, free,
+                )  # fmt: skip
+                ok_core[part] = good
+        ok_abs = np.ones(todo.size, dtype=bool)
+        if kappa is not None and lossy:  # chiral layers: absorption of the helicity-basis route
+            csol = solve_chiral(radii, n, kappa, wavelength, mu, l_max=L)
+            *_, absorption, surface, _, _, ok_abs = _rates_one(
+                csol, r[todo], shells[todo], local[todo], tol, nodes, quadrupole=quadrupole
+            )
+            out["absorption"][todo], out["sheet_absorption"][todo] = absorption, surface
+        elif lossy or sheets:
+            sol = solve(radii, n, wavelength, mu, L, sheets=sheets)
+            absorption, surface, ok_abs = _lommel_absorption(
+                sol, r[todo], shells[todo], local[todo], quadrupole, tol, nodes, tai
+            )
+            out["absorption"][todo], out["sheet_absorption"][todo] = absorption, surface
+        ok[todo] = ok_core & ok_abs
+        if l_max is not None or L >= l_cap:
+            break
+        todo = todo[~ok[todo]]
+        L = min(2 * L, l_cap)
+    return out, ok, used
 
 
 def _starting_order(radii, n, kappa, wavelength, r, tol, l_cap):
@@ -657,12 +1054,14 @@ def emission_rates(
     normalization="host",
     l_max=None,
     tol=1e-6,
-    l_cap=1200,
+    l_cap=None,
     quadrature_nodes=None,
     warn=True,
     sheets=None,
     magnetic_convention="dual",
     quadrupole=None,
+    route="auto",
+    magnetic_quadrupole=None,
 ) -> EmissionRates:
     """Total, radiative (helicity-resolved) and nonradiative decay rates of a dipole or quadrupole source.
 
@@ -685,6 +1084,8 @@ def emission_rates(
         host - or ``'layer'`` - in the unbounded medium of its own layer.
     l_max : truncation; ``None`` starts from the particle size and the distance to
         the nearest interface and doubles until every l-sum meets ``tol`` (up to ``l_cap``).
+    l_cap : most orders tried; ``None`` for 20000 on the normalized route (whose cost per
+        order is that of :func:`~pystratify.decay_rates`) and 1200 on the logarithmic one.
     tol : relative accuracy of every l-sum (remainder estimated from the last terms).
     quadrature_nodes : Gauss-Legendre nodes per absorbing layer (default: enough
         for polynomial exactness at the highest order and 6 per radian of phase).
@@ -698,16 +1099,32 @@ def emission_rates(
         coherently with the dipoles: it couples through (1/6) Q : grad E and radiates
         (k^2/120) sum |Q_ij|^2 in units of |p|^2 when free.  Orientation averages rotate
         p, m and Q rigidly (exact averages over the icosahedral group).
+    magnetic_quadrupole : (3, 3) magnetic quadrupole in the dual convention of m, emitted
+        coherently with the other moments: it enters as Q_e + i s Q_m / Z in the helicity
+        channel s, as m enters q_s = p + i s m / Z, so that a dual (eps = mu) structure gives it
+        the rates of the electric quadrupole Q_e = Q_m (duality).  Rates only (no far field).
+    route : ``'auto'`` (default) or ``'normalized'`` - total, shift and radiative rates from
+        the normalized formulation, in the TE/TM basis with real source weights, whenever
+        every source is in an achiral layer (sheets and d-parameters allowed; chiral layers
+        elsewhere, without sheets, through 2x2 maps); absorption per layer and per sheet from
+        the logarithmic route - or ``'log'`` - everything from the helicity-basis logarithmic
+        route below, without the shift.  ``'auto'`` falls back to ``'log'`` for a source in a
+        chiral layer or chiral layers with sheets.  Limitation: ``absorption`` and
+        ``sheet_absorption`` use the amplitudes of the logarithmic solvers on every route,
+        accurate to ~1e-13 relative 1 nm from an absorbing layer or sheet, ~1e-12 at 0.1 nm
+        and ~1e-11 at 0.05 nm; total, radiative and shift are not affected.
     """
     return _emission(
         radii, n, wavelength, position, moment, magnetic_moment, orientation, mu, kappa, dipole, normalization,
-        l_max, tol, l_cap, quadrature_nodes, warn, sheets, magnetic_convention, quadrupole,
+        l_max, tol, l_cap, quadrature_nodes, warn, sheets, magnetic_convention, quadrupole, route=route,
+        magnetic_quadrupole=magnetic_quadrupole,
     )[0]  # fmt: skip
 
 
 def _emission(
     radii, n, wavelength, position, moment, magnetic_moment, orientation, mu, kappa, dipole, normalization,
-    l_max, tol, l_cap, quadrature_nodes, warn, sheets, magnetic_convention, quadrupole, directions=None,
+    l_max, tol, l_cap, quadrature_nodes, warn, sheets, magnetic_convention, quadrupole, directions=None, route="auto",
+    magnetic_quadrupole=None,
 ):  # fmt: skip
     """Body of :func:`emission_rates`; with ``directions`` = (theta, phi) also the far-field pattern
     of a single emitter, synthesised from the host amplitudes of the Green's function."""
@@ -744,15 +1161,25 @@ def _emission(
         p, m = np.zeros(3, complex), moment
     else:
         p, m = moment, (np.zeros(3, complex) if magnetic_moment is None else magnetic_moment)
-    if quadrupole is not None:
-        quadrupole = np.asarray(quadrupole, dtype=complex)
-        if quadrupole.shape != (3, 3) or not np.all(np.isfinite(quadrupole)):
-            raise ValueError("quadrupole must be a finite (3, 3) array")
-        if np.abs(quadrupole - quadrupole.T).max() > 1e-12 * max(np.abs(quadrupole).max(), 1e-300):
-            raise ValueError("quadrupole must be symmetric (an antisymmetric part is a magnetic dipole)")
-        quadrupole = quadrupole - np.trace(quadrupole) / 3 * np.eye(3)
-        if not np.any(quadrupole):
-            quadrupole = None
+
+    def _symmetric_traceless(q, name):
+        if q is None:
+            return None
+        q = np.asarray(q, dtype=complex)
+        if q.shape != (3, 3) or not np.all(np.isfinite(q)):
+            raise ValueError(f"{name} must be a finite (3, 3) array")
+        if np.abs(q - q.T).max() > 1e-12 * max(np.abs(q).max(), 1e-300):
+            raise ValueError(f"{name} must be symmetric (an antisymmetric part is a dipole)")
+        q = q - np.trace(q) / 3 * np.eye(3)
+        return q if np.any(q) else None
+
+    quadrupole = _symmetric_traceless(quadrupole, "quadrupole")
+    magnetic_quadrupole = _symmetric_traceless(magnetic_quadrupole, "magnetic_quadrupole")
+    if magnetic_quadrupole is not None:
+        if directions is not None:
+            raise ValueError("far fields of magnetic quadrupoles are not implemented")
+        if quadrupole is None:
+            quadrupole = np.zeros((3, 3), dtype=complex)
     if not (np.any(p) or np.any(m) or quadrupole is not None):
         raise ValueError("the source must have a nonzero moment")
     if magnetic_convention not in ("dual", "current"):
@@ -760,10 +1187,11 @@ def _emission(
     if quadrupole is None:
         cov = source_covariance(p, m, orientation)
     else:
-        cov = _group_covariance(p, m, quadrupole, orientation)
+        cov = _group_covariance(p, m, quadrupole, orientation, magnetic_quadrupole)
     orientation_name = orientation if isinstance(orientation, str) else "axis"
     if orientation_name == "fixed":  # the source itself: an eigenvector of s s^H has an arbitrary phase
         parts = [p, m] + ([] if quadrupole is None else [quadrupole.ravel()])
+        parts += [] if magnetic_quadrupole is None else [magnetic_quadrupole.ravel()]
         sources = np.concatenate(parts)[:, None]
     else:
         weights, vectors = np.linalg.eigh(cov)
@@ -774,7 +1202,8 @@ def _emission(
     current = magnetic_convention == "current"
     in_host = mu[-1].real if current else 1.0  # a current-loop m_A is the dual moment mu m_A
     s_ref = np.trace(cov[:3, :3]) + in_host**2 * np.trace(cov[3:6, 3:6]) / zh**2
-    s_ref = float(np.real(s_ref + kh**2 / 120 * np.trace(cov[6:, 6:])))
+    s_ref = s_ref + kh**2 / 120 * np.trace(cov[6:15, 6:15])
+    s_ref = float(np.real(s_ref + kh**2 / 120 * np.trace(cov[15:, 15:]) / zh**2))
 
     r = np.maximum(np.linalg.norm(positions, axis=1), 1e-9 * radii[0])
     shells = locate_shell(radii, r)
@@ -793,8 +1222,10 @@ def _emission(
     ]
     if quadrupole is not None:  # Q -> F Q F^T, i.e. (F x F) vec(Q)
         pairs = np.einsum("pai,pbj->pabij", frames, frames).reshape(-1, 9, 9)
-        parts.append(np.einsum("pij,jk->pki", pairs, sources[6:]))
-    local = np.concatenate(parts, axis=2)  # (P, K, 6 or 15)
+        parts.append(np.einsum("pij,jk->pki", pairs, sources[6:15]))
+        if magnetic_quadrupole is not None:
+            parts.append(np.einsum("pij,jk->pki", pairs, sources[15:24]))
+    local = np.concatenate(parts, axis=2)  # (P, K, 6, 15 or 24)
 
     notes = []
     eps = n * n / mu
@@ -812,18 +1243,45 @@ def _emission(
     if np.any(sigma.real < 0) or np.any(zeta.imag < 0):
         notes.append("sheet(s) with Re(conductivity) < 0 or Im(normal) < 0: gain")
 
-    if l_max is not None:
-        L = int(l_max)
-    else:
-        L = _starting_order(radii, n, kappa, wavelength, r, tol, l_cap)
-    while True:
-        sol = solve_chiral(radii, n, kappa, wavelength, mu, l_max=L, sheets=sheets)
-        total, radiative, absorption, sheet_absorption, free, ok = _rates_one(
-            sol, r, shells, local, tol, quadrature_nodes, quadrupole=quadrupole is not None
+    if route not in ("auto", "normalized", "log"):
+        raise ValueError("route must be 'auto', 'normalized' or 'log'")
+    chiral = bool(np.any(kappa))
+    has_responses = bool(np.any(sigma) or np.any(zeta) or _feibelman_arrays(sheets, radii.size, 1) is not None)
+    normalized = (
+        route != "log" and directions is None and not (chiral and (has_responses or np.any(kappa[shells] != 0)))
+    )
+    if route == "normalized" and not normalized:
+        raise ValueError(
+            "chiral layers enter the normalized formulation only with every source in an achiral shell and no "
+            "sheets: use route='auto' or 'log'"
         )
-        if l_max is not None or ok.all() or L >= l_cap:
-            break
-        L = min(2 * L, l_cap)
+    if not normalized and _feibelman_arrays(sheets, radii.size, 1) is not None:
+        raise ValueError("d-parameters (Feibelman) are on the normalized route only (achiral layers, no pattern)")
+    if l_cap is None:
+        l_cap = 20000 if normalized else 1200
+    if normalized:
+        res, ok, L = _rates_normalized(
+            radii, n, mu, wavelength, r, shells, local, tol, quadrature_nodes, l_max, l_cap, quadrupole is not None,
+            sheets, kappa if chiral else None,
+        )  # fmt: skip
+        total, radiative, absorption, sheet_absorption, free, shift = (
+            res[key] for key in ("total", "radiative", "absorption", "sheet_absorption", "free", "shift")
+        )
+    else:
+        if l_max is not None:
+            L = int(l_max)
+        else:
+            L = _starting_order(radii, n, kappa, wavelength, r, tol, l_cap)
+        while True:
+            sol = solve_chiral(radii, n, kappa, wavelength, mu, l_max=L, sheets=sheets)
+            total, radiative, absorption, sheet_absorption, free, ok, ok_abs = _rates_one(
+                sol, r, shells, local, tol, quadrature_nodes, quadrupole=quadrupole is not None
+            )
+            ok = ok & ok_abs
+            if l_max is not None or ok.all() or L >= l_cap:
+                break
+            L = min(2 * L, l_cap)
+        shift = np.full(r.size, np.nan)
     if not ok.all():
         notes.append(
             f"l-sum not converged to tol={tol:g} at {np.count_nonzero(~ok)} of {ok.size} position(s) "
@@ -831,6 +1289,21 @@ def _emission(
         )
         if warn:
             warnings.warn(notes[-1], RuntimeWarning, stacklevel=3)
+    if not normalized:
+        # next to a lossless interface the logarithmic route loses the small real parts of the reflected
+        # terms while its l-sums still look converged: energy conservation exposes it
+        nonrad = absorption.sum(axis=-1) + sheet_absorption.sum(axis=-1)
+        balance = np.abs(total - radiative.sum(axis=-1) - nonrad) / np.abs(total)
+        off = ok & ~(balance <= tol)
+        if off.any():
+            ok = ok & ~off
+            notes.append(
+                f"energy balance off by up to {balance[off].max():.1e} > tol={tol:g} at {np.count_nonzero(off)} "
+                "position(s): the logarithmic route loses the small real parts of the reflected terms next to "
+                "lossless interfaces (route='auto' avoids this for achiral layers without sheets)"
+            )
+            if warn:
+                warnings.warn(notes[-1], RuntimeWarning, stacklevel=3)
     pattern = None
     if directions is not None:
         pattern = _pattern(sol, shells[0], r[0], frames[0], positions[0], local[0], sources, directions, current)
@@ -843,6 +1316,7 @@ def _emission(
         "absorption": absorption / np.asarray(scale)[..., None],
         "sheet_absorption": sheet_absorption / np.asarray(scale)[..., None],
         "free_in_layer": free / s_ref,
+        "shift": shift / scale,
     }
     if single:
         out = {key: value[0] for key, value in out.items()}
@@ -854,6 +1328,7 @@ def _emission(
         normalization=normalization,
         orientation=orientation_name,
         notes=tuple(notes),
+        route="normalized" if normalized else "log",
         **out,
     )
     return rates, pattern

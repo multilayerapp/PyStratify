@@ -11,6 +11,9 @@ normalized formulation (``normalized.py``):
   to the working precision;
 * :func:`layered_decay_rates` - the same for an emitter inside or outside a
   layered sphere, from high-precision 2x2 transfer matrices;
+* :func:`layered_green_forms` and :func:`layered_green_sums` - the complex
+  scattered Green's forms per order and their sums for a dipole, whose
+  imaginary part gives the frequency shift;
 * :func:`bhmie` - Bohren & Huffman's BHMIE in NumPy (logarithmic derivative
   D_n(mx) by downward recurrence), the classic algorithm for large spheres.
   It is accurate to ~1e-13 for absorbing spheres; for weakly absorbing ones
@@ -37,6 +40,8 @@ except ImportError:  # pragma: no cover - optional dependency
 __all__ = [
     "sphere_decay_rates",
     "layered_decay_rates",
+    "layered_green_forms",
+    "layered_green_sums",
     "sphere_extinction",
     "bhmie",
     "classical_decay_rates",
@@ -212,6 +217,237 @@ def layered_decay_rates(radii, n, wavelength, r, orders, dps=150, mu=None, dipol
         return [float(scale[i] * tot[i]) for i in range(2)], [float(f_rad * scale[i] * rad[i]) for i in range(2)]
 
 
+def _mp_matrices(l, te, iface, nn, mm, R, sheets):
+    """Transfer matrices of order l (outer amplitudes -> inner) of every interface, in mpmath.
+
+    Without a sheet, W(psi, xi) times the matching matrix.  With a sheet (sigma, zeta) at interface j,
+    the generalised transition conditions of :mod:`pystratify.sheets` are imposed directly on the M and
+    N fields (Gaussian units, H = -i (n/mu) times the other family; E_r = i sqrt(l(l+1)) u/x^2 for N):
+
+        TE:  u-/x = u+/x~,
+             i (n-/mu-) u-'/x + (sigma/2) u-/x = i (n+/mu+) u+'/x~ - (sigma/2) u+/x~;
+        TM:  i (n-/mu-) u-/x - (sigma/2) u-'/x = i (n+/mu+) u+/x~ + (sigma/2) u+'/x~,
+             u-'/x - g (n-^2/mu-) u-/x^2 = u+'/x~ + g (n+^2/mu+) u+/x~^2,   g = zeta l(l+1)/(2 R_j),
+
+    with x = k_j R_j and x~ = k_(j+1) R_j, and the matrix solves that 2x2 system (an overall factor of
+    any interface cancels in the Green's forms).
+    """
+    mats = []
+    for j in range(len(R)):
+        (p, dp, x, dx), (pt, dpt, xt, dxt), arg_in, arg_out = iface[j]
+        if j not in sheets:
+            eta, mr = nn[j] / nn[j + 1], mm[j] / mm[j + 1]
+            a, b = (eta, mr) if te else (mr, eta)
+            mats.append(
+                [
+                    [dx[l] * pt[l] * a - x[l] * dpt[l] * b, dx[l] * xt[l] * a - x[l] * dxt[l] * b],
+                    [-dp[l] * pt[l] * a + p[l] * dpt[l] * b, -dp[l] * xt[l] * a + p[l] * dxt[l] * b],
+                ]
+            )
+            continue
+        i = mp.mpc(0, 1)
+        yi, yo = nn[j] / mm[j], nn[j + 1] / mm[j + 1]
+        cols = ((p, dp), (x, dx)), ((pt, dpt), (xt, dxt))
+        if sheets[j][0] == "feibelman":
+            left, right = _mp_feibelman(l, te, sheets[j][1:], cols, arg_in, arg_out, nn[j : j + 2], mm[j : j + 2], R[j])
+            (a, b), (c, d) = left
+            det = a * d - b * c
+            inv = [[d / det, -b / det], [-c / det, a / det]]
+            mats.append([[sum(inv[r][q] * right[q][col] for q in (0, 1)) for col in (0, 1)] for r in (0, 1)])
+            continue
+        sg, zt = sheets[j][1:]
+        if te:
+            left = [
+                [f[l] / arg_in for f, _ in cols[0]],
+                [(i * yi * df[l] + sg / 2 * f[l]) / arg_in for f, df in cols[0]],
+            ]
+            right = [
+                [f[l] / arg_out for f, _ in cols[1]],
+                [(i * yo * df[l] - sg / 2 * f[l]) / arg_out for f, df in cols[1]],
+            ]
+        else:
+            g = zt * l * (l + 1) / (2 * R[j])
+            ei, eo = nn[j] ** 2 / mm[j], nn[j + 1] ** 2 / mm[j + 1]
+            left = [[(i * yi * f[l] - sg / 2 * df[l]) / arg_in for f, df in cols[0]],
+                    [df[l] / arg_in - g * ei * f[l] / arg_in**2 for f, df in cols[0]]]  # fmt: skip
+            right = [[(i * yo * f[l] + sg / 2 * df[l]) / arg_out for f, df in cols[1]],
+                     [df[l] / arg_out + g * eo * f[l] / arg_out**2 for f, df in cols[1]]]  # fmt: skip
+        (a, b), (c, d) = left  # closed-form inverse: the columns differ by many orders of magnitude
+        det = a * d - b * c
+        inv = [[d / det, -b / det], [-c / det, a / det]]
+        mats.append([[sum(inv[r][q] * right[q][col] for q in (0, 1)) for col in (0, 1)] for r in (0, 1)])
+    return mats
+
+
+def _mp_feibelman(l, te, params, cols, x_in, x_out, nn, mm, R):
+    """Rows (left, right) of the d-parameter matching, left (A, B)_inner = right (A, B)_outer, imposed on
+    the M and N fields (Gaussian, n from the metal into the other medium, [f] = f(other) - f(metal)):
+    [E_t] = -d_perp grad_t [E_n] and n x [H] = i k0 d_par [D_t], the jumps on the right from the
+    metal-side fields (D_n and E_t continuous at zeroth order); see :class:`pystratify.sheets.Feibelman`."""
+    d_perp, d_par, metal_outer = params
+    i = mp.mpc(0, 1)
+    yi, yo = nn[0] / mm[0], nn[1] / mm[1]
+    ei, eo = nn[0] ** 2 / mm[0], nn[1] ** 2 / mm[1]
+    k0 = x_in / (nn[0] * R)
+    g, de = l * (l + 1) / R, eo - ei
+    (inner, outer) = cols
+    if te:  # E_t = u/x X, n x H = i y u'/x X (n = r)
+        rows_v = ([f[l] / x_in for f, _ in inner], [f[l] / x_out for f, _ in outer])
+        if not metal_outer:  # i yo u+'/x+ = i yi u-'/x- + i k0 d_par de u-/x-
+            rows_d = ([(i * yi * df[l] + i * k0 * d_par * de * f[l]) / x_in for f, df in inner],
+                      [i * yo * df[l] / x_out for f, df in outer])  # fmt: skip
+        else:  # i yi u-'/x- = i yo u+'/x+ + i k0 d_par de u+/x+
+            rows_d = ([i * yi * df[l] / x_in for f, df in inner],
+                      [(i * yo * df[l] + i * k0 * d_par * de * f[l]) / x_out for f, df in outer])  # fmt: skip
+    else:  # E_t = u'/x (r x X), E_r = i sqrt(l(l+1)) u/x^2, r x H = -i y u/x (r x X)
+        if not metal_outer:
+            # E_t+ = E_t- - d_perp (eps-/eps+ - 1) grad_t E_r-;  r x H+ = r x H- + i k0 d_par de E_t-
+            rows_v = ([df[l] / x_in - d_perp * g * (ei / eo - 1) * f[l] / x_in**2 for f, df in inner],
+                      [df[l] / x_out for f, df in outer])  # fmt: skip
+            rows_d = ([-i * yi * f[l] / x_in + i * k0 * d_par * de * df[l] / x_in for f, df in inner],
+                      [-i * yo * f[l] / x_out for f, df in outer])  # fmt: skip
+        else:
+            # E_t- = E_t+ + d_perp (eps+/eps- - 1) grad_t E_r+;  r x H- = r x H+ + i k0 d_par de E_t+
+            rows_v = ([df[l] / x_in for f, df in inner],
+                      [df[l] / x_out + d_perp * g * (eo / ei - 1) * f[l] / x_out**2 for f, df in outer])  # fmt: skip
+            rows_d = ([-i * yi * f[l] / x_in for f, df in inner],
+                      [-i * yo * f[l] / x_out + i * k0 * d_par * de * df[l] / x_out for f, df in outer])  # fmt: skip
+    return [rows_v[0], rows_d[0]], [rows_v[1], rows_d[1]]
+
+
+def _mp_sheets(sheets):
+    """{interface: ('sheet', sigma, zeta) or ('feibelman', d_perp, d_par, metal_outer)} in mpmath from
+    {interface: Sheet, conductivity or Feibelman}."""
+    out = {}
+    for j, sheet in (sheets or {}).items():
+        if hasattr(sheet, "d_perp"):
+            out[int(j)] = (
+                "feibelman",
+                mp.mpc(complex(sheet.d_perp)),
+                mp.mpc(complex(sheet.d_par)),
+                sheet.metal == "outer",
+            )
+            continue
+        sg, zt = (sheet.conductivity, sheet.normal) if hasattr(sheet, "normal") else (sheet, 0.0)
+        if sg != 0 or zt != 0:
+            out[int(j)] = ("sheet", mp.mpc(complex(sg)), mp.mpc(complex(zt)))
+    return out
+
+
+def layered_green_forms(radii, n, wavelength, r, orders, dps=150, mu=None, sheets=None):
+    """Per-order scattered Green's forms at an emitter at radius r in a lossless shell of a layered
+    sphere, from the 2x2 transfer matrices of Moroz (2005) in mpmath.
+
+    With u = u_reg and v = u_out (see :func:`layered_decay_rates`) and the free parts of the
+    emitter's shell removed, returns complex arrays (2, orders), indexed [TM, TE], of
+
+        G   = u v / W - psi xi,
+        G^m = (u v' + u' v) / (2 W) - (psi xi' + psi' xi) / 2,
+        G^d = u' v' / W - psi' xi',
+
+    the value-value, value-derivative and derivative-derivative forms (orders 1..``orders``).
+    ``dps`` as in :func:`layered_decay_rates`.
+    """
+    _require_mpmath()
+    mu = [1.0] * len(n) if mu is None else mu
+    out = np.zeros((3, 2, orders), dtype=complex)
+    with mp.workdps(dps):
+        N = len(radii)
+        R = [mp.mpf(v) for v in radii]
+        nn = [mp.mpc(complex(v)) for v in n]
+        mm = [mp.mpc(complex(v)) for v in mu]
+        k = [2 * mp.pi * v / mp.mpf(wavelength) for v in nn]
+        top = orders + 1
+
+        def funcs(z):
+            p, x = _psi_all(z, top), _xi_all(z, top)
+            dp = [None] + [p[l - 1] - l * p[l] / z for l in range(1, top + 1)]
+            dx = [None] + [x[l - 1] - l * x[l] / z for l in range(1, top + 1)]
+            return p, dp, x, dx
+
+        iface = [(funcs(k[j] * R[j]), funcs(k[j + 1] * R[j]), k[j] * R[j], k[j + 1] * R[j]) for j in range(N)]
+        sheet_map = _mp_sheets(sheets)
+        d = sum(1 for Rj in radii if r >= Rj)
+        pe, dpe, xe, dxe = funcs(k[d] * mp.mpf(r))
+        for l in range(1, orders + 1):
+            for pol, te in ((0, False), (1, True)):
+                mats = _mp_matrices(l, te, iface, nn, mm, R, sheet_map)
+                A, B = mp.mpf(1), mp.mpf(0)
+                for j in range(d):  # inner -> outer through the inverse matrices
+                    m = mats[j]
+                    det = m[0][0] * m[1][1] - m[0][1] * m[1][0]
+                    A, B = (m[1][1] * A - m[0][1] * B) / det, (-m[1][0] * A + m[0][0] * B) / det
+                Ao, Bo = mp.mpf(0), mp.mpf(1)
+                for j in range(N - 1, d - 1, -1):
+                    m = mats[j]
+                    Ao, Bo = m[0][0] * Ao + m[0][1] * Bo, m[1][0] * Ao + m[1][1] * Bo
+                W = A * Bo - B * Ao
+                u, du = A * pe[l] + B * xe[l], A * dpe[l] + B * dxe[l]
+                v, dv = Ao * pe[l] + Bo * xe[l], Ao * dpe[l] + Bo * dxe[l]
+                out[0, pol, l - 1] = complex(u * v / W - pe[l] * xe[l])
+                out[1, pol, l - 1] = complex((u * dv + du * v) / (2 * W) - (pe[l] * dxe[l] + dpe[l] * xe[l]) / 2)
+                out[2, pol, l - 1] = complex(du * dv / W - dpe[l] * dxe[l])
+    return out[0], out[1], out[2]
+
+
+def layered_green_sums(radii, n, wavelength, r, orders, dps=150, mu=None, dipole="electric", sheets=None):
+    """Complex scattered Green's sums [perp, par] of an electric or magnetic dipole at radius r in a
+    lossless shell of a layered sphere (mpmath; see :func:`layered_green_forms`).
+
+    The forms G and G^d of every order, weighted as the decay rates and summed over ``orders``
+    multipoles in extended precision, shell normalization: the total rate is 1 + Re(sum) and the
+    frequency shift (omega - omega_0)/Gamma_0 is Im(sum)/2.  ``dps`` as in :func:`layered_decay_rates`.
+    At imaginary frequency i xi pass n = i n(i xi) and ``wavelength`` = 2 pi c/xi: k = i xi n(i xi)/c.
+    """
+    _require_mpmath()
+    mu = [1.0] * len(n) if mu is None else mu
+    with mp.workdps(dps):
+        N = len(radii)
+        R = [mp.mpf(v) for v in radii]
+        nn = [mp.mpc(complex(v)) for v in n]
+        mm = [mp.mpc(complex(v)) for v in mu]
+        k = [2 * mp.pi * v / mp.mpf(wavelength) for v in nn]
+        top = orders + 1
+
+        def funcs(z):
+            p, x = _psi_all(z, top), _xi_all(z, top)
+            dp = [None] + [p[l - 1] - l * p[l] / z for l in range(1, top + 1)]
+            dx = [None] + [x[l - 1] - l * x[l] / z for l in range(1, top + 1)]
+            return p, dp, x, dx
+
+        iface = [(funcs(k[j] * R[j]), funcs(k[j + 1] * R[j]), k[j] * R[j], k[j + 1] * R[j]) for j in range(N)]
+        sheet_map = _mp_sheets(sheets)
+        d = sum(1 for Rj in radii if r >= Rj)
+        X = k[d] * mp.mpf(r)
+        pe, dpe, xe, dxe = funcs(X)
+        radial, other = (False, True) if dipole == "electric" else (True, False)  # TE flag
+        tot = [mp.mpc(0)] * 2
+        for l in range(1, orders + 1):
+            G, Gd = {}, {}
+            for te in (False, True):
+                mats = _mp_matrices(l, te, iface, nn, mm, R, sheet_map)
+                A, B = mp.mpf(1), mp.mpf(0)
+                for j in range(d):  # inner -> outer through the inverse matrices
+                    m = mats[j]
+                    det = m[0][0] * m[1][1] - m[0][1] * m[1][0]
+                    A, B = (m[1][1] * A - m[0][1] * B) / det, (-m[1][0] * A + m[0][0] * B) / det
+                Ao, Bo = mp.mpf(0), mp.mpf(1)
+                for j in range(N - 1, d - 1, -1):
+                    m = mats[j]
+                    Ao, Bo = m[0][0] * Ao + m[0][1] * Bo, m[1][0] * Ao + m[1][1] * Bo
+                W = A * Bo - B * Ao
+                u, du = A * pe[l] + B * xe[l], A * dpe[l] + B * dxe[l]
+                v, dv = Ao * pe[l] + Bo * xe[l], Ao * dpe[l] + Bo * dxe[l]
+                G[te] = u * v / W - pe[l] * xe[l]
+                Gd[te] = du * dv / W - dpe[l] * dxe[l]
+            cp, ct = l * (l + 1) * (2 * l + 1), 2 * l + 1
+            tot[0] += cp * G[radial]
+            tot[1] += ct * (G[other] + Gd[radial])
+        X = mp.re(X) if mp.im(X) == 0 else X  # complex only at imaginary frequency
+        scale = [1.5 / X**4, 0.75 / X**2]
+        return [complex(scale[i] * tot[i]) for i in range(2)]
+
+
 def _riccati_double(l, z):
     with np.errstate(all="ignore"):  # overflow to inf/nan is the point of this baseline
         j, y = spherical_jn(l, z), spherical_yn(l, z)
@@ -219,12 +455,13 @@ def _riccati_double(l, z):
         return z * j, j + z * jd, z * (j + 1j * y), (j + 1j * y) + z * (jd + 1j * yd)
 
 
-def classical_decay_rates(radii, n, wavelength, r, orders, mu=None, dipole="electric"):
+def classical_decay_rates(radii, n, wavelength, r, orders, mu=None, dipole="electric", with_shift=False):
     """Unnormalized transfer-matrix decay rates in double precision (shell normalization).
 
     Returns ``(total, radiative, last)``, each rate ``[perp, par]``, summed over
     the orders before the first non-finite term; ``last`` is that number of
-    orders.  ``h = j + i y`` is formed from SciPy's ``spherical_jn`` and
+    orders.  With ``with_shift=True`` also the frequency shift [perp, par], half the
+    imaginary part of the scattered sums (u v / W minus the free psi xi), as a fourth item.  ``h = j + i y`` is formed from SciPy's ``spherical_jn`` and
     ``spherical_yn``, and the composite matrices are plain products, as in the
     published formulation.
     """
@@ -279,4 +516,12 @@ def classical_decay_rates(radii, n, wavelength, r, orders, mu=None, dipole="elec
             f_rad * 1.5 / xe**4 * np.sum(c1 * np.abs(F) ** 2),
             f_rad * 0.75 / xe**2 * np.sum(c2 * (np.abs(F2) ** 2 + np.abs(Fd) ** 2)),
         ]
-    return np.array(total), np.array(radiative), int(ok.sum())
+    if not with_shift:
+        return np.array(total), np.array(radiative), int(ok.sum())
+    with np.errstate(all="ignore"):
+        free, dfree = np.where(ok, pe * ze, 0), np.where(ok, dpe * dze, 0)
+        shift = [
+            0.75 / xe**4 * np.sum(c1 * (G - free).imag),
+            0.375 / xe**2 * np.sum(c2 * ((G2 - free).imag + (Gd - dfree).imag)),
+        ]
+    return np.array(total), np.array(radiative), int(ok.sum()), np.array(shift)

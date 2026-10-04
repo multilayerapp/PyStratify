@@ -1,4 +1,4 @@
-"""Decay rates from normalized quantities only: the formulation of the accompanying paper.
+"""The normalized formulation of the accompanying paper: Green's dyadic at the source, per order.
 
 Every per-order term is an explicit geometric factor times quantities of order
 unity built from three auxiliary functions of a single argument z,
@@ -21,15 +21,31 @@ maps are written with the mismatch terms m11 = (l+1)(g-1)/x~ - (f r_in - r_out)
 and m33 = (f X_in - X_out) - l(g-1)/x~, where r = psi_{l+1}/psi_l,
 X = xi_{l-1}/xi_l and g - 1 is the material contrast (exactly zero for TE at
 non-magnetic interfaces), so no difference of nearly equal logarithmic
-derivatives is ever formed.  The
-total rate is 1 + sum Re[P (rho + sigma + 2 rho sigma)/(1 - rho sigma)] (shell
-normalization) and the radiated amplitude carries the single explicit factor
-(k_h r)^(l+1)/(2l+1)!!.  Nothing is computed that can overflow; only the
-geometric factors can underflow, which is harmless.
+derivatives is ever formed.
+
+At the emitter (argument x, polarization TM or TE) the scattered Green's
+function of two radial functionals f = a u + b u' and g = c u + d u' is
+
+    P [a c S + (a d + b c) S^m + b d S^d],
+    S   = (rho + sigma + 2 rho sigma)/(1 - rho sigma),
+    S^m = (rho B + sigma A + rho sigma (A + B))/(1 - rho sigma),
+    S^d = (rho B^2 + sigma A^2 + 2 rho sigma A B)/(1 - rho sigma),
+
+and the radiated amplitude of f is a F + b F' with F = core (1 + rho) and
+F' = core (A + rho B), where the core carries the single explicit factor
+(k_h r)^(l+1)/(2l+1)!!.  For a dipole the total rate is 1 + sum Re[...] (shell
+normalization), the frequency shift (1/2) sum Im[...] in units of the same free
+rate, and the radiative rate sum |...|^2.  Nothing is computed that can
+overflow; only the geometric factors can underflow, which is harmless.
+
+Near a lossless interface the high-order terms are almost purely reactive.  Every
+quantity above is then a dominant part plus a small one that is carried
+multiplicatively (Re P = psi^2 = Im B/|B - A|^2, with Im B from a recurrence that
+multiplies it), so Re and Im of the per-order forms keep full relative precision
+as long as TM and TE are kept apart and sources enter through real weights.
 
 This module is independent of :mod:`pystratify.solver` and
-:mod:`pystratify.decay` (which carry the same physics as logarithms) and
-serves as the reference implementation of the paper's equations; the tests
+:mod:`pystratify.decay` (which carry the same physics as logarithms); the tests
 check the two against each other and against extended-precision transfer
 matrices.  Shells 1..N+1 of the paper are indices 0..N here; the emitter must
 be in a lossless shell and the host must be lossless.
@@ -42,14 +58,24 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.special import gammaln
 
+from .convergence import orders_needed, tail_estimate, truncation_order
 from .solver import TE, TM
 
-__all__ = ["auxiliary", "log_double_factorial", "NormalizedRates", "normalized_decay_rates"]
+__all__ = [
+    "auxiliary",
+    "log_double_factorial",
+    "NormalizedTerms",
+    "normalized_terms",
+    "NormalizedRates",
+    "normalized_decay_rates",
+]
 
 #: extra orders above max(L, |z|) at which the downward recurrence for A_l starts
 _A_HEADROOM = 20
 #: for Im z <= -_GAIN_SWITCH (strongly amplifying media) B_l is not recurred upwards (see auxiliary)
 _GAIN_SWITCH = 1.0
+#: default most orders tried by the automatic truncation (as :func:`~pystratify.decay_rates`)
+L_CAP = 20000
 
 
 def log_double_factorial(l):
@@ -116,26 +142,56 @@ def auxiliary(z, L):
     return A, B, P, log_jbar
 
 
-@dataclass(frozen=True)
-class NormalizedRates:
-    """Shell-normalized decay rates at one emitter position; arrays ``[perp, par]``.
+_SCALAR_ARGUMENTS = 16  # up to this many arguments, _auxiliary_real calls auxiliary for each
 
-    ``nonradiative = total - radiative``.  With ``terms=True`` the per-order
-    contributions (length ``l_max``) are kept in ``terms_total`` (scattered
-    part, without the free-space 1) and ``terms_radiative``, each of shape
-    ``(l_max, 2)``.
+
+def _auxiliary_real(x, L):
+    """:func:`auxiliary` at many real positive arguments ``x`` (P,) at once: arrays (P, L+1).
+
+    The same recurrences, operation for operation (l/z is l/x for a real z, also in
+    Python's complex division), so every element equals the scalar result bit for bit;
+    each argument keeps its own starting order of the downward recurrence.
     """
-
-    r: float
-    orders: int
-    total: np.ndarray
-    radiative: np.ndarray
-    terms_total: np.ndarray | None = None
-    terms_radiative: np.ndarray | None = None
-
-    @property
-    def nonradiative(self) -> np.ndarray:
-        return self.total - self.radiative
+    x = np.asarray(x, dtype=float).ravel()
+    if np.any(~(x > 0)):
+        raise ValueError("arguments must be positive")
+    if x.size <= _SCALAR_ARGUMENTS:
+        # a few arguments: Python's complex arithmetic per order costs less than array operations
+        # per order, and gives the same numbers
+        rows = [auxiliary(complex(v), L) for v in x]
+        return tuple(np.array([row[k] for row in rows]) for k in range(4))
+    z = x + 0j
+    tops = L + _A_HEADROOM + x.astype(int)  # int(abs(z)) of the scalar version
+    top = int(tops.max())
+    A = np.zeros((x.size, top + 1), complex)
+    s = np.zeros((x.size, top + 1), complex)
+    for l in range(top, 0, -1):
+        live = l <= tops
+        lz = l / x
+        sl = A[:, l] + lz
+        with np.errstate(divide="ignore", invalid="ignore"):
+            nxt = lz - 1 / sl
+        s[:, l] = np.where(live, sl, 0)
+        A[:, l - 1] = np.where(live, nxt, 0)
+    A, s = A[:, : L + 1], s[:, : L + 1]
+    B = np.empty((x.size, L + 1), complex)
+    B[:, 0] = 1j
+    for l in range(1, L + 1):
+        lz = l / x
+        B[:, l] = 1 / (lz - B[:, l - 1]) - lz
+    with np.errstate(divide="ignore", invalid="ignore"):
+        P = 1j / (B - A)
+    l = np.arange(1, L + 1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        near = (np.abs(s[:, 1]) < 1) if L >= 1 else np.zeros(x.size, bool)
+        log_j0 = np.where(
+            near,
+            np.log(s[:, 1] * (np.sin(z) / z - np.cos(z)) / z),
+            0.0 + np.log((np.exp(1j * z - 0.0) - np.exp(-1j * z - 0.0)) / 2j) - np.log(z),
+        )
+        steps = np.log((2 * l + 1) / (z[:, None] * s[:, 1:]))
+        log_jbar = np.concatenate([log_j0[:, None], log_j0[:, None] + np.cumsum(steps, axis=1)], axis=1)
+    return A, B, P, log_jbar
 
 
 def _args(k, radii, outer_side):
@@ -144,120 +200,602 @@ def _args(k, radii, outer_side):
 
 
 def _propagator(a, b, r_a, r_b, l):
-    """[xi/psi](b)/[xi/psi](a) for arguments of one shell at radii r_a < r_b."""
-    with np.errstate(under="ignore", over="ignore", invalid="ignore"):
-        return np.exp((2 * l + 2) * np.log(r_a / r_b) + 2 * (a[3][l] - b[3][l])) * b[2][l] / a[2][l]
+    """[xi/psi](b)/[xi/psi](a) for arguments of one shell at radii r_a < r_b.
 
-
-def normalized_decay_rates(radii, n, wavelength, r, l_max, mu=None, dipole="electric", terms=False):
-    """Decay rates of an electric or magnetic dipole at radius ``r``, normalized formulation.
-
-    Parameters as in :func:`pystratify.decay_rates` (one wavelength, lengths in
-    one unit); ``l_max`` is the number of multipoles summed.  Returns
-    :class:`NormalizedRates` in the shell normalization.
+    ``a`` and ``b`` are :func:`auxiliary` tuples; either may hold many arguments (rows),
+    with ``r_a`` or ``r_b`` then an array of matching length.
     """
+    la, lb = a[3][..., l], b[3][..., l]
+    log_ratio = np.log(np.asarray(r_a) / np.asarray(r_b))
+    if np.ndim(log_ratio):
+        log_ratio = log_ratio[:, None]
+    with np.errstate(under="ignore", over="ignore", invalid="ignore"):
+        return np.exp((2 * l + 2) * log_ratio + 2 * (la - lb)) * b[2][..., l] / a[2][..., l]
+
+
+class _Sweep:
+    """The emitter-independent part of the formulation at one wavelength and truncation L.
+
+    Holds the auxiliary functions on both sides of every interface and, for TM and TE,
+    the outward ratios rho just outside each interface (``rho_t``) and the inward ratios
+    sigma on its inner (``sig_in``) and outer (``sig_t``) side.  :meth:`at` evaluates the
+    per-order quantities at any number of emitter radii.
+
+    ``sheets`` are the interface responses of :mod:`pystratify.sheets` (2D sheets, d-parameters) and
+    ``k0`` the vacuum wavenumber: the matching becomes value' = tau (value + t_v deriv)/c_v,
+    deriv' = tau (deriv - t_d value)/c_d, which adds f t_d + t_v D~ D to the coefficients of every
+    Moebius map, as in :func:`pystratify.solve`.
+    """
+
+    def __init__(self, radii, n, mu, k, L, sheets=None, k0=None):
+        self.radii, self.n, self.mu, self.k, self.L = radii, n, mu, k, L
+        N = radii.size
+        l = np.arange(1, L + 1)
+        self.l = l
+        self.inner = [auxiliary(k[j] * radii[j], L + 1) for j in range(N)]  # x_n = k_n r_n
+        self.outer = [auxiliary(k[j + 1] * radii[j], L + 1) for j in range(N)]  # x~_n = k_{n+1} r_n
+        inner, outer = self.inner, self.outer
+        eta, mr = n[:-1] / n[1:], mu[:-1] / mu[1:]
+        n_in, n_out, mu_in, mu_out = n[:-1], n[1:], mu[:-1], mu[1:]
+        # g - 1 (g = f x~/x) from the material contrast: exact for similar media and exactly 0 for the
+        # TE terms of nonmagnetic interfaces, where the leading (l+1)/x parts of the mismatch cancel
+        g_minus_1 = {
+            TM: (mu_in * (n_out - n_in) * (n_out + n_in) + n_in**2 * (mu_in - mu_out)) / (mu_out * n_in**2),
+            TE: (mu_out - mu_in) / mu_in,
+        }
+        # the small ratios r = psi_{l+1}/psi_l = 1/(A_{l+1} + (l+1)/z) and X = xi_{l-1}/xi_l = 1/(l/z - B_{l-1})
+        small = []
+        for side in (inner, outer):
+            small.append(
+                [
+                    (1 / (a[0][l + 1] + (l + 1) / z), 1 / (l / z - a[1][l - 1]))
+                    for a, z in zip(side, _args(k, radii, side is outer))
+                ]
+            )
+        responses = None
+        if sheets:
+            from .sheets import _interface_terms
+
+            terms = _interface_terms(sheets, np.array([k0]), radii, n[None], mu[None], l)
+            responses = {q: tuple(v[0] for v in terms[q]) for q in terms}  # (N, L) each
+        self.pol = {}
+        for p in (TM, TE):
+            c_v, c_d = (mr, eta) if p == TM else (eta, mr)
+            f = c_v / c_d
+            # interface mismatches without cancellation: m11 = f A - A~, m33 = f B - B~
+            m11, m33 = [], []
+            for j in range(N):
+                (r_in, X_in), (r_out, X_out) = small[0][j], small[1][j]
+                xt = k[j + 1] * radii[j]
+                m11.append((l + 1) * g_minus_1[p][j] / xt - (f[j] * r_in - r_out))
+                m33.append((f[j] * X_in - X_out) - l * g_minus_1[p][j] / xt)
+            # the maps rho' = (a + rho b)/(c + rho d) and sigma = (d - sigma' b)/(sigma' a - c) of every
+            # interface, with the response terms; tv, td, tau also match the amplitudes
+            if responses is None:
+                tv, td = np.zeros((N, L), complex), np.zeros((N, L), complex)
+                tau, tau_m1 = np.ones((N, L), complex), np.zeros((N, L), complex)
+            else:
+                tv, td, tau, tau_m1 = responses[p]
+            coef = []
+            for j in range(N):
+                A, B = inner[j][0][l], inner[j][1][l]
+                At, Bt = outer[j][0][l], outer[j][1][l]
+                a, b, c, d = m11[j], f[j] * B - At, Bt - f[j] * A, -m33[j]
+                if responses is not None:
+                    ftd = f[j] * td[j]
+                    a, b = a - ftd - tv[j] * At * A, b - ftd - tv[j] * At * B
+                    c, d = c + ftd + tv[j] * Bt * A, d + ftd + tv[j] * Bt * B
+                coef.append((a, b, c, d))
+            # outward sweep: rho just outside each interface (rho_t)
+            rho_t = np.zeros((N, L), complex)
+            rho = np.zeros(L, complex)
+            with np.errstate(all="ignore"):
+                for j in range(N):
+                    if j:
+                        rho = rho_t[j - 1] * _propagator(outer[j - 1], inner[j], radii[j - 1], radii[j], l)
+                    a, b, c, d = coef[j]
+                    rho_t[j] = (a + rho * b) / (c + rho * d)
+                # inward sweep: sigma just outside interface j (sig_t) and on its inner side (sig_in)
+                sig_in, sig_t = np.zeros((N, L), complex), np.zeros((N, L), complex)
+                sig = np.zeros(L, complex)
+                for j in range(N - 1, -1, -1):
+                    if j < N - 1:
+                        sig = sig_in[j + 1] * _propagator(outer[j], inner[j + 1], radii[j], radii[j + 1], l)
+                    sig_t[j] = sig
+                    a, b, c, d = coef[j]
+                    sig_in[j] = (d - sig * b) / (sig * a - c)
+            self.pol[p] = dict(
+                c_v=c_v, c_d=c_d, rho_t=rho_t, sig_in=sig_in, sig_t=sig_t, tv=tv, td=td, tau=tau, tau_m1=tau_m1
+            )
+
+    def transmission(self, p, d, stop):
+        """The outgoing solution carried outwards from shell ``d`` to shell ``stop`` > ``d``, polarization ``p``:
+        C_stop/C_d = (k_stop/k_d)^(l+1) exp(log) chain, with ``log`` the sum of log jbar(x~_j) - log jbar(x_j)
+        over interfaces j = d..stop-1 and ``chain`` the product of P(x_j)/P(x~_j) and the better conditioned
+        of the value and derivative matching ratios (with the sheet terms); (L,) each."""
+        q, l = self.pol[p], self.l
+        inner, outer = self.inner, self.outer
+        log, chain = np.zeros(self.L, complex), np.ones(self.L, complex)
+        with np.errstate(all="ignore"):
+            for j in range(d, stop):
+                sv, st = q["sig_in"][j], q["sig_t"][j]
+                A, B = inner[j][0][l], inner[j][1][l]
+                At, Bt = outer[j][0][l], outer[j][1][l]
+                tv, td, tau = q["tv"][j], q["td"][j], q["tau"][j]
+                v_in, d_in = (1 + sv) + tv * (sv * A + B), (sv * A + B) - td * (1 + sv)
+                value = tau * v_in / (q["c_v"][j] * (1 + st))
+                deriv = tau * d_in / (q["c_d"][j] * (st * At + Bt))
+                v_scale, d_scale = 1 + np.abs(sv), np.abs(sv * A) + np.abs(B)
+                cond_v = np.minimum(np.abs(v_in) / (v_scale + np.abs(tv) * d_scale), np.abs(1 + st) / (1 + np.abs(st)))
+                cond_d = np.minimum(
+                    np.abs(d_in) / (d_scale + np.abs(td) * v_scale),
+                    np.abs(st * At + Bt) / (np.abs(st * At) + np.abs(Bt)),
+                )
+                log = log + outer[j][3][l] - inner[j][3][l]
+                chain = chain * np.where(cond_v >= cond_d, value, deriv) * inner[j][2][l] / outer[j][2][l]
+        return log, chain
+
+    def at(self, r):
+        """Per-order quantities at emitter radii ``r`` (P,), each lossless: dict of (2, P, L) arrays
+        indexed [TM, TE] (``P``, ``A``, ``B``, ``rho``, ``sigma``, ``S``, ``Sm``, ``Sd``, ``F``, ``Fd``),
+        plus ``x`` (P,), ``shell`` (P,) and ``f_rad`` (P,)."""
+        radii, n, mu, k, L, l = self.radii, self.n, self.mu, self.k, self.L, self.l
+        N = radii.size
+        r = np.asarray(r, dtype=float).ravel()
+        shells = np.searchsorted(radii, r, side="right")
+        names = ("P", "A", "B", "rho", "sigma", "S", "Sm", "Sd", "F", "Fd", "rp", "rx", "Fr", "lj")
+        out = {name: np.zeros((2, r.size, L), complex) for name in names}
+        x_all = np.zeros(r.size, dtype=complex if np.any(k[np.unique(shells)].imag != 0) else float)
+        inner, outer = self.inner, self.outer
+        for d in np.unique(shells):
+            idx = np.flatnonzero(shells == d)
+            if n[d].imag != 0 or mu[d].imag != 0 or n[-1].imag != 0:
+                raise ValueError("the emitter's shell and the host must be lossless")
+            rd = r[idx]
+            if k[d].imag == 0:
+                x = k[d].real * rd
+                emit = _auxiliary_real(x, L + 1)
+            else:  # imaginary frequency (Casimir-Polder): z = i kappa r, one argument at a time
+                x = k[d] * rd
+                emit = tuple(np.array(v) for v in zip(*(auxiliary(z, L + 1) for z in x)))
+            x_all[idx] = x
+            for p in (TM, TE):
+                q = self.pol[p]
+                rho_t, sig_in = q["rho_t"], q["sig_in"]
+                with np.errstate(all="ignore"):
+                    if d:
+                        rho_e = rho_t[d - 1] * _propagator(outer[d - 1], emit, radii[d - 1], rd, l)
+                    else:
+                        rho_e = np.zeros((idx.size, L), complex)
+                    if d < N:
+                        sig_e = sig_in[d] * _propagator(emit, inner[d], rd, radii[d], l)
+                    else:
+                        sig_e = np.zeros((idx.size, L), complex)
+                    a, b, P = emit[0][:, l], emit[1][:, l], emit[2][:, l]
+                    # psi_{l+1}/psi_l = 1/s_{l+1} as rounded in the recurrence, and xi_{l+1}/xi_l: A = (l+1)/x - rp,
+                    # B = (l+1)/x - rx, so functionals whose leading small-x parts cancel are formed without loss
+                    rp = 1 / (emit[0][:, l + 1] + (l + 1) / x[:, None])
+                    rx = (l + 1) / x[:, None] - b
+                    delta = 1 - rho_e * sig_e
+                    S = (rho_e + sig_e + 2 * rho_e * sig_e) / delta
+                    Sm = (rho_e * b + sig_e * a + rho_e * sig_e * (a + b)) / delta
+                    Sd = (rho_e * b**2 + sig_e * a**2 + 2 * rho_e * sig_e * a * b) / delta
+                    # radiated amplitude: (k_h r)^(l+1)/(2l+1)!! jbar(x) (1+rho)/(1-rho sigma) prod_n C_n
+                    # (none at imaginary frequency, where k_h is imaginary: nan)
+                    log_amp = (l + 1) * np.log(k[-1].real * rd + 0j)[:, None] - log_double_factorial(l) + emit[3][:, l]
+                    if k[-1].imag != 0:
+                        log_amp = np.full_like(log_amp, np.nan)
+                    log_c, chain = self.transmission(p, d, N)
+                    core = np.exp(log_amp + log_c) * chain / delta
+                for name, value in (
+                    ("P", P), ("A", a), ("B", b), ("rho", rho_e), ("sigma", sig_e), ("S", S), ("Sm", Sm), ("Sd", Sd),
+                    ("F", core * (1 + rho_e)), ("Fd", core * (a + rho_e * b)), ("rp", rp), ("rx", rx),
+                    ("Fr", core * (rp + rho_e * rx)), ("lj", emit[3][:, l]),
+                ):  # fmt: skip
+                    out[name][p, idx] = value
+        out["x"] = x_all
+        out["shell"] = shells
+        out["f_rad"] = (n[shells] * mu[shells] / (n[-1] * mu[-1])).real
+        return out
+
+
+#: helicity (W_+, W_-) amplitudes -> (TM, TE) = (a_+ - a_-, a_+ + a_-), W_s = M + s N
+_HEL_TO_TT = np.array([[1.0, -1.0], [1.0, 1.0]])
+_TT_TO_HEL = np.linalg.inv(_HEL_TO_TT)
+
+
+class _ChiralSweep:
+    """The emitter-independent part of the formulation for spheres with chiral (Pasteur) layers.
+
+    Per order, the regular and outgoing solutions are 2x2 matrices, rho = Xi R Psi^-1 and
+    sigma = Psi S Xi^-1 (Psi, Xi = diag over the helicity channels of a layer, k_s = k0 (n + s kappa)),
+    carried in the (TM, TE) basis, where the small TE parts stay apart from the TM ones.  Across a
+    layer element (c, e) of rho (helicity basis) gains [xi_c(b)/xi_c(a)][psi_e(a)/psi_e(b)], the
+    geometric factor (r_a/r_b)^(2l+2) times ratios of P and jbar at k_c r and k_e r (a scalar factor
+    in achiral layers).  With u = (1 + rho) a, u' = (A + B rho) a, the matching u~ = Cv u, u~' = Cd u'
+    (Cv = X~ C_v X^-1, Cd = X~ C_d X^-1, C_v and C_d of :mod:`pystratify.chiral`) gives
+
+        rho' = Lambda^-1 (a + b rho)(c + d rho)^-1 Lambda,      sigma = (sig~ a - c)^-1 (d - sig~ b),
+        a = Cd A - A~ Cv,  b = Cd B - A~ Cv,  c = B~ Cv - Cd A,  d = B~ Cv - Cd B,
+
+    sig~ = Lambda sigma' Lambda^-1 and Lambda = B~ - A~ = diag(i/P~), and the outgoing amplitudes
+    b~ = Lambda^-1 (b + a sigma) b.  The mismatches a and d are written as (l+1) E X^-1 and l E X^-1
+    plus differences of the small ratios r = psi_(l+1)/psi_l and X = xi_(l-1)/xi_l, with the contrast
+    matrix E = X~ C_d X^-1 - C_v in closed form in the (TM, TE) basis (exactly zero for identical media,
+    and its TE element exactly zero between achiral nonmagnetic media).  The emitter must be in an
+    achiral lossless shell.
+    """
+
+    def __init__(self, radii, n, kappa, mu, k0, L):
+        from .chiral import _inv2
+
+        self.radii, self.n, self.kappa, self.mu, self.k0, self.L = radii, n, kappa, mu, k0, L
+        N = radii.size
+        l = np.arange(1, L + 1)
+        self.l = l
+        self._inv2 = _inv2
+        sign = np.array([1.0, -1.0])
+        kc = k0 * (n[:, None] + sign * kappa[:, None])  # (N + 1, 2)
+        self.kc = kc
+        cache = {}
+
+        def aux(z):
+            key = complex(z)
+            if key not in cache:
+                cache[key] = auxiliary(z, L + 1)
+            return cache[key]
+
+        self.inner = [[aux(kc[j, c] * radii[j]) for c in (0, 1)] for j in range(N)]
+        self.outer = [[aux(kc[j + 1, c] * radii[j]) for c in (0, 1)] for j in range(N)]
+        H, Hi = _HEL_TO_TT, _TT_TO_HEL
+        self.coef, self.lam, self.lam_inv = [], [], []
+        for j in range(N):
+            x, xt = kc[j] * radii[j], kc[j + 1] * radii[j]  # (2,) helicity arguments
+            ai, ao = self.inner[j], self.outer[j]
+            A = np.stack([ai[c][0][l] for c in (0, 1)], -1)  # (L, 2)
+            B = np.stack([ai[c][1][l] for c in (0, 1)], -1)
+            At = np.stack([ao[c][0][l] for c in (0, 1)], -1)
+            Bt = np.stack([ao[c][1][l] for c in (0, 1)], -1)
+            r = np.stack([1 / (ai[c][0][l + 1] + (l + 1) / x[c]) for c in (0, 1)], -1)
+            rt = np.stack([1 / (ao[c][0][l + 1] + (l + 1) / xt[c]) for c in (0, 1)], -1)
+            Xr = np.stack([1 / (l / x[c] - ai[c][1][l - 1]) for c in (0, 1)], -1)
+            Xrt = np.stack([1 / (l / xt[c] - ao[c][1][l - 1]) for c in (0, 1)], -1)
+            n1, n2, k1, k2, m1, m2 = n[j], n[j + 1], kappa[j], kappa[j + 1], mu[j], mu[j + 1]
+            z = m2 * n1 / (m1 * n2)
+            cv = np.array([[1 + z, 1 - z], [1 - z, 1 + z]]) / 2
+            cd = np.array([[1 + z, z - 1], [z - 1, 1 + z]]) / 2
+            ratio = xt[:, None] / x[None, :]  # x~_c / x_e
+            Cv, Cd = cv * ratio, cd * ratio  # (2, 2)
+            # contrast matrix E = X~ C_d X^-1 - C_v in the (TM, TE) basis, from the material differences
+            D = n1 * n1 - k1 * k1
+            e_tm = (n1 * (m1 * (n2 - n1) * (n2 + n1) + n1 * n1 * (m1 - m2)) / (m1 * n2) + z * k1 * (k1 - k2)) / D
+            e_te = (n1 * n1 * (m2 - m1) / m1 + k1 * (k1 - k2)) / D
+            E = np.array([[e_tm, (z * k2 * n1 - n2 * k1) / D], [k2 * n1 - z * n2 * k1, e_te]])
+            E[1, 0] = E[1, 0] / D
+            xinv = H @ np.diag(1 / x) @ Hi  # X^-1 in the (TM, TE) basis
+            diag = lambda v: v[:, :, None] * np.eye(2)  # noqa: E731  (L, 2) -> (L, 2, 2)
+            small_a = -Cd[None] * r[:, None, :] + rt[:, :, None] * Cv[None]  # -Cd r + r~ Cv (helicity)
+            small_d = Xrt[:, :, None] * Cv[None] - Cd[None] * Xr[:, None, :]  # X~r Cv - Cd Xr
+            a = (l + 1)[:, None, None] * (E @ xinv) + H @ small_a @ Hi
+            d = l[:, None, None] * (E @ xinv) + H @ small_d @ Hi
+            b = H @ (Cd[None] * B[:, None, :] - At[:, :, None] * Cv[None]) @ Hi
+            c = H @ (Bt[:, :, None] * Cv[None] - Cd[None] * A[:, None, :]) @ Hi
+            self.coef.append((a, b, c, d))
+            lam_h = Bt - At  # i / P~ per helicity channel
+            self.lam.append(H @ diag(lam_h) @ Hi)
+            self.lam_inv.append(H @ diag(1 / lam_h) @ Hi)
+        with np.errstate(all="ignore"):
+            # outward: rho just outside each interface; inward: sigma on either side of each interface
+            self.rho_t = np.zeros((N, L, 2, 2), complex)
+            rho = np.zeros((L, 2, 2), complex)
+            for j in range(N):
+                if j:
+                    rho = self._across(j, self.rho_t[j - 1], "rho")
+                a, b, c, d = self.coef[j]
+                self.rho_t[j] = self.lam_inv[j] @ (a + b @ rho) @ _inv2(c + d @ rho) @ self.lam[j]
+            self.sig_in = np.zeros((N, L, 2, 2), complex)
+            self.sig_t = np.zeros((N, L, 2, 2), complex)
+            sig = np.zeros((L, 2, 2), complex)
+            for j in range(N - 1, -1, -1):
+                if j < N - 1:
+                    sig = self._across(j + 1, self.sig_in[j + 1], "sigma")
+                self.sig_t[j] = sig
+                a, b, c, d = self.coef[j]
+                st = self.lam[j] @ sig @ self.lam_inv[j]
+                self.sig_in[j] = _inv2(st @ a - c) @ (d - st @ b)
+
+    def _factors(self, j):
+        """Per-channel O(1) factors of layer j (0 < j < N) between a = R_(j-1) and b = R_j:
+        P(b)/P(a) and jbar(a)/jbar(b), (L, 2) each, and the geometric log (l+1) ln(a/b)."""
+        l = self.l
+        a_aux, b_aux = self.outer[j - 1], self.inner[j]
+        pr = np.stack([b_aux[c][2][l] / a_aux[c][2][l] for c in (0, 1)], -1)
+        jr = np.stack([np.exp(a_aux[c][3][l] - b_aux[c][3][l]) for c in (0, 1)], -1)
+        return pr, jr, (l + 1) * np.log(self.radii[j - 1] / self.radii[j])
+
+    def _across(self, j, m, what):
+        """rho carried outwards (or sigma inwards) across layer j, in the (TM, TE) basis."""
+        with np.errstate(under="ignore", over="ignore", invalid="ignore"):
+            pr, jr, geo = self._factors(j)
+            g = np.exp(2 * geo)[:, None, None]
+            if self.kappa[j] == 0:  # one k: a scalar factor
+                f = (pr[:, 0] * jr[:, 0] ** 2)[:, None, None]
+                return m * g * f
+            hel = _TT_TO_HEL @ m @ _HEL_TO_TT
+            base = jr[:, :, None] * jr[:, None, :]
+            hel = hel * g * base * (pr[:, :, None] if what == "rho" else pr[:, None, :])
+            return _HEL_TO_TT @ hel @ _TT_TO_HEL
+
+    def at(self, r):
+        """Per-order quantities at emitter radii ``r`` (P,) in achiral lossless shells: ``P``, ``A``,
+        ``B``, ``rp``, ``rx``, ``lj`` (P, L); ``rho``, ``sigma`` (P, L, 2, 2) in the (TM, TE) basis;
+        ``Fm`` (P, L, 2, 2), the host amplitudes (TM, TE) per unit (A~ + rho B~) of a source functional
+        (for kappa = 0 the scalar core, F = core (1 + rho)); ``x``, ``shell``, ``f_rad`` (P,)."""
+        radii, n, kappa, mu, L, l = self.radii, self.n, self.kappa, self.mu, self.L, self.l
+        N = radii.size
+        r = np.asarray(r, dtype=float).ravel()
+        shells = np.searchsorted(radii, r, side="right")
+        out = {name: np.zeros((r.size, L), complex) for name in ("P", "A", "B", "rp", "rx", "lj")}
+        for name in ("rho", "sigma", "Fm"):
+            out[name] = np.zeros((r.size, L, 2, 2), complex)
+        x_all = np.zeros(r.size)
+        kh = self.kc[N, 0].real
+        log_dfact = log_double_factorial(l)
+        for d in np.unique(shells):
+            idx = np.flatnonzero(shells == d)
+            if kappa[d] != 0 or n[d].imag != 0 or mu[d].imag != 0 or n[-1].imag != 0:
+                raise ValueError("the emitter's shell must be achiral and lossless, and the host lossless")
+            rd = r[idx]
+            x = self.kc[d, 0].real * rd
+            emit = _auxiliary_real(x, L + 1)
+            x_all[idx] = x
+            with np.errstate(all="ignore"):
+                if d:
+                    prop = _propagator(self.outer[d - 1][0], emit, radii[d - 1], rd, l)[..., None, None]
+                    rho = self.rho_t[d - 1][None] * prop
+                else:
+                    rho = np.zeros((idx.size, L, 2, 2), complex)
+                if d < N:
+                    prop = _propagator(emit, self.inner[d][0], rd, radii[d], l)[..., None, None]
+                    sig = self.sig_in[d][None] * prop
+                else:
+                    sig = np.zeros((idx.size, L, 2, 2), complex)
+                lj0 = emit[3][:, l]
+                if d == N:  # host emitter: psi(x0), no transmission
+                    scal = np.exp((l + 1) * np.log(x)[:, None] - log_dfact + lj0)
+                    fm = scal[..., None, None] * np.eye(2)
+                else:
+                    chain = np.broadcast_to(np.eye(2, dtype=complex), (L, 2, 2)).copy()
+                    for j in range(d, N):
+                        if j > d:  # outgoing amplitudes b = Xi beta across layer j, less (R_(j-1)/R_j)^(l+1)
+                            pr, jr, _ = self._factors(j)
+                            if kappa[j] == 0:
+                                chain = (pr[:, 0] * jr[:, 0])[:, None, None] * chain
+                            else:
+                                chain = _HEL_TO_TT @ ((pr * jr)[:, :, None] * (_TT_TO_HEL @ chain))
+                        a, b, _, _ = self.coef[j]
+                        chain = self.lam_inv[j] @ (b + a @ self.sig_in[j]) @ chain
+                    log_s = (l + 1) * np.log(kh * rd)[:, None] - log_dfact + lj0
+                    log_s = log_s - self.inner[d][0][3][l] + self.outer[N - 1][0][3][l]
+                    scal = np.exp(log_s) * (self.inner[d][0][2][l] / self.outer[N - 1][0][2][l])
+                    fm = scal[..., None, None] * chain[None]
+                fm = fm @ self._inv2(np.eye(2) - rho @ sig)
+            b = emit[1][:, l]
+            rp = 1 / (emit[0][:, l + 1] + (l + 1) / x[:, None])
+            rx = (l + 1) / x[:, None] - b
+            for name, v in (("P", emit[2][:, l]), ("A", emit[0][:, l]), ("B", b), ("rp", rp), ("rx", rx),
+                            ("lj", lj0), ("rho", rho), ("sigma", sig), ("Fm", fm)):  # fmt: skip
+                out[name][idx] = v
+        out["x"], out["shell"] = x_all, shells
+        out["f_rad"] = (n[shells] * mu[shells] / (n[-1] * mu[-1])).real
+        return out
+
+
+def _dipole_series(t, dipole):
+    """Complex scattered terms (P, L, 2) [perp, par] (Re: total, Im: twice the shift) and radiative
+    terms (P, L, 2) of a dipole, shell normalization, from the output of :meth:`_Sweep.at`."""
+    radial, other = (TM, TE) if dipole == "electric" else (TE, TM)
+    l = np.arange(1, t["P"].shape[2] + 1)
+    x = t["x"][:, None]
+    c1, c2 = l * (l + 1) * (2 * l + 1), 2 * l + 1
+    P, S, Sd, F, Fd = t["P"], t["S"], t["Sd"], t["F"], t["Fd"]
+    g = np.stack(
+        [1.5 / x**4 * c1 * (P[radial] * S[radial]), 0.75 / x**2 * c2 * (P[other] * S[other] + P[radial] * Sd[radial])],
+        axis=2,
+    )
+    f_rad = t["f_rad"][:, None]
+    rad = np.stack(
+        [
+            f_rad * 1.5 / x**4 * c1 * np.abs(F[radial]) ** 2,
+            f_rad * 0.75 / x**2 * c2 * (np.abs(F[other]) ** 2 + np.abs(Fd[radial]) ** 2),
+        ],
+        axis=2,
+    )
+    return g, rad
+
+
+#: complex numbers per block of emitter positions evaluated at once (bounds the memory of long sweeps)
+_BLOCK = 8_000_000
+
+
+def _dipole_sums(sweep, r, dipole, tol):
+    """Summed complex scattered series (P, 2), radiative sums (P, 2) and convergence (P,) of a dipole
+    at radii ``r`` (shell normalization), evaluated in blocks of positions."""
+    step = max(1, _BLOCK // (20 * sweep.L))
+    g_sum = np.zeros((r.size, 2), complex)
+    rad_sum = np.zeros((r.size, 2))
+    ok = np.zeros(r.size, bool)
+    for start in range(0, r.size, step):
+        part = slice(start, start + step)
+        g, rad = _dipole_series(sweep.at(r[part]), dipole)
+        g_sum[part], rad_sum[part] = g.sum(axis=1), rad.sum(axis=1)
+        ok[part] = _complex_converged(g, tol)
+    return g_sum, rad_sum, ok
+
+
+def _starting_order(radii, n, wavelength, r, tol, l_cap):
+    """The truncation estimate of :func:`~pystratify.decay_rates`: particle size and proximity."""
+    q = np.max(np.minimum(radii[None, :] / r[:, None], r[:, None] / radii[None, :]))
+    near = truncation_order(radii[-1], n[-1], wavelength, "near")
+    return int(min(l_cap, max(32, near, orders_needed(q, tol, l_cap))))
+
+
+def _complex_converged(g, tol):
+    """Remainder test on the modulus of complex series (P, L, K) against tol |1 + sum|: the
+    reactive part is included, so a frequency shift converges together with the rate."""
+    tail = tail_estimate(np.moveaxis(np.abs(g[:, -4:]), 1, 0))
+    scale = np.abs(1 + g.sum(axis=1))
+    return np.all(np.isfinite(scale) & (tail <= tol * scale), axis=1)
+
+
+def _prepare(radii, n, mu, wavelength, r):
     radii = np.atleast_1d(np.asarray(radii, float))
     n = np.asarray(n, complex)
     mu = np.ones(n.size, complex) if mu is None else np.asarray(mu, complex)
+    r = np.atleast_1d(np.asarray(r, dtype=float))
+    if n.shape != (radii.size + 1,) or mu.shape != n.shape:
+        raise ValueError(f"n and mu need shape ({radii.size + 1},), host last")
+    if np.any(~np.isfinite(r)) or np.any(r <= 0):
+        raise ValueError("emitter positions must be positive and finite")
+    if np.ndim(wavelength) != 0:
+        raise ValueError("one wavelength at a time")
+    k = 2 * np.pi * n / wavelength
+    return radii, n, mu, r, k
+
+
+def _evaluate(radii, n, mu, wavelength, r, k, l_max, tol, l_cap, sheets=None):
+    """Sweep and emitter side at a given or automatic truncation: (terms dict, L, converged (P,))."""
+    L = int(l_max) if l_max is not None else _starting_order(radii, n, wavelength, r, tol, l_cap)
+    while True:
+        t = _Sweep(radii, n, mu, k, L, sheets, 2 * np.pi / wavelength).at(r)
+        ok = np.ones(r.size, bool)
+        for dipole in ("electric", "magnetic"):
+            ok &= _complex_converged(_dipole_series(t, dipole)[0], tol)
+        if l_max is not None or ok.all() or L >= l_cap:
+            return t, L, ok
+        L = min(2 * L, l_cap)
+
+
+@dataclass(frozen=True)
+class NormalizedTerms:
+    """Per-order quantities of the normalized formulation at emitter radii ``r`` (P,), orders 1..L.
+
+    Complex arrays of shape (2, P, L), indexed by polarization ``[TM, TE]`` (``pystratify.TM``,
+    ``pystratify.TE``): ``P`` = psi xi, ``A`` = psi'/psi and ``B`` = xi'/xi at x = k_d r; the local
+    reflection ratios ``rho`` and ``sigma``; the scattered Green's forms ``S``, ``Sm`` and ``Sd``
+    (value-value, value-derivative, derivative-derivative; multiply by ``P``); the radiated
+    amplitudes ``F`` (value) and ``Fd`` (derivative), which include the explicit factor
+    (k_h r)^(l+1)/(2l+1)!! and so may underflow to 0.  ``x`` (P,) is k_d r, ``shell`` (P,) the
+    emitter's shell and ``f_rad`` (P,) = n_d mu_d/(n_h mu_h) the radiative factor of a dipole.
+    ``r_psi`` = psi_{l+1}/psi_l and ``r_xi`` = xi_{l+1}/xi_l give A = (l+1)/x - r_psi and
+    B = (l+1)/x - r_xi, and ``Fr`` = core (r_psi + rho r_xi) the matching radiated amplitude
+    (F' = (l+1) F/x - Fr): functionals whose leading small-x parts cancel, such as A - 2/x
+    of a quadrupole at l = 1, are then formed without cancellation.
+    ``converged`` (P,) tells whether the electric and magnetic dipole series, rate and shift, met
+    ``tol``.  Shell normalization throughout.
+    """
+
+    r: np.ndarray
+    shell: np.ndarray
+    x: np.ndarray
+    f_rad: np.ndarray
+    orders: int
+    converged: np.ndarray
+    P: np.ndarray
+    A: np.ndarray
+    B: np.ndarray
+    rho: np.ndarray
+    sigma: np.ndarray
+    S: np.ndarray
+    Sm: np.ndarray
+    Sd: np.ndarray
+    F: np.ndarray
+    Fd: np.ndarray
+    r_psi: np.ndarray
+    r_xi: np.ndarray
+    Fr: np.ndarray
+
+    def dipole_series(self, dipole="electric"):
+        """Per-order complex scattered terms (P, L, 2) [perp, par] of a dipole: Re gives the total
+        rate (1 + sum), Im twice the frequency shift; and the radiative terms (P, L, 2)."""
+        if dipole not in ("electric", "magnetic"):
+            raise ValueError("dipole must be 'electric' or 'magnetic'")
+        t = {name: getattr(self, name) for name in ("P", "S", "Sd", "F", "Fd", "x", "f_rad")}
+        return _dipole_series(t, dipole)
+
+
+def normalized_terms(
+    radii, n, wavelength, r, l_max=None, mu=None, tol=1e-13, l_cap=L_CAP, sheets=None
+) -> NormalizedTerms:
+    """Per-order quantities of the normalized formulation at emitter radius or radii ``r``.
+
+    Geometry, materials and ``sheets`` as in :func:`pystratify.decay_rates` (one wavelength, lengths
+    in one unit); every emitter in a lossless shell, lossless host.  ``l_max`` is the number of
+    multipoles; ``None`` starts from the estimate of :func:`~pystratify.decay_rates` and
+    doubles (up to ``l_cap``) until the complex dipole series - rate and shift - meet ``tol``.
+    """
+    radii, n, mu, r, k = _prepare(radii, n, mu, wavelength, r)
+    t, L, ok = _evaluate(radii, n, mu, wavelength, r, k, l_max, tol, l_cap, sheets)
+    return NormalizedTerms(
+        r=r,
+        shell=t["shell"],
+        x=t["x"],
+        f_rad=t["f_rad"],
+        orders=L,
+        converged=ok,
+        **{name: t[name] for name in ("P", "A", "B", "rho", "sigma", "S", "Sm", "Sd", "F", "Fd")},
+        r_psi=t["rp"],
+        r_xi=t["rx"],
+        Fr=t["Fr"],
+    )
+
+
+@dataclass(frozen=True)
+class NormalizedRates:
+    """Shell-normalized decay rates at one emitter position; arrays ``[perp, par]``.
+
+    ``nonradiative = total - radiative``; ``shift`` is the frequency shift (omega - omega_0)/Gamma_0
+    in units of the same free rate (exp(-i omega t); the free self-energy is part of omega_0), so
+    an electric dipole near a metal has ``shift < 0``.  With ``terms=True`` the per-order
+    contributions (length ``l_max``) are kept in ``terms_total`` (scattered part, without the
+    free-space 1), ``terms_radiative`` and ``terms_shift``, each of shape ``(l_max, 2)``.
+    """
+
+    r: float
+    orders: int
+    total: np.ndarray
+    radiative: np.ndarray
+    terms_total: np.ndarray | None = None
+    terms_radiative: np.ndarray | None = None
+    shift: np.ndarray | None = None
+    terms_shift: np.ndarray | None = None
+    converged: bool = True
+    route: str = "normalized"
+
+    @property
+    def nonradiative(self) -> np.ndarray:
+        return self.total - self.radiative
+
+
+def normalized_decay_rates(
+    radii, n, wavelength, r, l_max=None, mu=None, dipole="electric", terms=False, tol=1e-13, l_cap=L_CAP, sheets=None
+):
+    """Decay rates and frequency shift of an electric or magnetic dipole at radius ``r``.
+
+    Parameters as in :func:`pystratify.decay_rates` (one wavelength, lengths in one unit, ``sheets``);
+    ``l_max`` is the number of multipoles summed, ``None`` for the automatic truncation of
+    :func:`normalized_terms` (``tol``, ``l_cap``).  Returns :class:`NormalizedRates` in the
+    shell normalization.
+    """
     if dipole not in ("electric", "magnetic"):
         raise ValueError("dipole must be 'electric' or 'magnetic'")
-    N = radii.size
-    L = int(l_max)
-    k = 2 * np.pi * n / wavelength
-    l = np.arange(1, L + 1)
-    inner = [auxiliary(k[j] * radii[j], L + 1) for j in range(N)]  # x_n = k_n r_n
-    outer = [auxiliary(k[j + 1] * radii[j], L + 1) for j in range(N)]  # x~_n = k_{n+1} r_n
-    d = int(np.searchsorted(radii, r, side="right"))
-    if n[d].imag != 0 or mu[d].imag != 0 or n[-1].imag != 0:
-        raise ValueError("the emitter's shell and the host must be lossless")
-    x = k[d].real * r
-    emit = auxiliary(x + 0j, L + 1)
-    eta, mr = n[:-1] / n[1:], mu[:-1] / mu[1:]
-    n_in, n_out, mu_in, mu_out = n[:-1], n[1:], mu[:-1], mu[1:]
-    # g - 1 (g = f x~/x) from the material contrast: exact for similar media and exactly 0 for the
-    # TE terms of nonmagnetic interfaces, where the leading (l+1)/x parts of the mismatch cancel
-    g_minus_1 = {
-        TM: (mu_in * (n_out - n_in) * (n_out + n_in) + n_in**2 * (mu_in - mu_out)) / (mu_out * n_in**2),
-        TE: (mu_out - mu_in) / mu_in,
-    }
-    # the small ratios r = psi_{l+1}/psi_l = 1/(A_{l+1} + (l+1)/z) and X = xi_{l-1}/xi_l = 1/(l/z - B_{l-1})
-    small = []
-    for side in (inner, outer):
-        small.append(
-            [
-                (1 / (a[0][l + 1] + (l + 1) / z), 1 / (l / z - a[1][l - 1]))
-                for a, z in zip(side, _args(k, radii, side is outer))
-            ]
-        )
-    res = {}
-    for p in (TM, TE):
-        c_v, c_d = (mr, eta) if p == TM else (eta, mr)
-        f = c_v / c_d
-        # interface mismatches without cancellation: m11 = f A - A~, m33 = f B - B~
-        m11, m33 = [], []
-        for j in range(N):
-            (r_in, X_in), (r_out, X_out) = small[0][j], small[1][j]
-            xt = k[j + 1] * radii[j]
-            m11.append((l + 1) * g_minus_1[p][j] / xt - (f[j] * r_in - r_out))
-            m33.append((f[j] * X_in - X_out) - l * g_minus_1[p][j] / xt)
-        # outward sweep: rho just outside each interface (rho_t)
-        rho_t = np.zeros((N, L), complex)
-        rho = np.zeros(L, complex)
-        with np.errstate(all="ignore"):
-            for j in range(N):
-                if j:
-                    rho = rho_t[j - 1] * _propagator(outer[j - 1], inner[j], radii[j - 1], radii[j], l)
-                A, B = inner[j][0][l], inner[j][1][l]
-                At, Bt = outer[j][0][l], outer[j][1][l]
-                rho_t[j] = (m11[j] + rho * (f[j] * B - At)) / ((Bt - f[j] * A) - rho * m33[j])
-            # inward sweep: sigma just outside interface j (sig_t) and on its inner side (sig_in)
-            sig_in, sig_t = np.zeros((N, L), complex), np.zeros((N, L), complex)
-            sig = np.zeros(L, complex)
-            for j in range(N - 1, -1, -1):
-                if j < N - 1:
-                    sig = sig_in[j + 1] * _propagator(outer[j], inner[j + 1], radii[j], radii[j + 1], l)
-                sig_t[j] = sig
-                A, B = inner[j][0][l], inner[j][1][l]
-                At, Bt = outer[j][0][l], outer[j][1][l]
-                sig_in[j] = (-m33[j] + sig * (At - f[j] * B)) / ((f[j] * A - Bt) + sig * m11[j])
-            rho_e = rho_t[d - 1] * _propagator(outer[d - 1], emit, radii[d - 1], r, l) if d else np.zeros(L, complex)
-            sig_e = sig_in[d] * _propagator(emit, inner[d], r, radii[d], l) if d < N else np.zeros(L, complex)
-            a, b, P = emit[0][l], emit[1][l], emit[2][l]
-            delta = 1 - rho_e * sig_e
-            S = (rho_e + sig_e + 2 * rho_e * sig_e) / delta
-            Sd = (rho_e * b**2 + sig_e * a**2 + 2 * rho_e * sig_e * a * b) / delta
-            # radiated amplitude: (k_h r)^(l+1)/(2l+1)!! jbar(x) (1+rho)/(1-rho sigma) prod_n C_n
-            log_amp = (l + 1) * np.log(k[-1].real * r) - log_double_factorial(l) + emit[3][l]
-            chain = np.ones(L, complex)
-            for j in range(d, N):
-                sv, st = sig_in[j], sig_t[j]
-                A, B = inner[j][0][l], inner[j][1][l]
-                At, Bt = outer[j][0][l], outer[j][1][l]
-                value = (1 + sv) / (c_v[j] * (1 + st))
-                deriv = (sv * A + B) / (c_d[j] * (st * At + Bt))
-                cond_v = np.minimum(np.abs(1 + sv) / (1 + np.abs(sv)), np.abs(1 + st) / (1 + np.abs(st)))
-                cond_d = np.minimum(
-                    np.abs(sv * A + B) / (np.abs(sv * A) + np.abs(B)),
-                    np.abs(st * At + Bt) / (np.abs(st * At) + np.abs(Bt)),
-                )
-                log_amp = log_amp + outer[j][3][l] - inner[j][3][l]
-                chain = chain * np.where(cond_v >= cond_d, value, deriv) * inner[j][2][l] / outer[j][2][l]
-            core = np.exp(log_amp) * chain / delta
-        res[p] = dict(S=S, Sd=Sd, P=P, F=core * (1 + rho_e), Fd=core * (a + rho_e * b))
-    radial, other = (TM, TE) if dipole == "electric" else (TE, TM)
-    R, O = res[radial], res[other]
-    c1, c2 = l * (l + 1) * (2 * l + 1), 2 * l + 1
-    t_tot = np.stack(
-        [1.5 / x**4 * c1 * np.real(R["P"] * R["S"]), 0.75 / x**2 * c2 * np.real(O["P"] * O["S"] + R["P"] * R["Sd"])], 1
-    )
-    f_rad = (n[d] * mu[d] / (n[-1] * mu[-1])).real
-    t_rad = np.stack(
-        [
-            f_rad * 1.5 / x**4 * c1 * np.abs(R["F"]) ** 2,
-            f_rad * 0.75 / x**2 * c2 * (np.abs(O["F"]) ** 2 + np.abs(R["Fd"]) ** 2),
-        ],
-        1,
-    )
+    if np.ndim(r) != 0:
+        raise ValueError("one emitter radius; use normalized_terms for many")
+    radii, n, mu, rr, k = _prepare(radii, n, mu, wavelength, r)
+    t, L, ok = _evaluate(radii, n, mu, wavelength, rr, k, l_max, tol, l_cap, sheets)
+    g, rad = _dipole_series(t, dipole)
+    t_tot, t_rad = np.real(g[0]), rad[0]
+    t_shift = 0.5 * np.imag(g[0])
     return NormalizedRates(
         r=float(r),
         orders=L,
@@ -265,4 +803,7 @@ def normalized_decay_rates(radii, n, wavelength, r, l_max, mu=None, dipole="elec
         radiative=t_rad.sum(axis=0),
         terms_total=t_tot if terms else None,
         terms_radiative=t_rad if terms else None,
+        shift=t_shift.sum(axis=0),
+        terms_shift=t_shift if terms else None,
+        converged=bool(ok[0]),
     )
