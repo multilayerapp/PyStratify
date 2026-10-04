@@ -289,6 +289,7 @@ def layered_green_sums(radii, n, wavelength, r, orders, dps=150, mu=None, dipole
     The forms G and G^d of every order, weighted as the decay rates and summed over ``orders``
     multipoles in extended precision, shell normalization: the total rate is 1 + Re(sum) and the
     frequency shift (omega - omega_0)/Gamma_0 is Im(sum)/2.  ``dps`` as in :func:`layered_decay_rates`.
+    At imaginary frequency i xi pass n = i n(i xi) and ``wavelength`` = 2 pi c/xi: k = i xi n(i xi)/c.
     """
     _require_mpmath()
     mu = [1.0] * len(n) if mu is None else mu
@@ -343,7 +344,7 @@ def layered_green_sums(radii, n, wavelength, r, orders, dps=150, mu=None, dipole
             cp, ct = l * (l + 1) * (2 * l + 1), 2 * l + 1
             tot[0] += cp * G[radial]
             tot[1] += ct * (G[other] + Gd[radial])
-        X = mp.re(X)
+        X = mp.re(X) if mp.im(X) == 0 else X  # complex only at imaginary frequency
         scale = [1.5 / X**4, 0.75 / X**2]
         return [complex(scale[i] * tot[i]) for i in range(2)]
 

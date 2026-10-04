@@ -13,6 +13,7 @@ Quick start::
     ps.cross_sections(sol).q_ext                         # (401,)
 """
 
+from .casimir import CasimirPolder, casimir_polder
 from .chiral import ChiralSolution, solve_chiral
 from .convergence import truncation_order
 from .decay import DecayRates, decay_rates, locate_shell
@@ -90,6 +91,8 @@ __all__ = [
     "surface_damping_wavelength",
     "log_riccati",
     "normalized_decay_rates",
+    "casimir_polder",
+    "CasimirPolder",
     "shell_average",
     "ShellAverage",
     "spectral_density",

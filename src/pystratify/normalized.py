@@ -282,16 +282,20 @@ class _Sweep:
         shells = np.searchsorted(radii, r, side="right")
         names = ("P", "A", "B", "rho", "sigma", "S", "Sm", "Sd", "F", "Fd", "rp", "rx", "Fr")
         out = {name: np.zeros((2, r.size, L), complex) for name in names}
-        x_all = np.zeros(r.size)
+        x_all = np.zeros(r.size, dtype=complex if np.any(k.imag != 0) else float)
         inner, outer = self.inner, self.outer
         for d in np.unique(shells):
             idx = np.flatnonzero(shells == d)
             if n[d].imag != 0 or mu[d].imag != 0 or n[-1].imag != 0:
                 raise ValueError("the emitter's shell and the host must be lossless")
             rd = r[idx]
-            x = k[d].real * rd
+            if k[d].imag == 0:
+                x = k[d].real * rd
+                emit = _auxiliary_real(x, L + 1)
+            else:  # imaginary frequency (Casimir-Polder): z = i kappa r, one argument at a time
+                x = k[d] * rd
+                emit = tuple(np.array(v) for v in zip(*(auxiliary(z, L + 1) for z in x)))
             x_all[idx] = x
-            emit = _auxiliary_real(x, L + 1)
             for p in (TM, TE):
                 q = self.pol[p]
                 rho_t, sig_in, sig_t, c_v, c_d = q["rho_t"], q["sig_in"], q["sig_t"], q["c_v"], q["c_d"]
@@ -314,7 +318,10 @@ class _Sweep:
                     Sm = (rho_e * b + sig_e * a + rho_e * sig_e * (a + b)) / delta
                     Sd = (rho_e * b**2 + sig_e * a**2 + 2 * rho_e * sig_e * a * b) / delta
                     # radiated amplitude: (k_h r)^(l+1)/(2l+1)!! jbar(x) (1+rho)/(1-rho sigma) prod_n C_n
-                    log_amp = (l + 1) * np.log(k[-1].real * rd)[:, None] - log_double_factorial(l) + emit[3][:, l]
+                    # (none at imaginary frequency, where k_h is imaginary: nan)
+                    log_amp = (l + 1) * np.log(k[-1].real * rd + 0j)[:, None] - log_double_factorial(l) + emit[3][:, l]
+                    if k[-1].imag != 0:
+                        log_amp = np.full_like(log_amp, np.nan)
                     chain = np.ones(L, complex)
                     for j in range(d, N):
                         sv, st = sig_in[j], sig_t[j]
