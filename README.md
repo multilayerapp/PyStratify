@@ -326,14 +326,14 @@ Typical timings on one core:
 | 601-wavelength spectrum, 6-interface matryoshka | 70 ms |
 | x = 500 sphere, all orders | 8 ms |
 | 300 × 300 near-field map | 1.4 s |
-| decay rates at 100 emitter positions 0.5–25 nm from an Au nanoshell | 0.4 s |
-| the same from 0.1 nm (6700 orders) | 2.4 s |
+| decay rates at 100 emitter positions 0.5–25 nm from an Au nanoshell | 0.15 s |
+| the same from 0.1 nm (6700 orders) | 0.85 s |
 | 601-wavelength spectrum, Au nanoshell with a chiral shell, both helicities | 46 ms |
 | scattering pattern on a 181 × 361 (θ, φ) grid | 10 ms |
 | dipole emission pattern on a 181 × 361 grid | 90 ms |
 | orientation-averaged chiral emitter inside a chiral shell, 181 × 361 grid | 0.12 s |
-| `emission_rates`, 100 positions, chiral source, orientation average, chiral + Au multilayer | 0.4 s |
-| `emission_rates`, one position 10 nm / 1 nm from gold (p + m, quadrupole) | 40 ms / 1.3 s |
+| `emission_rates`, 100 positions, chiral source, orientation average, chiral + Au multilayer | 0.6 s |
+| `emission_rates`, one position 10 nm / 1 nm from gold (p + m, quadrupole) | 4 ms / 25–85 ms |
 | quadrupole emission pattern, 181 × 361 grid, emitter on / off the grid's axis | 0.15 s / 1.1 s |
 | 601-wavelength spectrum, graphene-coated sphere | 10 ms |
 
