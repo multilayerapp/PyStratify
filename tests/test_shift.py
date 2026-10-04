@@ -6,7 +6,7 @@ import pytest
 
 import pystratify as ps
 from pystratify import TE, TM
-from pystratify.normalized import _auxiliary_real, auxiliary
+from pystratify.normalized import _SCALAR_ARGUMENTS, _auxiliary_real, auxiliary
 from pystratify.references import layered_green_forms, layered_green_sums
 
 AU = 0.1412 + 3.1518j  # Etchegoin, Le Ru & Meyer gold at 614 nm
@@ -23,8 +23,9 @@ CASES = {  # radii, n, mu, wavelength, r, digits of the reference
 
 @pytest.mark.parametrize("x", [0.01, 0.7, 3.1, np.pi, 2 * np.pi, float(mp.besseljzero(1.5, 1)), 12.3, 250.0])
 def test_auxiliary_at_many_arguments_equals_scalar(x):
-    """The vectorized emitter side runs the scalar recurrences operation for operation."""
-    xs = np.array([x, 0.5 * x, 3 * x])
+    """The vectorized emitter side runs the scalar recurrences operation for operation (more arguments than
+    _SCALAR_ARGUMENTS, below which it calls the scalar function itself)."""
+    xs = x * np.geomspace(0.2, 5.0, _SCALAR_ARGUMENTS + 5)
     many = _auxiliary_real(xs, 300)
     for i, xi in enumerate(xs):
         for a, b in zip(auxiliary(xi + 0j, 300), (m[i] for m in many)):

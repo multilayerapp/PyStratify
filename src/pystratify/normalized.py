@@ -142,6 +142,9 @@ def auxiliary(z, L):
     return A, B, P, log_jbar
 
 
+_SCALAR_ARGUMENTS = 16  # up to this many arguments, _auxiliary_real calls auxiliary for each
+
+
 def _auxiliary_real(x, L):
     """:func:`auxiliary` at many real positive arguments ``x`` (P,) at once: arrays (P, L+1).
 
@@ -152,6 +155,11 @@ def _auxiliary_real(x, L):
     x = np.asarray(x, dtype=float).ravel()
     if np.any(~(x > 0)):
         raise ValueError("arguments must be positive")
+    if x.size <= _SCALAR_ARGUMENTS:
+        # a few arguments: Python's complex arithmetic per order costs less than array operations
+        # per order, and gives the same numbers
+        rows = [auxiliary(complex(v), L) for v in x]
+        return tuple(np.array([row[k] for row in rows]) for k in range(4))
     z = x + 0j
     tops = L + _A_HEADROOM + x.astype(int)  # int(abs(z)) of the scalar version
     top = int(tops.max())
