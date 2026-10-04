@@ -654,7 +654,11 @@ def decay_rates(
     route : ``'auto'`` (default) or ``'normalized'`` - total, radiative and shift
         from the normalized formulation, the loss integrals from the logarithmic
         route - or ``'log'`` - everything from the logarithmic route, without the
-        shift.
+        shift.  Limitation: the loss integrals (``nonradiative``) use the amplitudes
+        of the logarithmic solver on every route, accurate to ~1e-13 relative 1 nm
+        from an absorbing layer, ~1e-12 at 0.1 nm and ~1e-11 at 0.05 nm (where 10^3 to
+        10^4 orders are summed); total, radiative and shift are not affected, and
+        ``balance_error`` shows the difference.
     """
     radii = np.atleast_1d(np.asarray(radii, dtype=float))
     n = np.atleast_1d(np.asarray(n, dtype=complex))

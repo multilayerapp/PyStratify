@@ -1109,7 +1109,10 @@ def emission_rates(
         elsewhere, without sheets, through 2x2 maps); absorption per layer and per sheet from
         the logarithmic route - or ``'log'`` - everything from the helicity-basis logarithmic
         route below, without the shift.  ``'auto'`` falls back to ``'log'`` for a source in a
-        chiral layer or chiral layers with sheets.
+        chiral layer or chiral layers with sheets.  Limitation: ``absorption`` and
+        ``sheet_absorption`` use the amplitudes of the logarithmic solvers on every route,
+        accurate to ~1e-13 relative 1 nm from an absorbing layer or sheet, ~1e-12 at 0.1 nm
+        and ~1e-11 at 0.05 nm; total, radiative and shift are not affected.
     """
     return _emission(
         radii, n, wavelength, position, moment, magnetic_moment, orientation, mu, kappa, dipole, normalization,
