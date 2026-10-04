@@ -355,12 +355,13 @@ def _riccati_double(l, z):
         return z * j, j + z * jd, z * (j + 1j * y), (j + 1j * y) + z * (jd + 1j * yd)
 
 
-def classical_decay_rates(radii, n, wavelength, r, orders, mu=None, dipole="electric"):
+def classical_decay_rates(radii, n, wavelength, r, orders, mu=None, dipole="electric", with_shift=False):
     """Unnormalized transfer-matrix decay rates in double precision (shell normalization).
 
     Returns ``(total, radiative, last)``, each rate ``[perp, par]``, summed over
     the orders before the first non-finite term; ``last`` is that number of
-    orders.  ``h = j + i y`` is formed from SciPy's ``spherical_jn`` and
+    orders.  With ``with_shift=True`` also the frequency shift [perp, par], half the
+    imaginary part of the scattered sums (u v / W minus the free psi xi), as a fourth item.  ``h = j + i y`` is formed from SciPy's ``spherical_jn`` and
     ``spherical_yn``, and the composite matrices are plain products, as in the
     published formulation.
     """
@@ -415,4 +416,12 @@ def classical_decay_rates(radii, n, wavelength, r, orders, mu=None, dipole="elec
             f_rad * 1.5 / xe**4 * np.sum(c1 * np.abs(F) ** 2),
             f_rad * 0.75 / xe**2 * np.sum(c2 * (np.abs(F2) ** 2 + np.abs(Fd) ** 2)),
         ]
-    return np.array(total), np.array(radiative), int(ok.sum())
+    if not with_shift:
+        return np.array(total), np.array(radiative), int(ok.sum())
+    with np.errstate(all="ignore"):
+        free, dfree = np.where(ok, pe * ze, 0), np.where(ok, dpe * dze, 0)
+        shift = [
+            0.75 / xe**4 * np.sum(c1 * (G - free).imag),
+            0.375 / xe**2 * np.sum(c2 * ((G2 - free).imag + (Gd - dfree).imag)),
+        ]
+    return np.array(total), np.array(radiative), int(ok.sum()), np.array(shift)
