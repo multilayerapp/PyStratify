@@ -310,7 +310,9 @@ energy balance remains a test.
   higher multipoles.
 * *Chiral layers.* The normalized route needs every source in an achiral layer and no sheets in a
   structure with chiral layers; otherwise `route="auto"` takes the logarithmic route, with its
-  limit next to lossless interfaces.
+  limit next to lossless interfaces. With absorbing layers in a chiral structure the absorption is
+  still integrated by quadrature, O(L^2): within ~0.5 nm of an absorbing layer (10^3-10^4 orders)
+  this becomes slow (minutes to hours per position), and its accuracy is ~1e-12 at 1 nm.
 * *d-parameters.* The mesoscopic boundary conditions are first order in d; they are applied
   linearized from the metal side (exact for d∥ = 0, and exactly the sphere Mie coefficients of
   Gonçalves et al., Nat. Commun. 11, 366 (2020)); with both d⊥ and d∥ nonzero, other second-order
