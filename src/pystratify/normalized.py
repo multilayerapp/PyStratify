@@ -282,7 +282,7 @@ class _Sweep:
         shells = np.searchsorted(radii, r, side="right")
         names = ("P", "A", "B", "rho", "sigma", "S", "Sm", "Sd", "F", "Fd", "rp", "rx", "Fr")
         out = {name: np.zeros((2, r.size, L), complex) for name in names}
-        x_all = np.zeros(r.size, dtype=complex if np.any(k.imag != 0) else float)
+        x_all = np.zeros(r.size, dtype=complex if np.any(k[np.unique(shells)].imag != 0) else float)
         inner, outer = self.inner, self.outer
         for d in np.unique(shells):
             idx = np.flatnonzero(shells == d)
