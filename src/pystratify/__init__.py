@@ -39,13 +39,13 @@ from .farfield import (
     scattering_pattern,
 )
 from .nearfield import NearField, near_field
-from .normalized import NormalizedRates, normalized_decay_rates
+from .normalized import NormalizedRates, NormalizedTerms, normalized_decay_rates, normalized_terms
 from .rates import EmissionRates, emission_rates
 from .sheets import Sheet, graphene_conductivity
 from .riccati import log_riccati
 from .solver import TE, TM, Solution, solve
 
-__version__ = "0.7.1"
+__version__ = "0.8.0.dev0"
 
 __all__ = [
     "solve",
@@ -89,5 +89,7 @@ __all__ = [
     "surface_damping_wavelength",
     "log_riccati",
     "normalized_decay_rates",
+    "normalized_terms",
+    "NormalizedTerms",
     "NormalizedRates",
 ]

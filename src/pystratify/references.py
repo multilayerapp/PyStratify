@@ -11,6 +11,9 @@ normalized formulation (``normalized.py``):
   to the working precision;
 * :func:`layered_decay_rates` - the same for an emitter inside or outside a
   layered sphere, from high-precision 2x2 transfer matrices;
+* :func:`layered_green_forms` and :func:`layered_green_sums` - the complex
+  scattered Green's forms per order and their sums for a dipole, whose
+  imaginary part gives the frequency shift;
 * :func:`bhmie` - Bohren & Huffman's BHMIE in NumPy (logarithmic derivative
   D_n(mx) by downward recurrence), the classic algorithm for large spheres.
   It is accurate to ~1e-13 for absorbing spheres; for weakly absorbing ones
@@ -37,6 +40,8 @@ except ImportError:  # pragma: no cover - optional dependency
 __all__ = [
     "sphere_decay_rates",
     "layered_decay_rates",
+    "layered_green_forms",
+    "layered_green_sums",
     "sphere_extinction",
     "bhmie",
     "classical_decay_rates",
@@ -210,6 +215,137 @@ def layered_decay_rates(radii, n, wavelength, r, orders, dps=150, mu=None, dipol
         X = mp.re(X)
         scale = [1.5 / X**4, 0.75 / X**2]
         return [float(scale[i] * tot[i]) for i in range(2)], [float(f_rad * scale[i] * rad[i]) for i in range(2)]
+
+
+def layered_green_forms(radii, n, wavelength, r, orders, dps=150, mu=None):
+    """Per-order scattered Green's forms at an emitter at radius r in a lossless shell of a layered
+    sphere, from the 2x2 transfer matrices of Moroz (2005) in mpmath.
+
+    With u = u_reg and v = u_out (see :func:`layered_decay_rates`) and the free parts of the
+    emitter's shell removed, returns complex arrays (2, orders), indexed [TM, TE], of
+
+        G   = u v / W - psi xi,
+        G^m = (u v' + u' v) / (2 W) - (psi xi' + psi' xi) / 2,
+        G^d = u' v' / W - psi' xi',
+
+    the value-value, value-derivative and derivative-derivative forms (orders 1..``orders``).
+    ``dps`` as in :func:`layered_decay_rates`.
+    """
+    _require_mpmath()
+    mu = [1.0] * len(n) if mu is None else mu
+    out = np.zeros((3, 2, orders), dtype=complex)
+    with mp.workdps(dps):
+        N = len(radii)
+        R = [mp.mpf(v) for v in radii]
+        nn = [mp.mpc(complex(v)) for v in n]
+        mm = [mp.mpc(complex(v)) for v in mu]
+        k = [2 * mp.pi * v / mp.mpf(wavelength) for v in nn]
+        top = orders + 1
+
+        def funcs(z):
+            p, x = _psi_all(z, top), _xi_all(z, top)
+            dp = [None] + [p[l - 1] - l * p[l] / z for l in range(1, top + 1)]
+            dx = [None] + [x[l - 1] - l * x[l] / z for l in range(1, top + 1)]
+            return p, dp, x, dx
+
+        iface = [(funcs(k[j] * R[j]), funcs(k[j + 1] * R[j])) for j in range(N)]
+        d = sum(1 for Rj in radii if r >= Rj)
+        pe, dpe, xe, dxe = funcs(k[d] * mp.mpf(r))
+        for l in range(1, orders + 1):
+            for pol, te in ((0, False), (1, True)):
+                mats = []
+                for j in range(N):
+                    (p, dp, x, dx), (pt, dpt, xt, dxt) = iface[j]
+                    eta, mr = nn[j] / nn[j + 1], mm[j] / mm[j + 1]
+                    a, b = (eta, mr) if te else (mr, eta)
+                    mats.append(
+                        [
+                            [dx[l] * pt[l] * a - x[l] * dpt[l] * b, dx[l] * xt[l] * a - x[l] * dxt[l] * b],
+                            [-dp[l] * pt[l] * a + p[l] * dpt[l] * b, -dp[l] * xt[l] * a + p[l] * dxt[l] * b],
+                        ]
+                    )
+                A, B = mp.mpf(1), mp.mpf(0)
+                for j in range(d):  # inner -> outer through the inverse matrices
+                    m = mats[j]
+                    det = m[0][0] * m[1][1] - m[0][1] * m[1][0]
+                    A, B = (m[1][1] * A - m[0][1] * B) / det, (-m[1][0] * A + m[0][0] * B) / det
+                Ao, Bo = mp.mpf(0), mp.mpf(1)
+                for j in range(N - 1, d - 1, -1):
+                    m = mats[j]
+                    Ao, Bo = m[0][0] * Ao + m[0][1] * Bo, m[1][0] * Ao + m[1][1] * Bo
+                W = A * Bo - B * Ao
+                u, du = A * pe[l] + B * xe[l], A * dpe[l] + B * dxe[l]
+                v, dv = Ao * pe[l] + Bo * xe[l], Ao * dpe[l] + Bo * dxe[l]
+                out[0, pol, l - 1] = complex(u * v / W - pe[l] * xe[l])
+                out[1, pol, l - 1] = complex((u * dv + du * v) / (2 * W) - (pe[l] * dxe[l] + dpe[l] * xe[l]) / 2)
+                out[2, pol, l - 1] = complex(du * dv / W - dpe[l] * dxe[l])
+    return out[0], out[1], out[2]
+
+
+def layered_green_sums(radii, n, wavelength, r, orders, dps=150, mu=None, dipole="electric"):
+    """Complex scattered Green's sums [perp, par] of an electric or magnetic dipole at radius r in a
+    lossless shell of a layered sphere (mpmath; see :func:`layered_green_forms`).
+
+    The forms G and G^d of every order, weighted as the decay rates and summed over ``orders``
+    multipoles in extended precision, shell normalization: the total rate is 1 + Re(sum) and the
+    frequency shift (omega - omega_0)/Gamma_0 is Im(sum)/2.  ``dps`` as in :func:`layered_decay_rates`.
+    """
+    _require_mpmath()
+    mu = [1.0] * len(n) if mu is None else mu
+    with mp.workdps(dps):
+        N = len(radii)
+        R = [mp.mpf(v) for v in radii]
+        nn = [mp.mpc(complex(v)) for v in n]
+        mm = [mp.mpc(complex(v)) for v in mu]
+        k = [2 * mp.pi * v / mp.mpf(wavelength) for v in nn]
+        top = orders + 1
+
+        def funcs(z):
+            p, x = _psi_all(z, top), _xi_all(z, top)
+            dp = [None] + [p[l - 1] - l * p[l] / z for l in range(1, top + 1)]
+            dx = [None] + [x[l - 1] - l * x[l] / z for l in range(1, top + 1)]
+            return p, dp, x, dx
+
+        iface = [(funcs(k[j] * R[j]), funcs(k[j + 1] * R[j])) for j in range(N)]
+        d = sum(1 for Rj in radii if r >= Rj)
+        X = k[d] * mp.mpf(r)
+        pe, dpe, xe, dxe = funcs(X)
+        radial, other = (False, True) if dipole == "electric" else (True, False)  # TE flag
+        tot = [mp.mpc(0)] * 2
+        for l in range(1, orders + 1):
+            G, Gd = {}, {}
+            for te in (False, True):
+                mats = []
+                for j in range(N):
+                    (p, dp, x, dx), (pt, dpt, xt, dxt) = iface[j]
+                    eta, mr = nn[j] / nn[j + 1], mm[j] / mm[j + 1]
+                    a, b = (eta, mr) if te else (mr, eta)
+                    mats.append(
+                        [
+                            [dx[l] * pt[l] * a - x[l] * dpt[l] * b, dx[l] * xt[l] * a - x[l] * dxt[l] * b],
+                            [-dp[l] * pt[l] * a + p[l] * dpt[l] * b, -dp[l] * xt[l] * a + p[l] * dxt[l] * b],
+                        ]
+                    )
+                A, B = mp.mpf(1), mp.mpf(0)
+                for j in range(d):  # inner -> outer through the inverse matrices
+                    m = mats[j]
+                    det = m[0][0] * m[1][1] - m[0][1] * m[1][0]
+                    A, B = (m[1][1] * A - m[0][1] * B) / det, (-m[1][0] * A + m[0][0] * B) / det
+                Ao, Bo = mp.mpf(0), mp.mpf(1)
+                for j in range(N - 1, d - 1, -1):
+                    m = mats[j]
+                    Ao, Bo = m[0][0] * Ao + m[0][1] * Bo, m[1][0] * Ao + m[1][1] * Bo
+                W = A * Bo - B * Ao
+                u, du = A * pe[l] + B * xe[l], A * dpe[l] + B * dxe[l]
+                v, dv = Ao * pe[l] + Bo * xe[l], Ao * dpe[l] + Bo * dxe[l]
+                G[te] = u * v / W - pe[l] * xe[l]
+                Gd[te] = du * dv / W - dpe[l] * dxe[l]
+            cp, ct = l * (l + 1) * (2 * l + 1), 2 * l + 1
+            tot[0] += cp * G[radial]
+            tot[1] += ct * (G[other] + Gd[radial])
+        X = mp.re(X)
+        scale = [1.5 / X**4, 0.75 / X**2]
+        return [complex(scale[i] * tot[i]) for i in range(2)]
 
 
 def _riccati_double(l, z):

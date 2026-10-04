@@ -29,6 +29,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from .convergence import orders_needed as _orders_needed
+from .convergence import tail_estimate as _tail_estimate
 from .convergence import truncation_order
 from .energy import WEAK_LOSS, gauss_legendre
 from .riccati import log_riccati
@@ -266,20 +268,6 @@ def _log_absorption_integrals(sol: Solution, a: int, rule, log_amp_psi, log_amp_
         return np.log(tm) + 2 * shift, np.log(te) + 2 * shift
 
 
-def _tail_estimate(terms):
-    """Remainder of a series estimated from its last terms (axis 0 = order).
-
-    The decay-rate series are asymptotically geometric in l, ratio
-    (r_< / r_>)^2 times a polynomial, so the neglected tail is ~ t_L q/(1 - q)
-    with q the worst recent ratio: far larger than t_L when q -> 1.  +inf
-    where the terms are not decreasing.
-    """
-    a = np.abs(terms[-4:])
-    with np.errstate(all="ignore"):
-        q = np.max(a[1:] / a[:-1], axis=0)
-        return np.where(a[-1] == 0, 0.0, np.where(q < 1, a[-1] * q / (1 - q), np.inf))
-
-
 def _converged_sum(terms, tol):
     """Sum over orders (axis 1 of (P, L, K)) with a remainder-based convergence test.
 
@@ -297,13 +285,6 @@ def _converged_sum(terms, tol):
     converged = (stop == L) & np.all(tail <= tol * scale, axis=1)
     total[stop == 0] = np.nan
     return total, np.where(stop >= 4, stop, 0), converged
-
-
-def _orders_needed(q, tol, l_cap):
-    """Orders for a geometric series of ratio q^2 to leave a tail below tol."""
-    if q >= 1:
-        return l_cap
-    return 1.25 * np.log(tol * (1 - q * q)) / (2 * np.log(q)) + 16
 
 
 def _emitter_side(sol, d, x, pol):

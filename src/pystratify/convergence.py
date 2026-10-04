@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-__all__ = ["truncation_order"]
+__all__ = ["truncation_order", "tail_estimate", "orders_needed"]
 
 
 def truncation_order(radius, n_host, wavelength, regime="far") -> int:
@@ -25,3 +25,24 @@ def truncation_order(radius, n_host, wavelength, regime="far") -> int:
     else:
         raise ValueError("regime must be 'far' or 'near'")
     return max(1, int(order))
+
+
+def tail_estimate(terms):
+    """Remainder of a series estimated from its last terms (axis 0 = order).
+
+    The decay-rate series are asymptotically geometric in l, ratio
+    (r_< / r_>)^2 times a polynomial, so the neglected tail is ~ t_L q/(1 - q)
+    with q the worst recent ratio: far larger than t_L when q -> 1.  +inf
+    where the terms are not decreasing.
+    """
+    a = np.abs(terms[-4:])
+    with np.errstate(all="ignore"):
+        q = np.max(a[1:] / a[:-1], axis=0)
+        return np.where(a[-1] == 0, 0.0, np.where(q < 1, a[-1] * q / (1 - q), np.inf))
+
+
+def orders_needed(q, tol, l_cap):
+    """Orders for a geometric series of ratio q^2 to leave a tail below tol."""
+    if q >= 1:
+        return l_cap
+    return 1.25 * np.log(tol * (1 - q * q)) / (2 * np.log(q)) + 16

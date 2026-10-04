@@ -31,7 +31,8 @@ the MATLAB code are fixed ([AUDIT.md](AUDIT.md)).
 | 2D materials on interfaces: in-plane conductivity and out-of-plane response; thin films; graphene | `solve(..., sheets=)`, `solve_chiral(..., sheets=)`, `Sheet`, `Sheet.from_film`, `graphene_conductivity` |
 | thin-shell electron free-path correction | `free_path_correction`, `DRUDE` |
 | multipole truncation | `truncation_order` |
-| decay rates from normalized quantities (reference formulation) | `normalized_decay_rates` |
+| decay rates and frequency (Lamb) shift of ED and MD emitters from normalized quantities, at any distance from an interface, with automatic truncation | `normalized_decay_rates` → `NormalizedRates` (`.shift`) |
+| per-order Green's forms at the source (value, mixed and derivative forms; radiated amplitudes), for many emitter radii at once | `normalized_terms` → `NormalizedTerms` |
 | extended-precision and classical references | `pystratify.references` |
 
 No optical constants are shipped: pass n + ik from a database such as
@@ -314,6 +315,10 @@ pytest
   reflection ratios swept outwards and inwards) against the solver, extended precision and the
   unnormalized formulas, including emitters and interfaces at real zeros of ψ_l, the small real
   part Re ψξ = ψ² and strongly amplifying shells.
+* `test_shift.py`: the per-order Green's forms of `normalized_terms` and the frequency shift
+  against mpmath transfer matrices (`references.layered_green_forms`, `layered_green_sums`),
+  the quasi-static limit −Re r/(2 Im r) of the shift near gold, the automatic truncation
+  (which includes the reactive tail the shift needs) and the vectorized emitter side.
 * `test_riccati.py`: special functions against mpmath in every regime above, and the
   Wronskian for |x| up to 8·10⁴.
 * `test_solver.py`: coefficients against 60-digit transfer matrices (including a 1-nm film,
