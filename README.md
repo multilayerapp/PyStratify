@@ -418,6 +418,23 @@ pytest
   total = radiated and energy balance with quadrupoles, the dipole-pair limit in amplitude, the
   two far-field routes against each other, pattern quadrature, the icosahedral design, and
   current-loop moments.
+* `test_pairs.py`: the two-point Green's dyadic (`green_dyadic`): the multipole series of the free
+  field against the closed-form free dyadic, reciprocity, the coinciding limit (decay rates and
+  shift), the radial two-point forms in one shell and across a gold shell (transmission chain)
+  against mpmath order by order, and the interface conditions approached from either side.
+* `test_feibelman.py`: Feibelman d-parameters against the mesoscopic Mie theory of Gonçalves et
+  al. (2020), Eqs. (4a) and (13a); the per-order forms of a nanoshell with d-parameters on both
+  surfaces against mpmath matrices built from the boundary conditions; energy balance including
+  the surface absorption; the TE response as the sheet σ = ik₀d∥(ε_other − ε_metal).
+* `test_chiral_normalized.py`: chiral layers in the normalized formulation: the achiral limit is
+  the scalar sweep, the 2 × 2 reflection matrices against 80-digit 4 × 4 transfer matrices, energy
+  balance, agreement with the logarithmic route and mirror symmetry for chiral emitters, and
+  emitters inside a chiral layer routed to the logarithmic formulation.
+* `test_ensemble.py`: shell averages (free space, graded nodes, the d_min⁻² cutoff next to gold,
+  the thin-shell limit) and the spectral density J(ω).
+* `test_casimir.py`: the Casimir–Polder sums at imaginary frequency against mpmath transfer
+  matrices, the non-retarded limit −C₃/d³ next to a large Drude sphere, and the convergence of the
+  frequency quadrature.
 
 `pystratify.references` holds the independent references (mpmath Mie decay rates and extinction,
 layered-sphere decay rates from transfer matrices, BHMIE); nothing in it shares code with the package.

@@ -48,7 +48,7 @@ from .sheets import Feibelman, Sheet, graphene_conductivity
 from .riccati import log_riccati
 from .solver import TE, TM, Solution, solve
 
-__version__ = "0.8.0.dev0"
+__version__ = "0.8.0"
 
 __all__ = [
     "solve",
