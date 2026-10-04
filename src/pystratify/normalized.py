@@ -280,7 +280,7 @@ class _Sweep:
         N = radii.size
         r = np.asarray(r, dtype=float).ravel()
         shells = np.searchsorted(radii, r, side="right")
-        names = ("P", "A", "B", "rho", "sigma", "S", "Sm", "Sd", "F", "Fd")
+        names = ("P", "A", "B", "rho", "sigma", "S", "Sm", "Sd", "F", "Fd", "rp", "rx", "Fr")
         out = {name: np.zeros((2, r.size, L), complex) for name in names}
         x_all = np.zeros(r.size)
         inner, outer = self.inner, self.outer
@@ -305,6 +305,10 @@ class _Sweep:
                     else:
                         sig_e = np.zeros((idx.size, L), complex)
                     a, b, P = emit[0][:, l], emit[1][:, l], emit[2][:, l]
+                    # psi_{l+1}/psi_l = 1/s_{l+1} as rounded in the recurrence, and xi_{l+1}/xi_l: A = (l+1)/x - rp,
+                    # B = (l+1)/x - rx, so functionals whose leading small-x parts cancel are formed without loss
+                    rp = 1 / (emit[0][:, l + 1] + (l + 1) / x[:, None])
+                    rx = (l + 1) / x[:, None] - b
                     delta = 1 - rho_e * sig_e
                     S = (rho_e + sig_e + 2 * rho_e * sig_e) / delta
                     Sm = (rho_e * b + sig_e * a + rho_e * sig_e * (a + b)) / delta
@@ -328,7 +332,8 @@ class _Sweep:
                     core = np.exp(log_amp) * chain / delta
                 for name, value in (
                     ("P", P), ("A", a), ("B", b), ("rho", rho_e), ("sigma", sig_e), ("S", S), ("Sm", Sm), ("Sd", Sd),
-                    ("F", core * (1 + rho_e)), ("Fd", core * (a + rho_e * b)),
+                    ("F", core * (1 + rho_e)), ("Fd", core * (a + rho_e * b)), ("rp", rp), ("rx", rx),
+                    ("Fr", core * (rp + rho_e * rx)),
                 ):  # fmt: skip
                     out[name][p, idx] = value
         out["x"] = x_all
@@ -358,6 +363,25 @@ def _dipole_series(t, dipole):
         axis=2,
     )
     return g, rad
+
+
+#: complex numbers per block of emitter positions evaluated at once (bounds the memory of long sweeps)
+_BLOCK = 8_000_000
+
+
+def _dipole_sums(sweep, r, dipole, tol):
+    """Summed complex scattered series (P, 2), radiative sums (P, 2) and convergence (P,) of a dipole
+    at radii ``r`` (shell normalization), evaluated in blocks of positions."""
+    step = max(1, _BLOCK // (20 * sweep.L))
+    g_sum = np.zeros((r.size, 2), complex)
+    rad_sum = np.zeros((r.size, 2))
+    ok = np.zeros(r.size, bool)
+    for start in range(0, r.size, step):
+        part = slice(start, start + step)
+        g, rad = _dipole_series(sweep.at(r[part]), dipole)
+        g_sum[part], rad_sum[part] = g.sum(axis=1), rad.sum(axis=1)
+        ok[part] = _complex_converged(g, tol)
+    return g_sum, rad_sum, ok
 
 
 def _starting_order(radii, n, wavelength, r, tol, l_cap):
@@ -414,6 +438,10 @@ class NormalizedTerms:
     amplitudes ``F`` (value) and ``Fd`` (derivative), which include the explicit factor
     (k_h r)^(l+1)/(2l+1)!! and so may underflow to 0.  ``x`` (P,) is k_d r, ``shell`` (P,) the
     emitter's shell and ``f_rad`` (P,) = n_d mu_d/(n_h mu_h) the radiative factor of a dipole.
+    ``r_psi`` = psi_{l+1}/psi_l and ``r_xi`` = xi_{l+1}/xi_l give A = (l+1)/x - r_psi and
+    B = (l+1)/x - r_xi, and ``Fr`` = core (r_psi + rho r_xi) the matching radiated amplitude
+    (F' = (l+1) F/x - Fr): functionals whose leading small-x parts cancel, such as A - 2/x
+    of a quadrupole at l = 1, are then formed without cancellation.
     ``converged`` (P,) tells whether the electric and magnetic dipole series, rate and shift, met
     ``tol``.  Shell normalization throughout.
     """
@@ -434,6 +462,9 @@ class NormalizedTerms:
     Sd: np.ndarray
     F: np.ndarray
     Fd: np.ndarray
+    r_psi: np.ndarray
+    r_xi: np.ndarray
+    Fr: np.ndarray
 
     def dipole_series(self, dipole="electric"):
         """Per-order complex scattered terms (P, L, 2) [perp, par] of a dipole: Re gives the total
@@ -462,6 +493,9 @@ def normalized_terms(radii, n, wavelength, r, l_max=None, mu=None, tol=1e-13, l_
         orders=L,
         converged=ok,
         **{name: t[name] for name in ("P", "A", "B", "rho", "sigma", "S", "Sm", "Sd", "F", "Fd")},
+        r_psi=t["rp"],
+        r_xi=t["rx"],
+        Fr=t["Fr"],
     )
 
 

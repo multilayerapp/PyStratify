@@ -20,6 +20,13 @@ Losses are Im(eps)|E|^2 + Im(mu)|H|^2 in every lossy shell.  The total rate
 is computed independently of the radiative and loss parts,
 and ``balance_error = |total - rad - nonrad| / total`` checks energy
 conservation.
+
+By default (``route='auto'``) the total and radiative rates and the frequency
+shift come from the normalized formulation (:mod:`pystratify.normalized`), whose
+per-order terms keep full precision at any distance from an interface; the loss
+integrals stay on the logarithmic route above, so the energy balance compares two
+independent computations.  ``route='log'`` takes everything from the logarithmic
+route, which within ~1 nm of a lossless interface loses ~1e-8 in the total rate.
 """
 
 from __future__ import annotations
@@ -49,6 +56,10 @@ class DecayRates:
     """Normalised decay rates, arrays of shape ``(len(r), 2)``.
 
     Column 0: radial (perpendicular) dipole; column 1: tangential (parallel).
+    ``shift`` is the frequency shift (omega - omega_0) in units of the same free
+    rate as the rates (exp(-i omega t); the free self-energy is part of omega_0),
+    NaN on the logarithmic route; ``route`` names the route of ``total``,
+    ``radiative`` and ``shift``: ``'normalized'`` or ``'log'``.
     """
 
     r: np.ndarray
@@ -61,6 +72,8 @@ class DecayRates:
     normalization: str
     dipole: str
     notes: tuple = field(default_factory=tuple)
+    shift: np.ndarray | None = None
+    route: str = "log"
 
     @property
     def balance_error(self) -> np.ndarray:
@@ -326,8 +339,10 @@ def _ldos(side, derivative):
         return np.exp(2 * p).real + (bracket * np.exp(-side["log_delta"])).real
 
 
-def _rates_one(sol: Solution, r, shells, normalization, dipole, tol, quadrature_nodes):
-    """Terms of the six l-sums for a single-wavelength Solution; returns the converged sums."""
+def _rates_one(sol: Solution, r, shells, normalization, dipole, tol, quadrature_nodes, parts="all"):
+    """Terms of the six l-sums for a single-wavelength Solution; returns the converged sums.
+
+    ``parts='nonradiative'`` computes only the loss sums (the others stay 0)."""
     l = sol.orders
     L = l.size
     N = sol.n_shells
@@ -402,16 +417,17 @@ def _rates_one(sol: Solution, r, shells, normalization, dipole, tol, quadrature_
             with np.errstate(under="ignore", over="ignore"):
                 return np.exp(2 * np.real(v))
 
-        # radiative: F = u_in / (B_out,d Delta)
-        f_e = e["u_in"] - e["log_b_out"] - e["log_delta"]
-        df_e = e["du_in"] - e["log_b_out"] - e["log_delta"]
-        f_m = m["u_in"] - m["log_b_out"] - m["log_delta"]
-        terms[idx, :, 0] = 1.5 / xx**4 * f_rad * c_radial * mag2(f_e)
-        terms[idx, :, 1] = 0.75 / xx**2 * f_rad * c_tangential * (mag2(f_m) + mag2(df_e))
+        if parts == "all":
+            # radiative: F = u_in / (B_out,d Delta)
+            f_e = e["u_in"] - e["log_b_out"] - e["log_delta"]
+            df_e = e["du_in"] - e["log_b_out"] - e["log_delta"]
+            f_m = m["u_in"] - m["log_b_out"] - m["log_delta"]
+            terms[idx, :, 0] = 1.5 / xx**4 * f_rad * c_radial * mag2(f_e)
+            terms[idx, :, 1] = 0.75 / xx**2 * f_rad * c_tangential * (mag2(f_m) + mag2(df_e))
 
-        # total, from the local density of states
-        terms[idx, :, 4] = 1.5 / xx**4 * f_tot * c_radial * _ldos(e, False)
-        terms[idx, :, 5] = 0.75 / xx**2 * f_tot * c_tangential * (_ldos(m, False) + _ldos(e, True))
+            # total, from the local density of states
+            terms[idx, :, 4] = 1.5 / xx**4 * f_tot * c_radial * _ldos(e, False)
+            terms[idx, :, 5] = 0.75 / xx**2 * f_tot * c_tangential * (_ldos(m, False) + _ldos(e, True))
 
         def nonradiative(count):
             out = np.zeros((idx.size, L, 2))
@@ -442,6 +458,42 @@ def _rates_one(sol: Solution, r, shells, normalization, dipole, tol, quadrature_
                 nonrad = nonradiative(L)
         terms[idx, :, 2:4] = nonrad
     return _converged_sum(terms, tol)
+
+
+def _rates_normalized(radii, n, mu, wavelength, r, shells, l_max, tol, normalization, dipole, nodes, l_cap):
+    """Total, radiative and shift from the normalized formulation, losses from the logarithmic route.
+
+    Positions are summed until the complex series (rate and shift) and the loss sums meet ``tol``;
+    those that do not are recomputed with twice the orders (up to ``l_cap``).  Returns the rates,
+    the orders used and convergence per position, all in the requested normalization."""
+    from .normalized import _dipole_sums, _starting_order, _Sweep
+
+    k = 2 * np.pi * n / wavelength
+    eps = n**2 / mu
+    absorbing = bool(np.any((eps[:-1].imag != 0) | (mu[:-1].imag != 0)))
+    P = r.size
+    g = np.zeros((P, 2), complex)
+    rad = np.zeros((P, 2))
+    nonrad = np.zeros((P, 2))
+    used = np.zeros(P, dtype=int)
+    ok = np.zeros(P, dtype=bool)
+    todo = np.arange(P)
+    L = int(l_max) if l_max is not None else _starting_order(radii, n, wavelength, r, tol, l_cap)
+    while todo.size:
+        g[todo], rad[todo], ok_core = _dipole_sums(_Sweep(radii, n, mu, k, L), r[todo], dipole, tol)
+        ok_loss = np.ones(todo.size, dtype=bool)
+        if absorbing:
+            sol = solve(radii, n, wavelength, mu, L)
+            values, _, ok_loss = _rates_one(sol, r[todo], shells[todo], "shell", dipole, tol, nodes, "nonradiative")
+            nonrad[todo] = values[:, 2:4]
+        used[todo] = L
+        ok[todo] = ok_core & ok_loss
+        if l_max is not None or L >= l_cap:
+            break
+        todo = todo[~ok[todo]]
+        L = min(2 * L, l_cap)
+    ratio = np.array([_normalization(n, mu, d, normalization, dipole)[2] for d in shells])[:, None]
+    return ratio * (1 + g.real), ratio * rad, ratio * nonrad, ratio * g.imag / 2, used, ok
 
 
 def _rates_with_sheets(radii, n, wavelength, r, mu, l_max, tol, normalization, dipole, nodes, l_cap, warn, sheets):
@@ -483,6 +535,8 @@ def _rates_with_sheets(radii, n, wavelength, r, mu, l_max, tol, normalization, d
         normalization=normalization,
         dipole=dipole,
         notes=notes,
+        shift=np.full((r.size, 2), np.nan),
+        route="log",
     )
 
 
@@ -500,8 +554,9 @@ def decay_rates(
     l_cap=20000,
     warn=True,
     sheets=None,
+    route="auto",
 ) -> DecayRates:
-    """Radiative, nonradiative and total decay rates of a dipole emitter.
+    """Radiative, nonradiative and total decay rates and the frequency shift of a dipole emitter.
 
     Parameters
     ----------
@@ -522,7 +577,11 @@ def decay_rates(
         (an emitter 1 nm from a 1.3-um sphere at tol = 1e-9) takes ~1 s.
     sheets : 2D materials on interfaces (see :mod:`pystratify.sheets`); their
         absorption is part of the nonradiative rate.  Computed by
-        :func:`~pystratify.emission_rates`.
+        :func:`~pystratify.emission_rates` on its logarithmic route.
+    route : ``'auto'`` (default) or ``'normalized'`` - total, radiative and shift
+        from the normalized formulation, the loss integrals from the logarithmic
+        route - or ``'log'`` - everything from the logarithmic route, without the
+        shift.  With ``sheets``, ``'auto'`` takes the logarithmic route.
     """
     radii = np.atleast_1d(np.asarray(radii, dtype=float))
     n = np.atleast_1d(np.asarray(n, dtype=complex))
@@ -544,9 +603,39 @@ def decay_rates(
     shells = locate_shell(radii, r)
     if np.any(eps[shells].imag != 0) or np.any(n[shells].imag != 0):
         raise ValueError("emitter inside an absorbing or gain shell: the rates are undefined")
+    if route not in ("auto", "normalized", "log"):
+        raise ValueError("route must be 'auto', 'normalized' or 'log'")
     if sheets:
+        if route == "normalized":
+            raise ValueError("sheets are not yet part of the normalized formulation: use route='auto' or 'log'")
         return _rates_with_sheets(
             radii, n, wavelength, r, mu, l_max, tol, normalization, dipole, quadrature_nodes, l_cap, warn, sheets
+        )
+    if route != "log":
+        total, radiative, nonradiative, shift, used, ok = _rates_normalized(
+            radii, n, mu, wavelength, r, shells, l_max, tol, normalization, dipole, quadrature_nodes, l_cap
+        )
+        notes = ()
+        if not ok.all():
+            notes = (
+                f"l-sum not converged to tol={tol:g} at {np.count_nonzero(~ok)} of {ok.size} position(s) "
+                f"with l_max={used.max()}; the emitter is very close to an interface",
+            )
+            if warn:
+                warnings.warn(notes[0], RuntimeWarning, stacklevel=2)
+        return DecayRates(
+            r=r,
+            radiative=radiative,
+            nonradiative=nonradiative,
+            total=total,
+            shell=shells,
+            orders_used=used,
+            converged=ok,
+            normalization=normalization,
+            dipole=dipole,
+            notes=notes,
+            shift=shift,
+            route="normalized",
         )
 
     if l_max is not None:
@@ -584,4 +673,6 @@ def decay_rates(
         normalization=normalization,
         dipole=dipole,
         notes=notes,
+        shift=np.full((r.size, 2), np.nan),
+        route="log",
     )

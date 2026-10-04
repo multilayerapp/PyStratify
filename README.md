@@ -25,8 +25,8 @@ the MATLAB code are fixed ([AUDIT.md](AUDIT.md)).
 | orientation-averaged intensities and energy density, whole or of chosen partial waves | `energy_density`, `energy_density(..., orders=, polarisations=)` |
 | energy stored in each shell, whole or of chosen partial waves | `shell_energy`, `shell_energy(..., orders=, polarisations=)` |
 | energy prefactors (Loudon, for Drude metals) | `electric_prefactor`, `energy_prefactors` |
-| radiative / nonradiative / total decay rates, radial and tangential dipoles | `decay_rates` → `DecayRates` |
-| decay rates of any source (p, m, quadrupole Q; fixed or orientation-averaged) in any lossless layer, chiral included: total (Purcell), radiative per helicity, absorbed per layer and per sheet | `emission_rates` → `EmissionRates` |
+| radiative / nonradiative / total decay rates and frequency shift, radial and tangential dipoles (normalized formulation by default, `route="log"` for the logarithmic one) | `decay_rates` → `DecayRates` |
+| decay rates and frequency shift of any source (p, m, electric and magnetic quadrupoles; fixed or orientation-averaged) in any lossless layer, chiral included: total (Purcell), radiative per helicity, absorbed per layer and per sheet; normalized formulation for achiral layers without sheets | `emission_rates` → `EmissionRates` |
 | electric-quadrupole emitters: far field and rates | `dipole_far_field(..., quadrupole=)`, `emission_rates(..., quadrupole=)` |
 | 2D materials on interfaces: in-plane conductivity and out-of-plane response; thin films; graphene | `solve(..., sheets=)`, `solve_chiral(..., sheets=)`, `Sheet`, `Sheet.from_film`, `graphene_conductivity` |
 | thin-shell electron free-path correction | `free_path_correction`, `DRUDE` |
@@ -315,6 +315,12 @@ pytest
   reflection ratios swept outwards and inwards) against the solver, extended precision and the
   unnormalized formulas, including emitters and interfaces at real zeros of ψ_l, the small real
   part Re ψξ = ψ² and strongly amplifying shells.
+* `test_routes.py`: the normalized route of `decay_rates` and `emission_rates` against the
+  logarithmic one for every source (dipoles, chiral p ∥ m, general p + m, all electric- and
+  magnetic-quadrupole components, orientation averages), energy conservation 1 to 0.05 nm from
+  lossless interfaces, the energy-balance flag of the logarithmic route, the shift of a chiral
+  emitter as the weighted sum of its electric and magnetic shifts, and the magnetic quadrupole by
+  duality (a dual multilayer gives it the rates of the electric one).
 * `test_shift.py`: the per-order Green's forms of `normalized_terms` and the frequency shift
   against mpmath transfer matrices (`references.layered_green_forms`, `layered_green_sums`),
   the quasi-static limit −Re r/(2 Im r) of the shift near gold, the automatic truncation
