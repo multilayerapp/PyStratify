@@ -47,10 +47,15 @@ from .rates import EmissionRates, emission_rates
 from .sheets import Feibelman, Sheet, graphene_conductivity
 from .riccati import log_riccati
 from .solver import TE, TM, Solution, solve
+from .problem import Problem, PlaneWave, PointDipole
+from .observables import solve_problem
+from .cylindrical import solve_cylinder, CylinderSolution, cross_widths, cylinder_pattern
 
-__version__ = "0.8.0"
+__version__ = "0.9.0.dev0"
 
 __all__ = [
+    "Problem", "PlaneWave", "PointDipole", "solve_problem",
+    "solve_cylinder", "CylinderSolution", "cross_widths", "cylinder_pattern",
     "solve",
     "Solution",
     "solve_chiral",

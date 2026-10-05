@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pystratify"
-version = "0.8.0"
-description = "Light scattering by multilayered spheres, after the recursive transfer-matrix method of STRATIFY"
+version = "0.9.0.dev0"
+description = "Unified modal response for multilayered films, cylinders and spheres"
 readme = "README.md"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.10"
@@ -27,3 +27,6 @@ line-length = 120
 [tool.ruff.lint]
 # `l` is the multipole order throughout, as in the literature
 ignore = ["E741"]
+
+[tool.setuptools.package-data]
+pystratify = ["PLANAR-LICENSE.txt"]

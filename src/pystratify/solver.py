@@ -39,6 +39,8 @@ import numpy as np
 
 from .convergence import truncation_order
 from .riccati import log_riccati
+from .response import log_value as _log, log_add as _log_add, log_transfer as _log_transfer
+from .response import amplitude_log_ratio as _amplitude_log_ratio, sweep
 from .sheets import _feibelman_arrays, _interface_terms, _sheet_arrays
 
 __all__ = ["Solution", "solve", "TM", "TE"]
@@ -62,57 +64,6 @@ def _partial_waves(available, orders, polarisations):
     weights = np.zeros((2, available.size))
     weights[sorted(kept)] = np.isin(available, wanted)
     return weights
-
-
-def _log(a):
-    with np.errstate(divide="ignore", invalid="ignore"):
-        return np.log(a)
-
-
-def _log_add(log_x, log_y):
-    """log(exp(log_x) + exp(log_y)) for complex logarithms, exact for -inf."""
-    with np.errstate(all="ignore"):
-        m = np.maximum(log_x.real, log_y.real)
-        m = np.where(np.isfinite(m), m, 0.0)
-        return m + np.log(np.exp(log_x - m) + np.exp(log_y - m))
-
-
-#: |log t| below which t is a normal double, so the value arithmetic is exact
-_SAFE_LOG = 600.0
-
-
-def _log_transfer(num_small, num_big, den_small, den_big, log_t):
-    """log[(num_small + t num_big) / (den_small + t den_big)] with t = exp(log_t).
-
-    Evaluated with t as a value where it is a normal double, and as log-sums
-    where it would be subnormal or overflow, so t keeps full relative precision
-    however small or large it is - which matters when num_small -> 0
-    (index-matched layers).
-    """
-    safe = np.abs(log_t.real) < _SAFE_LOG
-    with np.errstate(all="ignore"):
-        t = np.exp(np.where(safe, log_t, 0))
-        out = _log((num_small + t * num_big) / (den_small + t * den_big))
-    if not safe.all():
-        u = ~safe
-        out[u] = _log_add(_log(num_small[u]), log_t[u] + _log(num_big[u])) - _log_add(
-            _log(den_small[u]), log_t[u] + _log(den_big[u])
-        )
-    return out
-
-
-def _amplitude_log_ratio(c_value, c_deriv, value, deriv):
-    """log(A_inner / A_outer) from the better-conditioned matching equation.
-
-    ``value`` and ``deriv`` are pairs (outer factor, inner factor), each a
-    tuple (value, scale) whose |value|/scale measures cancellation.
-    """
-    (v_out, v_out_scale), (v_in, v_in_scale) = value
-    (d_out, d_out_scale), (d_in, d_in_scale) = deriv
-    with np.errstate(all="ignore"):
-        cond_v = np.minimum(np.abs(v_out) / v_out_scale, np.abs(v_in) / v_in_scale)
-        cond_d = np.minimum(np.abs(d_out) / d_out_scale, np.abs(d_in) / d_in_scale)
-        return np.where(cond_v >= cond_d, _log(c_value * v_out / v_in), _log(c_deriv * d_out / d_in))
 
 
 @dataclass(frozen=True)
@@ -299,29 +250,16 @@ def solve(radii, n, wavelength, mu=None, l_max=None, sheets=None, regime="far") 
             d1_minus_f_d3 = d1_minus_f_d3 + ftd + t_value * d1_out * d3_in
             f_d1_minus_d3 = f_d1_minus_d3 - ftd - t_value * d3_out * d1_in
 
-        # regular solution, outwards: rho' = [m11 + rho (f D3 - D1')] / [(D3' - f D1) - rho m33]
-        log_rho_in = np.full((W, N, l_max), -np.inf, dtype=complex)
-        log_rho_out = np.empty((W, N, l_max), dtype=complex)
-        for j in range(N):
-            if j:
-                log_rho_in[:, j] = (
-                    log_rho_out[:, j - 1] + lx_in[:, j] - lx_out[:, j - 1] + lp_out[:, j - 1] - lp_in[:, j]
-                )
-            log_rho_out[:, j] = _log_transfer(
-                m11[:, j], -d1_minus_f_d3[:, j], -f_d1_minus_d3[:, j], -m33[:, j], log_rho_in[:, j]
+        propagation = lx_in[:, 1:] - lx_out[:, :-1] + lp_out[:, :-1] - lp_in[:, 1:]
+        response = sweep(
+            tuple(np.moveaxis(v, 1, 0) for v in (m11, -d1_minus_f_d3, -f_d1_minus_d3, -m33)),
+            np.moveaxis(propagation, 1, 0), logarithmic=True,
+        )
+        log_rho_in, log_rho_out, log_sig_in, log_sig_out = (
+            np.moveaxis(v, 0, 1) for v in (
+                response.regular_in, response.regular_out, response.outgoing_in, response.outgoing_out
             )
-
-        # outgoing solution, inwards: sigma = [-m33 + sigma' (D1' - f D3)] / [(f D1 - D3') + sigma' m11]
-        log_sig_out = np.full((W, N, l_max), -np.inf, dtype=complex)
-        log_sig_in = np.empty((W, N, l_max), dtype=complex)
-        for j in range(N - 1, -1, -1):
-            if j < N - 1:
-                log_sig_out[:, j] = (
-                    log_sig_in[:, j + 1] + lp_out[:, j] - lp_in[:, j + 1] + lx_in[:, j + 1] - lx_out[:, j]
-                )
-            log_sig_in[:, j] = _log_transfer(
-                -m33[:, j], d1_minus_f_d3[:, j], f_d1_minus_d3[:, j], m11[:, j], log_sig_out[:, j]
-            )
+        )
         with np.errstate(under="ignore", over="ignore"):
             rho_in, rho_out = np.exp(log_rho_in), np.exp(log_rho_out)
             sig_in, sig_out = np.exp(log_sig_in), np.exp(log_sig_out)

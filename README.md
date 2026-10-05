@@ -10,6 +10,57 @@ by [STRATIFY](https://gitlab.com/iliarasskazov/stratify) (Rasskazov, Carney & Mo
 so that every quantity stays finite and accurate to the orders it needs, and the defects found in
 the MATLAB code are fixed ([AUDIT.md](AUDIT.md)).
 
+## Unified films, cylinders and spheres (expansion branch)
+
+`solve_problem(Problem(...))` chooses the geometry's modal basis and uses the owned
+response core. NumPy/SciPy supply numerical primitives; external optical engines
+are benchmarks. The development contract accepts passive, isotropic, nonmagnetic
+media, plane waves, and electric/magnetic **3D point dipoles** in lossless source
+and exterior regions. Cylinder point sources integrate the continuous axial spectrum.
+
+```python
+import numpy as np
+import pystratify as ps
+
+film = ps.Problem("films", [np.inf, 0.2, np.inf], [1, 1.5, 1], 0.6,
+                  ps.PointDipole(0.1, "electric", layer=1,
+                                 intrinsic_quantum_yield=0.8))
+rates = ps.solve_problem(film)
+assert rates["diagnostics"]["converged"]
+
+cylinder = ps.Problem("cylinders", [0.05, 0.1], [1.5, 2, 1], 0.6,
+                      ps.PlaneWave(angle=np.pi / 3))
+widths = ps.solve_problem(cylinder)
+```
+
+Lengths share one caller-selected unit; angles are radians. Film thickness arrays
+include infinite exteriors, and source positions are depth within the specified
+region (negative in the incident region). Radial arrays are increasing interface
+radii with the exterior index last; source positions are absolute radii. Cylinder
+plane-wave angles are from +z. Widths use total incident irradiance and have length
+units; sphere cross sections have area units.
+
+Rates include canonical orientations and their isotropic average, `total`, `escape`,
+`guided`, `absorbed`, efficiencies and diagnostics. The reference is the same dipole
+in its own homogeneous medium. `lifetime_factor = (1-q0) + q0*total` is the inverse
+lifetime ratio; its reciprocal is the lifetime ratio. Material absorption is distinct
+from intrinsic nonradiative loss. Check convergence before using results. Numerical
+budget/precision failures raise exceptions; the HTTP adapter masks those samples.
+
+Patterns use `outputs=("rates", "pattern"), theta=..., phi=...` with broadcast angle
+arrays in radians, and return normalized power per solid angle. Film theta zero
+points outward into the incident medium; spheres/cylinders use the +z polar axis.
+Cylinder waves interpret their `theta` pattern samples as azimuth. Advanced legacy
+sphere APIs below remain available, with their common-contract migration deferred.
+
+`response.py` owns scalar, logarithmic and coupled block composition. Geometry bases,
+source spectra and reconstruction are separate modules. The migrated planar routines
+retain the extended API and upstream MIT notice in `src/pystratify/PLANAR-LICENSE.txt`.
+Coherent propagation has no artificial attenuation clipping. Texture emission,
+line sources, finite cylinders and absorbing-source regularization are deferred.
+Run `pytest tests/test_unified.py` for analytic Fresnel/Bessel limits, independent
+flux/Green closure, guided channels, patterns, ED/MD and treams cylinder benchmarks.
+
 | quantity | function |
 |---|---|
 | solution of the sphere, batched over wavelengths | `solve` → `Solution` |

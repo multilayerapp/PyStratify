@@ -60,6 +60,7 @@ from scipy.special import gammaln
 
 from .convergence import orders_needed, tail_estimate, truncation_order
 from .solver import TE, TM
+from .response import sweep
 
 __all__ = [
     "auxiliary",
@@ -286,24 +287,12 @@ class _Sweep:
                     a, b = a - ftd - tv[j] * At * A, b - ftd - tv[j] * At * B
                     c, d = c + ftd + tv[j] * Bt * A, d + ftd + tv[j] * Bt * B
                 coef.append((a, b, c, d))
-            # outward sweep: rho just outside each interface (rho_t)
-            rho_t = np.zeros((N, L), complex)
-            rho = np.zeros(L, complex)
-            with np.errstate(all="ignore"):
-                for j in range(N):
-                    if j:
-                        rho = rho_t[j - 1] * _propagator(outer[j - 1], inner[j], radii[j - 1], radii[j], l)
-                    a, b, c, d = coef[j]
-                    rho_t[j] = (a + rho * b) / (c + rho * d)
-                # inward sweep: sigma just outside interface j (sig_t) and on its inner side (sig_in)
-                sig_in, sig_t = np.zeros((N, L), complex), np.zeros((N, L), complex)
-                sig = np.zeros(L, complex)
-                for j in range(N - 1, -1, -1):
-                    if j < N - 1:
-                        sig = sig_in[j + 1] * _propagator(outer[j], inner[j + 1], radii[j], radii[j + 1], l)
-                    sig_t[j] = sig
-                    a, b, c, d = coef[j]
-                    sig_in[j] = (d - sig * b) / (sig * a - c)
+            propagation = np.array([
+                _propagator(outer[j], inner[j + 1], radii[j], radii[j + 1], l)
+                for j in range(N - 1)
+            ]).reshape(N - 1, L)
+            response = sweep(tuple(np.array([v[q] for v in coef]) for q in range(4)), propagation)
+            rho_t, sig_in, sig_t = response.regular_out, response.outgoing_in, response.outgoing_out
             self.pol[p] = dict(
                 c_v=c_v, c_d=c_d, rho_t=rho_t, sig_in=sig_in, sig_t=sig_t, tv=tv, td=td, tau=tau, tau_m1=tau_m1
             )
