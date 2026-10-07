@@ -69,6 +69,17 @@ def test_guided_point_sources_not_line_sources():
         np.testing.assert_allclose(r['total'],r['escape']+r['guided'],atol=1e-6)
 
 
+@pytest.mark.parametrize('tolerance',[1e-6,1e-8])
+def test_planar_guided_pole_uncertainty_meets_tolerance(tolerance):
+    from pystratify.planar_emission import FilmSource
+    source=FilmSource([1,3.5,1],[np.inf,.8,np.inf],.6,1,.4)
+    rates=source.rates(tolerance)
+    assert len(rates.poles)==18
+    if tolerance==1e-6:assert rates.converged
+    assert not rates.converged or rates.error <= tolerance*max(1,np.max(abs(rates.total)))
+    np.testing.assert_allclose(rates.total,rates.escape+rates.guided,atol=tolerance)
+
+
 def test_pattern_normalization_and_film_grazing_limit():
     x,w=np.polynomial.legendre.leggauss(48)
     theta=np.arccos(x)[:,None]; phi=np.linspace(0,2*np.pi,64,endpoint=False)[None,:]

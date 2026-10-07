@@ -154,17 +154,35 @@ class FilmSource:
         residues = []
         regular_parts = []
         pole_error = 0.0
+        pole_evaluations = 0
+        pole_budget = tolerance / (4 * max(1, len(poles)))
         for root in poles:
-            step = min(1e-5 * max(1, root), abs(root - 1) / 100)
+            separation = min((abs(root - p) for p in poles if p != root), default=np.inf)
+            step = min(1e-5 * max(1, root), abs(root - 1) / 100, separation / 8)
+            # Keep the regular-part patch wide enough to avoid pole-subtraction roundoff.
+            regular_step = step
             def residue(h):
+                nonlocal pole_evaluations
+                pole_evaluations += 2
+                if pole_evaluations > max_evaluations:
+                    raise ArithmeticError("pole refinement evaluation budget exceeded")
                 return h * (self.spectral(root + h, False)[0] - self.spectral(root - h, False)[0]) / 2
-            r1, r2 = residue(step), residue(step / 2)
-            r2 = (4 * r2 - r1) / 3
-            pole_error += float(np.max(np.abs(r2 - r1))) * np.pi
+            r1 = residue(step)
+            for _ in range(12):
+                raw = residue(step / 2)
+                r2 = (4 * raw - r1) / 3
+                uncertainty = float(np.max(np.abs(r2 - r1))) * np.pi
+                if uncertainty <= pole_budget:
+                    break
+                r1, step = raw, step / 2
+            pole_error += uncertainty
             residues.append((root, r2))
-            left = self.spectral(root - step, False)[0].real + r2.real / step
-            right = self.spectral(root + step, False)[0].real - r2.real / step
-            regular_parts.append((root, step, left, right))
+            pole_evaluations += 2
+            if pole_evaluations > max_evaluations:
+                raise ArithmeticError("pole refinement evaluation budget exceeded")
+            left = self.spectral(root - regular_step, False)[0].real + r2.real / regular_step
+            right = self.spectral(root + regular_step, False)[0].real - r2.real / regular_step
+            regular_parts.append((root, regular_step, left, right))
             guided -= np.pi * r2.imag
         def integrand(u):
             for root, step, left, right in regular_parts:
@@ -179,14 +197,14 @@ class FilmSource:
             return np.r_[green.real, channels.ravel()]
         breaks = [0, 1, *[v / self.ns for v in self.n.real if v > 0], self.maximum]
         breaks += [p - 1e-7 * max(1, p) for p in poles] + [p + 1e-7 * max(1, p) for p in poles]
-        integral = integrate(integrand, [b for b in breaks if 0 <= b <= self.maximum], tolerance, max_evaluations)
+        integral = integrate(integrand, [b for b in breaks if 0 <= b <= self.maximum], tolerance, max_evaluations - pole_evaluations)
         total = 1 + integral.value[:2] + guided
         channels = integral.value[2:].reshape(2, 3)
         upper, lower, absorbed = channels.T
         balance = np.abs(total - upper - lower - absorbed - guided) / np.maximum(1, np.abs(total))
         error = integral.error + pole_error
-        valid = integral.converged and np.max(balance) <= tolerance and np.min(np.r_[total, upper, lower, absorbed, guided]) >= -tolerance
-        return FilmRates(total, upper, lower, guided, absorbed, error, integral.evaluations, bool(valid), balance, tuple(poles))
+        valid = integral.converged and error <= tolerance * max(1, np.max(np.abs(total))) and np.max(balance) <= tolerance and np.min(np.r_[total, upper, lower, absorbed, guided]) >= -tolerance
+        return FilmRates(total, upper, lower, guided, absorbed, error, integral.evaluations + pole_evaluations, bool(valid), balance, tuple(poles))
 
     def pattern(self, theta, phi=0):
         theta, phi = np.broadcast_arrays(theta, phi)
