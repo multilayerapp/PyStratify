@@ -24,10 +24,14 @@ def cylinder_logs(z, maximum):
         else:
             raise ArithmeticError("cylindrical regular-function series did not converge")
         regular[m] = m * np.log(z / 2) - gammaln(m + 1) + np.log(series)
-    outgoing = np.empty(maximum + 2, complex)
-    outgoing[:2] = np.log(hankel1e([0, 1], z)) + 1j * z
-    for m in range(1, maximum + 1):
-        outgoing[m + 1] = log_add(np.log(2 * m / z) + outgoing[m], outgoing[m - 1] + 1j * np.pi)
+    with np.errstate(all="ignore"):
+        outgoing = np.log(hankel1e(orders, z)) + 1j * z
+    # Scaled direct evaluation avoids a Python recurrence at ordinary orders;
+    # logarithmic recurrence retains orders whose scaled Hankel overflows.
+    for m in np.flatnonzero(~np.isfinite(outgoing)):
+        if m < 2:
+            raise ArithmeticError("cylindrical outgoing-function seeds exceeded numerical precision")
+        outgoing[m] = log_add(np.log(2 * (m - 1) / z) + outgoing[m - 1], outgoing[m - 2] + 1j * np.pi)
     with np.errstate(all="ignore"):
         dj = orders[:-1] / z - np.exp(regular[1:] - regular[:-1])
         dh = orders[:-1] / z - np.exp(outgoing[1:] - outgoing[:-1])

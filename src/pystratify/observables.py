@@ -101,7 +101,7 @@ def solve_problem(problem, outputs=("rates",), *, theta=None, phi=0):
         model = CylinderSource(d, n, wavelength, source.position, source.dipole_type, problem.order, problem.tolerance)
         r = model.rates(problem.tolerance, problem.max_evaluations)
         total, escape, guided, absorbed = r.total, r.escape, r.guided, r.absorbed
-        diagnostics = dict(converged=r.converged, integration_error=r.error, evaluations=r.evaluations, orders=r.orders, balance_error=r.balance_error, poles=r.poles)
+        diagnostics = dict(converged=r.converged, integration_error=r.error, evaluations=r.evaluations, orders=r.orders, balance_error=r.balance_error, poles=r.poles, grazing_error=r.grazing_error)
     else:
         from .decay import decay_rates
         layer = int(np.searchsorted(d, source.position))

@@ -23,6 +23,7 @@ class CylinderRates:
     converged: bool
     balance_error: np.ndarray
     poles: tuple
+    grazing_error: float = 0.0
 
 
 def axis_vectors(beta, k, q, orders):
@@ -58,7 +59,7 @@ class CylinderSource:
         self.maximum = max(2.0, np.max(np.abs(self.n)) / self.n[self.layer].real + 16 / (self.ks * gap))
         qratio = max(np.minimum(self.radii / max(radius, 1e-300), radius / self.radii)) if radius else 0
         size = self.k0 * max(abs(self.n)) * self.radii[-1]
-        needed = max(8, int(np.ceil(size + 4 * size ** (1 / 3) + 8)), int(np.ceil(-np.log(tolerance) / max(1e-8, -2 * np.log(max(qratio, 1e-300))))) + 6)
+        needed = max(8, int(np.ceil(size + 4 * size ** (1 / 3) + 8)), int(np.ceil(-np.log(tolerance) / max(1e-8, -2 * np.log(max(qratio, 1e-300))))) + 10)
         self.m_max = int(m_max) if m_max is not None else (1 if radius == 0 else min(1500, needed))
         self.explicit_order = m_max is not None
 
@@ -182,16 +183,16 @@ class CylinderSource:
         theta, phi = np.broadcast_arrays(theta, phi)
         density = np.zeros(theta.shape + (3,))
         prefactor = 3 / (8 * np.pi) * (self.mu[self.layer] * self.n[-1] / (self.mu[-1] * self.n[self.layer])).real
-        for idx in np.ndindex(theta.shape):
-            angle = float(np.clip(theta[idx], 1e-6, np.pi - 1e-6))
-            b = self.n[-1].real / self.n[self.layer].real * np.cos(angle)
+        beta = self.n[-1].real / self.n[self.layer].real * np.cos(np.clip(theta, 1e-6, np.pi - 1e-6))
+        for b in np.unique(beta):
             solution = self.solution(b)
             _, outward, inward, pairs = self.coefficients(solution)
             transformed, scale, _, _ = self.amplitudes(solution, outward, inward, pairs)
             coefficient = np.exp(-scale)[:, None, None] * transformed
-            phase = np.exp(1j * solution.orders * (phi[idx] - np.pi / 2))
-            far = np.einsum("m,mij->ij", phase, coefficient)
-            density[idx] = prefactor * np.sum(abs(far) ** 2, axis=0)
+            selected = beta == b
+            phase = np.exp(1j * (phi[selected, None] - np.pi / 2) * solution.orders)
+            far = np.einsum("pm,mij->pij", phase, coefficient)
+            density[selected] = prefactor * np.sum(abs(far) ** 2, axis=1)
         return density
 
     def _rates_once(self, tolerance=1e-6, max_evaluations=20000):
@@ -208,21 +209,48 @@ class CylinderSource:
             left = self.spectral(root - step, powers=False)[0].real + r2.real / step
             right = self.spectral(root + step, powers=False)[0].real - r2.real / step
             regular_parts.append((root, step, left, right))
+        def sample(b):
+            green, escape, absorbed, tail = self.spectral(b)
+            return np.r_[green.real, escape, absorbed, tail]
+        caps, grazing_error, cap_evaluations = [], 0.0, 0
+        if np.any(self.n.imag):
+            lines = np.unique(self.n[self.n.imag == 0].real / self.n[self.layer].real)
+            for line in lines:
+                neighbours = [abs(line - v) for v in lines if v != line]
+                width = min(1e-5 * max(1, line), line / 4, min(neighbours, default=np.inf) / 4)
+                if width <= 0:
+                    continue
+                for side in (-1, 1):
+                    edge, outer = line + side * width, line + side * 2 * width
+                    if not 0 < outer < self.maximum:
+                        continue
+                    if cap_evaluations + 2 >= max_evaluations:
+                        raise ArithmeticError("adaptive integration evaluation budget exceeded")
+                    value, away = sample(edge), sample(outer)
+                    cap_evaluations += 2
+                    # The vector basis loses digits at grazing incidence. Continue
+                    # only the narrow end cap and charge its variation to the error
+                    # budget; never relax the requested convergence tolerance.
+                    grazing_error += 4 * width * float(np.max(abs(value - away)))
+                    caps.append((line, side, width, value))
         def integrand(b):
             for root, step, left, right in regular_parts:
                 if abs(b - root) < step:
                     f = (b - root + step) / (2 * step)
                     return np.r_[left * (1 - f) + right * f, np.zeros(7)]
-            green, escape, absorbed, tail = self.spectral(b)
-            return np.r_[green.real, escape, absorbed, tail]
+            for line, side, width, value in caps:
+                if 0 <= side * (b - line) < width:
+                    return value
+            return sample(b)
         breaks = [0, *[v / self.n[self.layer].real for v in self.n.real if v > 0], self.maximum]
         breaks += [p - 1e-5 * max(1, p) for p in poles] + [p + 1e-5 * max(1, p) for p in poles]
-        integral = integrate(integrand, [b for b in breaks if 0 <= b <= self.maximum], tolerance, max_evaluations)
+        integral = integrate(integrand, [b for b in breaks if 0 <= b <= self.maximum], tolerance, max_evaluations - cap_evaluations)
         total, escape, absorbed = 1 + integral.value[:3] + guided, integral.value[3:6], integral.value[6:9]
         balance = np.abs(total - escape - guided - absorbed) / np.maximum(1, abs(total))
         tail_ok = self.radius == 0 or integral.value[-1] <= tolerance * max(1, np.max(abs(total)))
-        converged = integral.converged and tail_ok and np.max(balance) <= tolerance and residue_error <= tolerance * max(1, np.max(abs(total)))
-        return CylinderRates(total, escape, guided, absorbed, integral.error + residue_error, integral.evaluations, self.m_max, bool(converged), balance, tuple(poles))
+        error = integral.error + residue_error + grazing_error
+        converged = integral.converged and error <= tolerance * max(1, np.max(abs(total))) and tail_ok and np.max(balance) <= tolerance and residue_error <= tolerance * max(1, np.max(abs(total)))
+        return CylinderRates(total, escape, guided, absorbed, error, integral.evaluations + cap_evaluations, self.m_max, bool(converged), balance, tuple(poles), grazing_error)
 
     def rates(self, tolerance=1e-6, max_evaluations=20000):
         """Refine automatic angular order within one total quadrature budget."""

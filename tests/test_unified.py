@@ -118,3 +118,64 @@ def test_sphere_local_pattern_power(dipole,radius):
     r=ps.solve_problem(problem,('rates','pattern'),theta=np.arccos(x)[:,None],phi=np.array([0,np.pi/2])[None,:])
     power=np.sum(r['pattern']*w[:,None,None],axis=(0,1))*np.pi
     np.testing.assert_allclose(power,r['escape'],atol=1e-10)
+
+
+@pytest.mark.parametrize('dipole',['electric','magnetic'])
+def test_metal_cylinder_grazing_caps_have_a_bounded_error(dipole):
+    from pystratify.cylinder_emission import CylinderSource
+    source = CylinderSource([.01],[.97+1.87j,1],.5,.015,dipole)
+    rates = source.rates()
+    assert rates.converged
+    assert rates.evaluations < 2500
+    assert rates.grazing_error > 0
+    assert rates.error >= rates.grazing_error
+    assert rates.error <= 1e-6 * np.max(rates.total)
+    np.testing.assert_allclose(rates.total,rates.escape+rates.absorbed,rtol=1e-6)
+    # Moving the precision guard inward checks its charged error independently.
+    reference = CylinderSource([.01],[.97+1.87j,1],.5,.015,dipole,m_max=rates.orders)
+    original = reference.spectral
+    reference.spectral = lambda b, *args, **kwargs: original(1+np.copysign(3e-6,b-1) if abs(b-1)<3e-6 else b,*args,**kwargs)
+    from pystratify.integration import integrate
+    def sample(b):
+        green,escape,absorbed,tail = reference.spectral(b)
+        return np.r_[green.real,escape,absorbed,tail]
+    integral = integrate(sample,[0,.97,1,reference.maximum],1e-6)
+    assert integral.converged
+    for actual,expected in [(rates.total,1+integral.value[:3]),(rates.escape,integral.value[3:6]),(rates.absorbed,integral.value[6:9])]:
+        assert np.max(abs(actual-expected)) < rates.grazing_error
+
+
+def test_cylinder_grazing_uncertainty_cannot_pass_a_tighter_tolerance():
+    from pystratify.cylinder_emission import CylinderSource
+    rates=CylinderSource([.01],[.97+1.87j,1],.5,.015,m_max=40).rates(tolerance=1e-9)
+    assert rates.error >= rates.grazing_error > 1e-9*np.max(rates.total)
+    assert not rates.converged
+
+
+def test_cylinder_pattern_reuses_modes_for_azimuthal_cuts(monkeypatch):
+    from pystratify.cylinder_emission import CylinderSource
+    source=CylinderSource([.1],[1.5,1],.6,.2,m_max=20)
+    theta=np.linspace(.1,np.pi-.1,13)[:,None]
+    phi=np.array([0,np.pi/2])[None,:]
+    separate=np.stack([source.pattern(theta[:,0],p) for p in phi[0]],axis=1)
+    original=source.solution
+    calls=[]
+    def counted(b,*args):
+        calls.append(b)
+        return original(b,*args)
+    monkeypatch.setattr(source,'solution',counted)
+    np.testing.assert_allclose(source.pattern(theta,phi),separate,atol=1e-14)
+    assert len(calls)==len(theta)
+
+
+@pytest.mark.parametrize('z',[.01+0j,1+2j,20+10j])
+def test_scaled_hankel_direct_and_overflow_recurrence(z):
+    from pystratify.special import cylinder_logs
+    from scipy.special import hankel1e
+    regular,outgoing,dj,dh=cylinder_logs(z,500)
+    assert np.all(np.isfinite(regular)) and np.all(np.isfinite(outgoing))
+    np.testing.assert_allclose(np.exp(outgoing[:30]-1j*z),hankel1e(np.arange(30),z),rtol=2e-12)
+    # The high orders overflow direct evaluation; logarithmic recurrence still holds.
+    for m in [100,499]:
+        expected=2*m/z-np.exp(outgoing[m-1]-outgoing[m])
+        np.testing.assert_allclose(np.exp(outgoing[m+1]-outgoing[m]),expected,rtol=2e-10)

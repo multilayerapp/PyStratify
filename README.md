@@ -47,6 +47,14 @@ lifetime ratio; its reciprocal is the lifetime ratio. Material absorption is dis
 from intrinsic nonradiative loss. Check convergence before using results. Numerical
 budget/precision failures raise exceptions; the HTTP adapter masks those samples.
 
+Lossy cylinder spectra guard narrow intervals next to lossless-medium light lines,
+where the vector basis loses floating-point precision. The endpoint continuation
+uncertainty is reported as `diagnostics.grazing_error` and included in the integration
+error; it must meet the requested tolerance alongside independent channel balance
+and angular-tail checks. Lossless guided-mode integration is unchanged. Scaled
+Hankel functions use direct evaluation with logarithmic high-order overflow recovery,
+and pattern cuts at the same polar angle share their mode coefficients.
+
 Patterns use `outputs=("rates", "pattern"), theta=..., phi=...` with broadcast angle
 arrays in radians, and return normalized power per solid angle. Film theta zero
 points outward into the incident medium; spheres/cylinders use the +z polar axis.
@@ -59,7 +67,8 @@ retain the extended API and upstream MIT notice in `src/pystratify/PLANAR-LICENS
 Coherent propagation has no artificial attenuation clipping. Texture emission,
 line sources, finite cylinders and absorbing-source regularization are deferred.
 Run `pytest tests/test_unified.py` for analytic Fresnel/Bessel limits, independent
-flux/Green closure, guided channels, patterns, ED/MD and treams cylinder benchmarks.
+flux/Green closure, guided channels, patterns, ED/MD, metal-cylinder endpoint error
+budgets, mode reuse, high-order special functions and treams cylinder benchmarks.
 
 | quantity | function |
 |---|---|
