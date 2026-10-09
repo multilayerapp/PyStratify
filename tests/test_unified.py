@@ -190,3 +190,22 @@ def test_scaled_hankel_direct_and_overflow_recurrence(z):
     for m in [100,499]:
         expected=2*m/z-np.exp(outgoing[m-1]-outgoing[m])
         np.testing.assert_allclose(np.exp(outgoing[m+1]-outgoing[m]),expected,rtol=2e-10)
+
+
+def test_opaque_coherent_segment_keeps_incoherent_recursions_finite():
+    """A 10 um k=6 coherent layer inside an incoherent stack underflows to T=0.
+
+    The upstream clip of Im(delta) at 35 kept T near e^-70; without a floor the
+    two-flux L-matrix divided by zero and inc_tmm/pim_tmm reported R=T=nan.
+    """
+    import numpy as np
+    from pystratify import planar
+
+    n = [1, 1.5, 0.9 + 6j, 1.5, 1.52]
+    d = [np.inf, 1000, 10, 0.3, np.inf]
+    c = ["i", "i", "c", "c", "i"]
+    for solver in (planar.inc_tmm, planar.pim_tmm):
+        result = solver("s", n, d, c, np.deg2rad(10), 0.5)
+        assert np.isfinite(result["R"]) and np.isfinite(result["T"])
+        assert abs(result["R"] - 0.8722616) < 1e-6
+        assert 0 <= result["T"] < 1e-29

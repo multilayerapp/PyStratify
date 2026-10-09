@@ -215,6 +215,21 @@ def _warn_opaque_layers():
               "for numerical stability. This warning will not "
               "be shown again.")
 
+def _opaque_floor(transmission):
+    """The two-flux recursions divide by a coherent segment's power transmission.
+
+    The owned amplitude kernel evaluates an opaque segment exactly, so a thick
+    metal underflows to T = 0 and the incoherent L-matrix divides by zero
+    (R = T = nan, which the API reported as a critical-angle failure). The
+    retained upstream clip of Im(delta) at 35 never let T below about e^-70;
+    the same 1-photon-in-10^30 floor the incoherent propagation already uses
+    keeps the recursion finite without changing any finite result.
+    """
+    if transmission < 1e-30:
+        _warn_opaque_layers()
+        return 1e-30
+    return transmission
+
 def _prepare_coherent_stack(n_list, d_list, th_0, mu_list=None):
     n_list = array(n_list)
     d_list = array(d_list, dtype=float)
@@ -1030,9 +1045,9 @@ def _segment_intensity_coeffs(pol, n_list, th_list, segment, left_index, right_i
     flux_ratio = beta_right.real / beta_left.real
     determinant = a * d - b * c
     r_forward = abs(c / a) ** 2
-    t_forward = abs(1.0 / a) ** 2 * flux_ratio
+    t_forward = _opaque_floor(abs(1.0 / a) ** 2 * flux_ratio)
     r_backward = abs(b / a) ** 2
-    t_backward = abs(determinant / a) ** 2 / flux_ratio
+    t_backward = _opaque_floor(abs(determinant / a) ** 2 / flux_ratio)
     return r_forward, t_forward, r_backward, t_backward, beta_left
 
 def pim_tmm_direct(pol, n_list, d_list, c_list, th_0, lam_vac):
@@ -1567,11 +1582,11 @@ def inc_tmm(pol, n_list, d_list, c_list, th_0, lam_vac):
         else: #next layer is coherent
             R_list[inc_index,inc_index+1] = (
                     coh_tmm_data_list[nextstack_index]['R'])
-            T_list[inc_index,inc_index+1] = (
+            T_list[inc_index,inc_index+1] = _opaque_floor(
                     coh_tmm_data_list[nextstack_index]['T'])
             R_list[inc_index+1,inc_index] = (
                     coh_tmm_bdata_list[nextstack_index]['R'])
-            T_list[inc_index+1,inc_index] = (
+            T_list[inc_index+1,inc_index] = _opaque_floor(
                     coh_tmm_bdata_list[nextstack_index]['T'])
 
     # L is the transfer matrix from the i'th to (i+1)st incoherent layer, see

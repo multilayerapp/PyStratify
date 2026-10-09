@@ -1,13 +1,13 @@
 cff-version: 1.2.0
 message: "If you use PyStratify, please cite it and the STRATIFY paper whose method it implements."
 title: PyStratify
-abstract: "Light scattering by multilayered spheres in Python, after the recursive transfer-matrix method of STRATIFY."
+abstract: "Unified modal response of multilayered films, cylinders and spheres in Python: plane waves and electric/magnetic point dipoles, after the recursive transfer-matrix method of STRATIFY."
 type: software
 authors:
   - family-names: Rasskazov
     given-names: Ilia
-version: 0.8.0
-date-released: 2026-10-04
+version: 0.9.0
+date-released: 2026-10-08
 license: GPL-3.0-or-later
 repository-code: "https://github.com/multilayerapp/PyStratify"
 keywords:
@@ -16,6 +16,8 @@ keywords:
   - light scattering
   - transfer matrix
   - decay rates
+  - thin films
+  - cylinder scattering
 references:
   - type: article
     authors:

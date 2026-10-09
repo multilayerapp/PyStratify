@@ -10,7 +10,7 @@ by [STRATIFY](https://gitlab.com/iliarasskazov/stratify) (Rasskazov, Carney & Mo
 so that every quantity stays finite and accurate to the orders it needs, and the defects found in
 the MATLAB code are fixed ([AUDIT.md](AUDIT.md)).
 
-## Unified films, cylinders and spheres (expansion branch)
+## Unified films, cylinders and spheres (0.9.0)
 
 `solve_problem(Problem(...))` chooses the geometry's modal basis and uses the owned
 response core. NumPy/SciPy supply numerical primitives; external optical engines

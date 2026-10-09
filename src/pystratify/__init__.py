@@ -51,7 +51,7 @@ from .problem import Problem, PlaneWave, PointDipole
 from .observables import solve_problem
 from .cylindrical import solve_cylinder, CylinderSolution, cross_widths, cylinder_pattern
 
-__version__ = "0.9.0.dev0"
+__version__ = "0.9.0"
 
 __all__ = [
     "Problem", "PlaneWave", "PointDipole", "solve_problem",
