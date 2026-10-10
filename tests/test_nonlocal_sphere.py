@@ -143,3 +143,59 @@ def test_passive_and_blue_shifted():
     assert np.all(q_abs > 0)
     shift = energies[np.argmax(cs_nl.ext_by_order.sum(axis=(1, 2)))] - energies[np.argmax(cs_loc.ext_by_order.sum(axis=(1, 2)))]
     assert 0.02 < shift < 0.2
+
+
+# ------------------------------------------------------------------------------------------- emitters
+from pystratify.nonlocal_sphere import nonlocal_sphere_rates  # noqa: E402
+
+AU_STRATIFY = 0.1412 + 3.1518j  # Etchegoin, Le Ru & Meyer gold at 614 nm
+
+
+@pytest.mark.parametrize("radii, n, r", [([5.0], [AU_STRATIFY, 1.0], 6.0), ([8.0, 10.0], [1.45, AU_STRATIFY, 1.33], 7.0),
+                                         ([8.0, 10.0, 12.0], [1.45, AU_STRATIFY, 1.6, 1.33], 11.0),
+                                         ([60.0, 70.0], [1.45, AU_STRATIFY, 1.33], 59.0)])
+@pytest.mark.parametrize("dipole", ["electric", "magnetic"])
+def test_rates_local_limit(radii, n, r, dipole):
+    """Nothing hydrodynamic: decay_rates (normalized route), total, radiative and nonradiative."""
+    a = nonlocal_sphere_rates(radii, n, 614.0, {}, r, dipole=dipole, tol=1e-12)
+    b = ps.decay_rates(radii, n, 614.0, r, dipole=dipole, normalization="shell", tol=1e-12, warn=False)
+    assert np.max(np.abs(a.total - b.total[0]) / b.total[0]) <= 1e-9
+    assert np.max(np.abs(a.radiative - b.radiative[0]) / b.radiative[0]) <= 1e-12
+    assert np.max(np.abs(a.absorbed - b.nonradiative[0]) / np.abs(b.nonradiative[0])) <= 1e-9
+
+
+EMITTERS = [
+    ("Ag sphere, outside", [5.0], lambda w: [n_drude(AG, w, 4.5), 1.33], {0: AG}, 6.0),
+    ("SiO2@Ag, in the core", [8.0, 10.0], lambda w: [1.46, n_drude(AG, w, 4.5), 1.33], {1: AG}, 7.0),
+    ("Au@Ag, 0.5 nm outside", [6.0, 8.0], lambda w: [n_drude(AU, w, 9.5), n_drude(AG, w, 4.5), 1.0], {0: AU, 1: AG}, 8.5),
+    ("Ag|SiO2|Ag, in the gap", [4.0, 6.0, 8.0], lambda w: [n_drude(AG, w, 4.5), 1.46, n_drude(AG, w, 4.5), 1.33],
+     {0: AG, 2: AG}, 5.0),
+]
+
+
+@pytest.mark.parametrize("energy", [3.0, 5.5])
+@pytest.mark.parametrize("name, radii, index, hydro, r", EMITTERS, ids=[e[0] for e in EMITTERS])
+def test_rates_energy_balance(name, radii, index, hydro, r, energy):
+    """The total rate (field reflected at the source) equals the power reaching the host plus the
+    power absorbed in every region (Poynting plus hydrodynamic fluxes): two independent paths."""
+    w = lam(energy)
+    for dipole in ("electric", "magnetic"):
+        rates = nonlocal_sphere_rates(radii, index(w), w, hydro, r, dipole=dipole, tol=1e-10)
+        assert rates.converged and np.max(rates.balance_error) <= 1e-12
+        assert np.all(rates.absorbed_by_region >= -1e-12 * rates.total)
+
+
+def test_rates_against_global_matrix_t():
+    """Source in the host: total radial rate 1 + (3/2) Re sum l(l+1)(2l+1) T_l xi_l(x0)^2 / x0^4 with T_l
+    from the extended-precision global matrix, the same 25 orders."""
+    for energy in (3.0, 5.5):
+        w = lam(energy)
+        n = [1.46, n_drude(AG, w, 4.5), 1.33]
+        rates = nonlocal_sphere_rates([8.0, 10.0], n, w, {1: AG}, 11.0, l_max=25)
+        with mp.workdps(30):
+            x0 = mp.mpf(2 * np.pi * 1.33 / w * 11.0)
+            total = mp.mpf(1)
+            for l in range(1, 26):
+                xi = mp.sqrt(mp.pi * x0 / 2) * (mp.besselj(l + 0.5, x0) + 1j * mp.bessely(l + 0.5, x0))
+                total += mp.re(1.5 * l * (l + 1) * (2 * l + 1) * mp.mpc(sphere_t([8.0, 10.0], n, w, {1: AG}, l, "TM")) * xi**2 / x0**4)
+        assert abs(rates.total[0] - float(total)) <= 1e-11 * float(total)
