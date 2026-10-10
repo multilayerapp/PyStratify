@@ -8,7 +8,7 @@ What PyStratify is checked against, geometry by geometry, source by source and q
 report live in a runnable script in `benchmarks/` (`.py` or `.ipynb`), so a reader can rerun it and
 see the numbers for themselves; `tests/` only imports that script and asserts the tolerances. Built so
 far this way: `planar_codes.py` → `PLANAR_CODES.md`, `emitter_references.py` →
-`EMITTER_REFERENCES.md`, `convergence.py` → `RESULTS.md`. Rows whose check exists only inside
+`EMITTER_REFERENCES.md`, `mnpbem_spheres.py` → `MNPBEM_SPHERES.md`, `convergence.py` → `RESULTS.md`. Rows whose check exists only inside
 `tests/` still owe a `benchmarks/` script; WP1.5 is not done until they have one.
 
 ## Kinds of reference
@@ -61,7 +61,7 @@ blank = the reference cannot compute it.
 | tmmax | code | ○ | | | | | | | | |
 | scattnlay | code | | | | | | | ○ | | |
 | pyGDM2 (volume Green dyadic) | code | | | | | | | ○ | ○ | |
-| MNPBEM (boundary elements) | code | | | | | | | ○ | ○ | |
+| MNPBEM (boundary elements, under GNU Octave) | code | | | | | | | ● | ● | |
 | smuthi (T-matrix + Sommerfeld, dipole sources) | code | | ● | | | | | ○ | ○ | |
 | Meep (FDTD; cylindrical coordinates where the source is on axis) | code | | ○ | | ○ | ○ | | ○ | ○ | |
 | NGSolve (finite elements) | code | | | | | ○ | | | ○ | |
@@ -185,7 +185,9 @@ blank = the reference cannot compute it.
 | near-field truncation against 120 orders | precision | \|E\|², energy density | `benchmarks/RESULTS.md` "Near field and energy density" | report | report |
 | **treams**, achiral multilayer | code | Q, near field | to build: extend `tests/test_chiral.py::test_against_treams` to κ = 0 multilayers with fields | 1e-11 | to build |
 | **scattnlay** | code | Q_ext/Q_sca/Q_abs, near field of multilayers, x up to 1e4 | to build: `benchmarks/sphere_codes.py` | 1e-10 | to build |
-| **pyGDM2** or **MNPBEM** (a different method: volume Green dyadic or boundary elements) | code | Q_ext of a 20–50 nm Au/SiO₂ shell | to build: `benchmarks/sphere_codes.py`. MNPBEM runs under GNU Octave 11.3 (`/opt/homebrew/bin/octave`; Ilia wants it as a benchmark); pyGDM2 is pip-installable | discretization-limited, ~1e-2 | to build |
+| **MNPBEM** (boundary elements; MNPBEM17 from the CPC program library, run under GNU Octave) | code | C_ext, C_sca of a 40 nm sphere (ε = −10 + i) in vacuum and in water, and of a 10 nm-shell nanoshell, on refined meshes | `benchmarks/mnpbem_spheres.py` → `MNPBEM_SPHERES.md`; `benchmarks/mnpbem_octave.py` builds MNPBEM; `tests/test_mnpbem_spheres.py` | converges toward PyStratify; finest mesh ≤ 5% and closer than the coarsest; observed 0.45–4.4% | suite where Octave is installed |
+| **pyGDM2** (a second different method: volume Green dyadic) | code | Q_ext of a 20–50 nm Au/SiO₂ shell | to build: `benchmarks/sphere_codes.py`; pip-installable | discretization-limited, ~1e-2 | to build |
+| thin (5 nm) nanoshell: MNPBEM against three Mie codes | code | C_ext, C_sca | `benchmarks/mnpbem_spheres.py` (shown, not asserted) | — | **MNPBEM under-resolved**: ~12% low at every affordable mesh, while PyStratify, treams and scattnlay agree to all printed digits (995.384013 nm²) |
 | Oldenburg et al. 1998 nanoshells; Kerker conditions | paper | Q spectra; zero backscattering | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
 | Dong et al. 2017 nonlocal nanoshells | paper | Q_ext with hydrodynamic Au | reproduced on `non-local` (`AGENTS.md` §13.6: their efficiencies carry an extra n_host²) | plotting precision | branch |
 | extended-precision nonlocal global matrix | precision | nonlocal coefficients for all three geometries | `tests/nonlocal_reference.py` on `non-local` | — | branch |
@@ -205,7 +207,8 @@ blank = the reference cannot compute it.
 | Casimir–Polder non-retarded limit | analytic | potential | `tests/test_casimir.py::test_non_retarded_limit_near_a_large_sphere` | 1e-12 | suite |
 | **treams** (spherical-wave expansion of a dipole) | code | total rate beside a coated sphere | to build: `benchmarks/sphere_codes.py` | 1e-10 | to build |
 | Anger, Bharadwaj & Novotny 2006 | paper | quenching against distance from Au | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
-| **pyGDM2** / **MNPBEM** | code | Purcell factor at 10 nm from a 40 nm Au sphere | to build: `benchmarks/sphere_codes.py`; MNPBEM runs under GNU Octave 11.3 (`/opt/homebrew/bin/octave`) | discretization-limited | to build |
+| **MNPBEM** `dipoleret` | code | total and radiative decay rates 5 nm from a 40 nm sphere (ε = −10 + i), radial and tangential | `benchmarks/mnpbem_spheres.py`; `tests/test_mnpbem_spheres.py` | converges toward PyStratify; finest mesh 1.4% (radial total), 0.04% (tangential) | suite where Octave is installed |
+| **pyGDM2** | code | Purcell factor at 10 nm from a 40 nm Au sphere | to build: `benchmarks/sphere_codes.py` | discretization-limited | to build |
 | **Meep**, cylindrical coordinates (dipole on the axis through the sphere) | code | Purcell factor beside a dielectric and a Drude sphere; Q_ext | to build: `benchmarks/fdtd_meep.py` | ~1e-2 | to build |
 | **smuthi** (dipole source and a sphere, by Mie T-matrix) | code | total rate | to build: extend `benchmarks/emitter_references.py` or a sphere script | 1e-6 | to build |
 
@@ -237,9 +240,10 @@ blank = the reference cannot compute it.
   they test the formulation (sign conventions, normalisation, multipole bookkeeping), not the digits.
   Meep in cylindrical coordinates is cheap for a dipole on the symmetry axis (films, spheres);
   off-axis sources and cylinders need 3D runs, one at a time on this 8 GB Mac.
-- **Spheres are the best covered**: precision, BHMIE, treams and five papers. They lack a check by a
-  different *method* (BEM or a volume Green dyadic), which would catch a shared Mie-formulation
-  error that every Mie code would repeat.
+- **Spheres are the best covered**: precision, BHMIE, treams and five papers, and since 2026-10-10 a
+  different *method*: MNPBEM's boundary elements converge toward PyStratify for cross sections and
+  decay rates (`MNPBEM_SPHERES.md`). A 5 nm nanoshell is beyond MNPBEM's affordable meshes here; three
+  Mie codes (PyStratify, treams, scattnlay) settle that case exactly.
 - **Focused beams are verified only against their own plane-wave engines.** The FT-IR papers are
   the outside check.
 - **The incoherent film path** has only the explicit phase average as an independent check. The

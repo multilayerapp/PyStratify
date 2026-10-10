@@ -515,7 +515,12 @@ search (1e-11) and the slab dispersion relation (7e-14).
 integrals written without `pystratify` (themselves pinned to the image dipole at a perfect mirror, to
 5e-12), and near lossless guides against [smuthi](https://gitlab.com/AmosEgel/smuthi) and the
 lossless limit of an absorbing guide
-([benchmarks/EMITTER_REFERENCES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/EMITTER_REFERENCES.md)). Every comparison is a
+([benchmarks/EMITTER_REFERENCES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/EMITTER_REFERENCES.md)).
+`python benchmarks/mnpbem_spheres.py` checks spheres by a different method, the boundary elements of
+[MNPBEM](https://doi.org/10.17632/gbyj97hfnc.1) run under GNU Octave (`benchmarks/mnpbem_octave.py`
+fetches the CPC program, verifies it and builds an Octave-ready copy): cross sections and decay rates
+converge toward PyStratify as the mesh is refined, to 0.5–4% at the finest mesh
+([benchmarks/MNPBEM_SPHERES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/MNPBEM_SPHERES.md)). Every comparison is a
 script in `benchmarks/` that writes its own report, so it can be rerun by anyone; the tests import
 them. [benchmarks/MATRIX.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/MATRIX.md) maps every check, existing and planned, by
 geometry, source and quantity.
@@ -531,6 +536,8 @@ pytest
   parallel) against the Sommerfeld reference of `benchmarks/emitter_references.py`, itself checked
   against the image dipole at a perfect mirror; sources outside lossless guides against the lossless
   limit and smuthi (the latter skipped unless smuthi is installed).
+* `test_mnpbem_spheres.py`: MNPBEM's boundary elements approach PyStratify's sphere cross sections and
+  decay rates as the mesh is refined (skipped unless GNU Octave is installed).
 * `test_planar_codes.py`: the planar solver, its fields and its guided modes against PyMoosh, pyElli
   and the slab dispersion relation (skipped unless the
   `benchmarks` extra is installed; the CI job `benchmarks` installs it).
