@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from .problem import PlaneWave, PointDipole
+from .problem import FocusedBeam, PlaneWave, PointDipole
 
 
 def orientation_average(values, geometry):
@@ -56,20 +56,64 @@ def sphere_center(radii, n, wavelength, dipole):
     return np.full(2, total), np.full(2, radiative), np.full(2, absorbed)
 
 
-def solve_problem(problem, outputs=("rates",), *, theta=None, phi=0):
+def solve_focused(problem, outputs=("rates",), *, points=None, reference=None):
+    """One wavelength of a focused beam (:mod:`pystratify.focused`): the powers as fractions of
+    the beam's power and, with ``"field"`` in ``outputs``, the near field at ``points``.
+    Films take their reference stack as a :class:`Problem` ``reference``."""
+    from . import focused
+
+    geometry, beam, n, d, wavelength = problem.geometry, problem.source, problem.n, problem.dimensions, problem.wavelength
+    if geometry == "films":
+        stack = None
+        if reference is not None:
+            if reference.geometry != "films":
+                raise ValueError("a film's reference is a film problem")
+            stack = (reference.n, reference.dimensions, reference.coherence)
+        result = focused.focused_films(n, d, wavelength, beam, problem.coherence, stack, tolerance=problem.tolerance,
+                                       max_evaluations=problem.max_evaluations)
+    elif geometry == "spheres":
+        result = focused.focused_spheres(d, n, wavelength, beam, l_max=problem.order)
+    else:
+        result = focused.focused_cylinders(d, n, wavelength, beam, m_max=problem.order, tolerance=problem.tolerance,
+                                           max_evaluations=problem.max_evaluations)
+    def scalar(v):
+        return v[0] if np.ndim(v) else v
+
+    out = dict(detected=scalar(result.detected), reference=scalar(result.reference),
+               apparent_absorbance=scalar(result.apparent_absorbance),
+               **{k: v[0] for k, v in result.values.items()},
+               multipoles={k: (v if k == "orders" else v[0]) for k, v in result.multipoles.items()},
+               by_polarization={p: {k: v[0] for k, v in values.items()} for p, values in result.by_polarization.items()},
+               diagnostics={k: v[0] for k, v in result.diagnostics.items()})
+    if "field" in outputs:
+        if points is None:
+            raise ValueError("a near field needs points")
+        function = dict(films=focused.focused_field_films, spheres=focused.focused_field_spheres,
+                        cylinders=focused.focused_field_cylinders)[geometry]
+        out["field"] = function(*((n, d) if geometry == "films" else (d, n)), wavelength, beam, points)
+    return out
+
+
+def solve_problem(problem, outputs=("rates",), *, theta=None, phi=0, points=None, reference=None):
     """Solve one wavelength of a resolved problem using the owned response core.
 
     Plane-wave ``solution`` retains the geometry's native field reconstruction;
-    point-source rates share normalization and channel/efficiency names.
+    point-source rates share normalization and channel/efficiency names; a
+    :class:`FocusedBeam` goes to :func:`solve_focused` (``points``, ``reference``).
     Angles are radians, all lengths share the caller's chosen unit.
     """
     geometry, source, n, d, wavelength = problem.geometry, problem.source, problem.n, problem.dimensions, problem.wavelength
+    if isinstance(source, FocusedBeam):
+        return solve_focused(problem, outputs, points=points, reference=reference)
     if isinstance(source, PlaneWave):
         if geometry == "films":
-            from .planar import coh_tmm
+            from .planar import coh_tmm, layered_response
             angle = 0 if source.angle is None else source.angle
             pols = ("s", "p") if source.polarization == "unpolarized" else (source.polarization,)
-            solutions = {p:coh_tmm(p, n, d, angle, wavelength) for p in pols}
+            if problem.coherence is not None and "i" in problem.coherence[1:-1]:
+                solutions = {p: layered_response(p, n, d, problem.coherence, angle, wavelength) for p in pols}
+            else:
+                solutions = {p:coh_tmm(p, n, d, angle, wavelength) for p in pols}
             R, T = np.mean([s["R"] for s in solutions.values()]), np.mean([s["T"] for s in solutions.values()])
             return dict(solution=solutions, reflectance=R, transmittance=T, absorptance=1-R-T)
         if geometry == "spheres":

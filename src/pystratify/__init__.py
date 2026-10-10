@@ -47,14 +47,27 @@ from .rates import EmissionRates, emission_rates
 from .sheets import Feibelman, Sheet, graphene_conductivity
 from .riccati import log_riccati
 from .solver import TE, TM, Solution, solve
-from .problem import Problem, PlaneWave, PointDipole
-from .observables import solve_problem
+from .problem import Problem, PlaneWave, PointDipole, FocusedBeam
+from .observables import solve_problem, solve_focused
+from .focused import (
+    FocusedField,
+    FocusedResult,
+    focal_field,
+    focused_cylinders,
+    focused_field_cylinders,
+    focused_field_films,
+    focused_field_spheres,
+    focused_films,
+    focused_spheres,
+)
 from .cylindrical import solve_cylinder, CylinderSolution, cross_widths, cylinder_pattern
 
-__version__ = "0.9.0"
+__version__ = "0.10.0"
 
 __all__ = [
-    "Problem", "PlaneWave", "PointDipole", "solve_problem",
+    "Problem", "PlaneWave", "PointDipole", "FocusedBeam", "solve_problem", "solve_focused",
+    "focused_films", "focused_spheres", "focused_cylinders", "FocusedResult",
+    "focused_field_films", "focused_field_spheres", "focused_field_cylinders", "FocusedField", "focal_field",
     "solve_cylinder", "CylinderSolution", "cross_widths", "cylinder_pattern",
     "solve",
     "Solution",

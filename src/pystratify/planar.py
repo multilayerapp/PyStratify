@@ -1783,3 +1783,30 @@ def inc_find_absorp_analytic_fn(layer, inc_data):
     backfunc.scale(inc_data['stackFB_list'][stackindex][1])
     backfunc.flip()
     return forwardfunc.add(backfunc)
+
+def layered_response(pol, n_list, d_list, c_list, th_0, lam_vac):
+    """
+    R, T and every region's absorptance (incident medium first, the exit medium's
+    entry is T) of one plane wave, with the solver its coherence column calls for:
+    coh_tmm when every internal layer is coherent ('c'; c_list None means all),
+    else pim_tmm, or phase_average_tmm once an incoherent layer is evanescent or
+    off its forward branch (beyond a critical angle the incoherent recursion
+    divides by a vanishing interface transmission). This is the dispatch the
+    multilayer.app planar calculator applies to a plane wave.
+    """
+    n_list = np.array(n_list, dtype=complex)
+    if c_list is None or all(c == 'c' for c in c_list[1:-1]):
+        data = coh_tmm(pol, n_list, d_list, th_0, lam_vac)
+    else:
+        th_list = list_snell(n_list, th_0)
+        evanescent = any(
+            c == 'i' and (not is_forward_angle(n_list[j], th_list[j]) or is_evanescent_angle(n_list[j], th_list[j]))
+            for j, c in enumerate(c_list)
+        )
+        if evanescent:
+            samples = 25 if sum(c == 'i' for c in c_list[1:-1]) <= 2 else 15
+            data = phase_average_tmm(pol, n_list, d_list, c_list, th_0, lam_vac, samples_per_layer=samples)
+        else:
+            data = pim_tmm(pol, n_list, d_list, c_list, th_0, lam_vac)
+    return {'R': float(np.real(data['R'])), 'T': float(np.real(data['T'])),
+            'absorption': np.array(pim_absorp_in_each_layer(data), dtype=float), 'data': data}

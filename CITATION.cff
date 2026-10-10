@@ -1,13 +1,13 @@
 cff-version: 1.2.0
 message: "If you use PyStratify, please cite it and the STRATIFY paper whose method it implements."
 title: PyStratify
-abstract: "Unified modal response of multilayered films, cylinders and spheres in Python: plane waves and electric/magnetic point dipoles, after the recursive transfer-matrix method of STRATIFY."
+abstract: "Unified modal response of multilayered films, cylinders and spheres in Python: plane waves, electric/magnetic point dipoles and focused (Cassegrain) beams, after the recursive transfer-matrix method of STRATIFY."
 type: software
 authors:
   - family-names: Rasskazov
     given-names: Ilia
-version: 0.9.0
-date-released: 2026-10-08
+version: 0.10.0
+date-released: 2026-10-09
 license: GPL-3.0-or-later
 repository-code: "https://github.com/multilayerapp/PyStratify"
 keywords:
@@ -18,6 +18,8 @@ keywords:
   - decay rates
   - thin films
   - cylinder scattering
+  - focused beam
+  - infrared microspectroscopy
 references:
   - type: article
     authors:
@@ -33,3 +35,17 @@ references:
     start: 2290
     year: 2020
     doi: 10.1364/OSAC.399979
+  - type: article
+    authors:
+      - family-names: Davis
+        given-names: Brynmor J.
+      - family-names: Carney
+        given-names: P. Scott
+      - family-names: Bhargava
+        given-names: Rohit
+    title: "Theory of midinfrared absorption microspectroscopy: I. Homogeneous samples"
+    journal: Analytical Chemistry
+    volume: 82
+    start: 3474
+    year: 2010
+    doi: 10.1021/ac902067p
