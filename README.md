@@ -511,6 +511,9 @@ pip install -e ".[test]"
 pytest
 ```
 
+* `test_planar_emission_references.py`: film emitter rates (electric and magnetic, perpendicular and
+  parallel) against Sommerfeld integrals written without `pystratify`, which are themselves checked
+  against the image dipole at a perfect mirror.
 * `test_planar_codes.py`: the planar solver, its fields and its guided modes against PyMoosh, pyElli
   and the slab dispersion relation (skipped unless the
   `benchmarks` extra is installed; the CI job `benchmarks` installs it).

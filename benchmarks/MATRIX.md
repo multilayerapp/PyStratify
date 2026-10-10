@@ -45,6 +45,7 @@ blank = the reference cannot compute it.
 | closed forms, limits, conservation | analytic | ● | ● | ● | ● | ● | ● | ● | ● | ● |
 | mpmath transfer matrices / Mie sums | precision | | | | | | | ● | ● | |
 | backend S-matrix (Redheffer star) | method | ● | | | | | | | | |
+| Sommerfeld integrals (Chance–Prock–Silbey), written separately | method | | ● | | | | | | | |
 | plane-wave superposition / cone average | method | | | ● | | | ● | | | ● |
 | BHMIE (Bohren & Huffman) | code | | | | | | | ● | | |
 | treams | code | | | | ● | ○ | | ● | ○ | |
@@ -54,6 +55,9 @@ blank = the reference cannot compute it.
 | scattnlay | code | | | | | | | ○ | | |
 | pyGDM2 (volume Green dyadic) | code | | | | | | | ○ | ○ | |
 | MNPBEM (boundary elements) | code | | | | | | | ○ | ○ | |
+| smuthi (T-matrix + Sommerfeld, dipole sources) | code | | ○ | | | | | ○ | ○ | |
+| Meep (FDTD; cylindrical coordinates where the source is on axis) | code | | ○ | | ○ | ○ | | ○ | ○ | |
+| NGSolve (finite elements) | code | | | | | ○ | | | ○ | |
 | OpenSANS (CPC 2023, nonlocal) | code | | | | ○ | | | ○ | | |
 | Dong 2016/2017 (nonlocal shells) | paper | | | | | | | ◐ | | |
 | Majic & Le Ru 2020; Yuan, Zhu & Zhu 2023/24; Wu et al. 1991/1997 | paper | | | | | | | ◐ | ◐ | |
@@ -100,10 +104,14 @@ blank = the reference cannot compute it.
 | independent flux budget (escape + guided + absorbed = total) | method | rate channels | `tests/test_unified.py::test_absorbing_coating_independent_power_budget` | 1e-5 | suite |
 | guided-pole uncertainty within tolerance; 3D sources are not line sources | method | guided rate | `tests/test_unified.py::test_planar_guided_pole_uncertainty_meets_tolerance`, `::test_guided_point_sources_not_line_sources` | 1e-6 | suite |
 | emission pattern normalization; grazing limit | analytic | pattern | `tests/test_unified.py::test_pattern_normalization_and_film_grazing_limit` | — | suite |
-| Chance–Prock–Silbey / Ford–Weber closed forms, dipole above a metal half-space | analytic | total and radiative rate against distance | to build: `tests/test_planar_emission_references.py` | 1e-8 | to build |
+| image dipole at a perfect mirror (Drexhage; Chance, Prock & Silbey) | analytic | perpendicular and parallel rates, electric and magnetic; validates the Sommerfeld reference below | `tests/test_planar_emission_references.py::test_reference_reduces_to_the_image_dipole_at_a_perfect_mirror` | 1e-10 | suite |
+| Sommerfeld integrals over s = k_ρ/k₁ with Parratt-recursion r_s, r_p, written without `pystratify` | method | perpendicular and parallel total rates, ED and MD, 10–300 nm above glass, silver, absorbing films; a TIR case | `tests/test_planar_emission_references.py::test_film_emitter_rates_against_the_sommerfeld_reference` | 1e-10; observed ≤ 5e-12 | suite |
+| the same reference with guided poles | method | rates near lossless guides | out of scope for plain quadrature: real-axis poles need residues, which is what `FilmSource` does | — | out of scope |
 | **PyMoosh** `modes.guided_modes` | code | every guided n_eff (TE and TM) of four lossless guides against `FilmSource.guided_poles`, the poles behind the guided channel | `tests/test_planar_codes.py`; `benchmarks/planar_codes.py` | 1e-9 (PyMoosh's search stops at 1e-10); observed ≤ 1.1e-11 | suite (`benchmarks` extra) |
 | three-layer slab dispersion, κd = mπ + atan(ρ₁γ₁/κ) + atan(ρ₃γ₃/κ) | analytic | the same guided n_eff | `tests/test_planar_codes.py`; `benchmarks/planar_codes.py` | 1e-12; observed ≤ 6.6e-14 | suite (`benchmarks` extra) |
 | **PyMoosh** `green` | code | — | out of scope: a 2D TE line source on a periodic window, not a 3D point dipole | — | out of scope |
+| **smuthi** `DipoleSource.dissipated_power` | code | total rate in a layered medium, incl. lossless guides (its own Sommerfeld contour) | to build: `benchmarks/emitter_codes.py`; pip install compiles NFM-DS with gfortran (installed) | 1e-6 | to build |
+| **Meep**, cylindrical coordinates, dipole on the axis (m = 0 perpendicular, m = ±1 parallel) | code | Purcell factor above a film; a different method (FDTD), so it also checks the Sommerfeld formulation | to build: `benchmarks/fdtd_meep.py`; conda-forge `pymeep` | ~1e-2 (grid, PML) | to build |
 | OLED outcoupling papers (e.g. Furno et al. 2012; Neyts 1998) | paper | outcoupled / guided / absorbed fractions against ETL thickness | to build: `crosscheck/` script per paper (WP1.6/1.8) | plotting precision | to build |
 
 ### Focused beam
@@ -135,6 +143,8 @@ blank = the reference cannot compute it.
 | homogeneous medium; independent flux budget; guided channels | analytic / method | rate channels | `tests/test_unified.py::test_homogeneous_point_source`, `::test_absorbing_coating_independent_power_budget`, `::test_guided_point_sources_not_line_sources` | 1e-8 / 1e-5 / 1e-6 | suite |
 | grazing endpoint continuation within the error budget | method | rates of lossy cylinders | `tests/test_unified.py::test_cylinder_grazing_uncertainty_cannot_pass_a_tighter_tolerance` | per tolerance | suite |
 | **treams** (cylindrical-wave expansion of a point source) | code | total rate beside a cylinder | to build: check that treams expands a 3D point source in cylindrical waves; else out of scope | 1e-6 | to build |
+| **Meep**, 3D FDTD (the cylinder through the PML) | code | Purcell factor beside a dielectric cylinder | to build: `benchmarks/fdtd_meep.py`; 3D, so run alone on this 8 GB Mac | ~1e-2 | to build |
+| **NGSolve** (finite elements) | code | the same, a second volume method | to build, after Meep | ~1e-3 | to build |
 | a published dipole-beside-a-nanowire paper | paper | Purcell factor against distance | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
 
 ### Focused beam
@@ -187,7 +197,9 @@ blank = the reference cannot compute it.
 | Casimir–Polder non-retarded limit | analytic | potential | `tests/test_casimir.py::test_non_retarded_limit_near_a_large_sphere` | 1e-12 | suite |
 | **treams** (spherical-wave expansion of a dipole) | code | total rate beside a coated sphere | to build: `benchmarks/sphere_codes.py` | 1e-10 | to build |
 | Anger, Bharadwaj & Novotny 2006 | paper | quenching against distance from Au | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
-| **pyGDM2** / **MNPBEM** | code | Purcell factor at 10 nm from a 40 nm Au sphere | to build: `benchmarks/sphere_codes.py` | discretization-limited | to build |
+| **pyGDM2** / **MNPBEM** | code | Purcell factor at 10 nm from a 40 nm Au sphere | to build: `benchmarks/sphere_codes.py`; MNPBEM needs MATLAB | discretization-limited | to build |
+| **Meep**, cylindrical coordinates (dipole on the axis through the sphere) | code | Purcell factor beside a dielectric and a Drude sphere; Q_ext | to build: `benchmarks/fdtd_meep.py` | ~1e-2 | to build |
+| **smuthi** (dipole source and a sphere, by Mie T-matrix) | code | total rate | to build: `benchmarks/emitter_codes.py` | 1e-6 | to build |
 
 ### Focused beam
 
@@ -208,11 +220,15 @@ blank = the reference cannot compute it.
   four lossless guides with PyMoosh (≤ 1.1e-11) and the slab dispersion relation (≤ 6.6e-14).
   Conventions that had to be mapped: PyMoosh's p-polarised t is the H-field ratio, and pyElli's
   Δ = 180° − Δ(tmm). Still open on films: anisotropy (pyElli's 4×4, with WP1.4).
-- **Film and cylinder emitters have no external rate reference.** The guided poles of a film's
-  source are now checked (PyMoosh, slab dispersion), but the rates themselves rest on conservation,
-  limits and an independent flux budget. PyMoosh's source is a 2D line source, so it cannot help; a
-  closed form for a dipole at or above a half-space (Lukosz; Chance, Prock & Silbey) is the cheapest
-  outside check.
+- **Film emitter rates now have an outside reference** (2026-10-10): independently written
+  Sommerfeld integrals, themselves pinned to the image-dipole closed form, agree with
+  `FilmSource` to ≤ 5e-12 for electric and magnetic dipoles above glass, silver and absorbing films.
+  Stacks with lossless guides need pole residues and wait for smuthi. **Cylinder emitters still have no
+  outside reference**: no closed form exists, so FDTD (Meep) or FEM (NGSolve) is the way, at ~1%.
+- **Volume methods (FDTD, FEM, BEM) are a different-method check at ~1%**, not a precision check:
+  they test the formulation (sign conventions, normalisation, multipole bookkeeping), not the digits.
+  Meep in cylindrical coordinates is cheap for a dipole on the symmetry axis (films, spheres);
+  off-axis sources and cylinders need 3D runs, one at a time on this 8 GB Mac.
 - **Spheres are the best covered**: precision, BHMIE, treams and five papers. They lack a check by a
   different *method* (BEM or a volume Green dyadic), which would catch a shared Mie-formulation
   error that every Mie code would repeat.
