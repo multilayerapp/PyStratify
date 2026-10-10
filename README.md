@@ -148,8 +148,11 @@ Any region of a film stack, cylinder or sphere can carry a hydrodynamic electron
 diffusion). Its index `n` stays the transverse (local) response, measured data included; the
 interband background eps_b = n^2 + omega_p^2/(omega(omega + i gamma)) follows, so beta -> 0 is the
 local result. Boundary conditions: E_t, H_t continuous; n.J = 0 (hard wall) where a hydrodynamic
-region meets one without an electron gas; n.J and (beta^2/omega_p^2) div J continuous between two
-electron gases, the choice that conserves energy (a pressure-continuity condition does not).
+region meets one without an electron gas. Between two electron gases `contact` selects the pair:
+`"electrochemical"` (default; n.J and the electrochemical-potential perturbation
+(beta^2/omega_p^2) div J continuous, Forstmann & Stenschke) or `"boardman"` (n.v and the pressure
+beta^2 div J continuous, as in Dong et al.). Both conserve energy and differ when the plasma
+frequencies differ; mixing them (n.J with the pressure) does not, and is not offered.
 
 ```python
 import numpy as np
@@ -178,7 +181,8 @@ undamped (gamma = 0) hydrodynamic stacks. Tests (`tests/test_nonlocal_*.py`): an
 extended-precision global matrix for every geometry, the closed forms of Ruppin (spheres, wires),
 Raza et al.'s l beta/(2R) wire resonances, Melnyk-Harrison film resonances, the order-dependent
 Feibelman d_perp equivalence, identical-metal splitting, volume dissipation against flux jumps
-across two metals, energy balance of every emitter, the local limits.
+across two metals (both contacts; the mixed pair fails), energy balance of every emitter, the local
+limits.
 
 | quantity | function |
 |---|---|

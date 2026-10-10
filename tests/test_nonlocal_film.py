@@ -3,10 +3,11 @@
 Checked against: the extended-precision global matrix (tests/nonlocal_reference.py) for thin and
 thick films, a hydrodynamic half-space, a gap between two films and a metal/metal bilayer, at
 propagating and evanescent in-plane wavenumbers; coh_tmm when nothing is hydrodynamic; the
-invariance under splitting one metal into two identical layers (the metal/metal ABCs); energy:
-the dissipation of every layer integrated over its volume (free-electron friction, interband
-loss and the GNOR diffusion) against the jump of the Poynting plus hydrodynamic energy flux,
-across an interface between two different metals; the Tonks-Dattner (Melnyk-Harrison) absorption
+invariance under splitting one metal into two identical layers (the metal/metal ABCs, both
+contacts); energy: the dissipation of every layer integrated over its volume (free-electron
+friction, interband loss and the GNOR diffusion) against the jump of the Poynting plus
+hydrodynamic energy flux, across an interface between two different metals, for both contacts,
+and its failure for the hybrid pair (n.J, pressure); the Tonks-Dattner (Melnyk-Harrison) absorption
 peaks of a thin film above the plasma frequency, omega_n^2 = omega_p^2 + beta^2 [(n pi/d)^2 + K^2].
 """
 
@@ -51,6 +52,21 @@ def test_against_global_matrix(name, index, d, hydro, energy):
         assert abs(r - ref) <= 1e-13 * abs(ref)
 
 
+@pytest.mark.parametrize("energy", [3.0, 5.5])
+def test_boardman_contact_against_global_matrix(energy):
+    _, index, d, hydro = CASES[3]
+    w = lam(energy)
+    n = index(w)
+    k0 = 2 * np.pi / w
+    for K in (0.0, 0.7 * k0, 3 * k0, 0.5):
+        r = film_response(n, d, w, K, hydro, "boardman").r[0]
+        ref = film_rp(n, d[1:-1], w, hydro, K, contact="boardman")
+        assert abs(r - ref) <= 1e-13 * abs(ref)
+        if K:  # at normal incidence nothing excites the longitudinal waves
+            fs = film_response(n, d, w, K, hydro).r[0]
+            assert abs(r - fs) > 1e-8 * abs(fs)
+
+
 def test_local_stack_is_coh_tmm():
     for n, d, w, th in (([1.0, 1.5, 0.14 + 3.15j, 1.33], [np.inf, 100, 30, np.inf], 614.0, 0.6),
                         ([1.5, 2.0, 1.0], [np.inf, 200, np.inf], 500.0, 0.9)):
@@ -59,14 +75,15 @@ def test_local_stack_is_coh_tmm():
         assert abs(a["r_p"] - b["r"]) <= 1e-14 and abs(a["R_p"] - b["R"]) <= 1e-14 and abs(a["T_p"] - b["T"]) <= 1e-14
 
 
-def test_identical_metals_have_no_interface():
+@pytest.mark.parametrize("contact", ["electrochemical", "boardman"])
+def test_identical_metals_have_no_interface(contact):
     model = Hydrodynamic.from_ev(9.0, 0.07, 1.39e6, model="halevi", diffusion=2e-4)
     for energy in (3.0, 5.5):
         w = lam(energy)
         n = nd(model, w, 4.5)
         K = 0.8 * 2 * np.pi / w
         one = film_response([1.0, n, 1.5], [np.inf, 7.0, np.inf], w, K, {1: model})
-        two = film_response([1.0, n, n, 1.5], [np.inf, 3.0, 4.0, np.inf], w, K, {1: model, 2: model})
+        two = film_response([1.0, n, n, 1.5], [np.inf, 3.0, 4.0, np.inf], w, K, {1: model, 2: model}, contact)
         assert abs(one.r[0] - two.r[0]) <= 1e-14 * abs(one.r[0])
 
 
@@ -105,21 +122,42 @@ def _dissipation(res, w, n, d, hydro, layer, points=400):
     return float(np.sum(wts * density))
 
 
-@pytest.mark.parametrize("energy", [3.0, 5.5])
-def test_energy_flux_across_two_metals(energy):
-    """Each layer's volume dissipation equals the jump of (Poynting + hydrodynamic) flux; across Au|Ag
-    this holds only if n.J and (beta^2/omega_p^2) div J are continuous."""
+def _balance(energy, contact):
+    """Largest relative mismatch, over the two metal layers of Au|Ag, between the jump of
+    (Poynting + hydrodynamic) flux and the volume dissipation."""
     w = lam(energy)
     n = [1.0, nd(AU, w, 9.5), nd(AG, w, 4.5), 1.46]
     d = [np.inf, 3.0, 4.0, np.inf]
     hydro = {1: AU, 2: AG}
-    res = film_response(n, d, w, 0.6 * 2 * np.pi / w, hydro)
+    res = film_response(n, d, w, 0.6 * 2 * np.pi / w, hydro, contact)
     total = res.flux[0] + res.hydro_flux[0]
-    for layer in (1, 2):
-        jump = total[layer - 1] - total[layer]
-        volume = _dissipation(res, w, n, d, hydro, layer)
-        assert abs(jump - volume) <= 1e-9 * abs(volume)
     assert abs(res.hydro_flux[0, 1]) > 1e-6 * abs(total[0])  # the hydrodynamic flux is not negligible here
+    worst = 0.0
+    for layer in (1, 2):
+        volume = _dissipation(res, w, n, d, hydro, layer)
+        worst = max(worst, abs(total[layer - 1] - total[layer] - volume) / abs(volume))
+    return worst
+
+
+@pytest.mark.parametrize("contact", ["electrochemical", "boardman"])
+@pytest.mark.parametrize("energy", [3.0, 5.5])
+def test_energy_flux_across_two_metals(energy, contact):
+    """Each layer's volume dissipation equals the jump of (Poynting + hydrodynamic) flux: across Au|Ag
+    both contacts keep J_n* M continuous, so the balance holds layer by layer."""
+    assert _balance(energy, contact) <= 1e-9
+
+
+def test_hybrid_contact_breaks_energy_balance(monkeypatch):
+    """n.J and the pressure (proportional to omega_p^2 M) continuous: J_n* M jumps by the ratio of the
+    plasma frequencies, and the balance fails at the Au|Ag interface."""
+    import pystratify.nonlocal_film as film
+
+    def hybrid(regions, contact):
+        return [(1.0, 1 / m.plasma_wavelength**2) if m is not None else 1.0 for m in regions]
+
+    monkeypatch.setattr(film, "contact_weights", hybrid)
+    for energy in (3.0, 5.5):
+        assert _balance(energy, "electrochemical") > 1e-4
 
 
 def test_tonks_dattner_peaks():

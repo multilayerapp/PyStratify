@@ -24,6 +24,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .cylindrical import outgoing_root
+from .hydrodynamic import contact_weights
 from .nonlocal_sphere import hydrodynamic_regions
 from .nonlocal_sweep import ChannelSweep, Traces, channel_sweep
 
@@ -97,7 +98,7 @@ class FilmResponse:
     traces: _FilmTraces
 
 
-def film_response(n, d, wavelength, K, hydrodynamic) -> FilmResponse:
+def film_response(n, d, wavelength, K, hydrodynamic, contact="electrochemical") -> FilmResponse:
     """``n`` (M,) incident medium first, ``d`` (M,) thicknesses with infinite half-spaces at both
     ends, ``K`` scalar or array of in-plane wavenumbers, ``hydrodynamic`` {medium: Hydrodynamic}
     (the incident medium excluded; the exit half-space may be a hydrodynamic metal)."""
@@ -110,7 +111,7 @@ def film_response(n, d, wavelength, K, hydrodynamic) -> FilmResponse:
         raise ValueError("the incident medium cannot be hydrodynamic")
     traces = _FilmTraces(n, d, float(wavelength), K, hydro_list)
     flags = [traces.hydro[s] is not None for s in range(M)]
-    sweep = channel_sweep(traces, traces.zeta, 1, flags)
+    sweep = channel_sweep(traces, traces.zeta, 1, flags, contact_weights(traces.hydro, contact))
     r = sweep.R_out[-1][:, 0, 0]
     B = traces.K.size
     regular = sweep.regular_amplitudes(np.ones((B, 1, 1), complex))
@@ -132,7 +133,7 @@ def film_response(n, d, wavelength, K, hydrodynamic) -> FilmResponse:
     return FilmResponse(traces.K, r, t_h, flux, hydro_flux, sweep, traces)
 
 
-def solve_nonlocal_film(n, d, wavelength, hydrodynamic, angle=0.0):
+def solve_nonlocal_film(n, d, wavelength, hydrodynamic, angle=0.0, contact="electrochemical"):
     """Plane wave from the first medium (lossless) at ``angle`` (radians): p from the hydrodynamic
     recursion, s from :func:`~pystratify.planar.coh_tmm`.  Returns r, R, T, absorption per layer
     (p and s) and the unpolarised R, T, A."""
@@ -141,7 +142,7 @@ def solve_nonlocal_film(n, d, wavelength, hydrodynamic, angle=0.0):
     if n[0].imag != 0 or n[0].real <= 0:
         raise ValueError("the incident medium must be lossless")
     K = 2 * np.pi * n[0].real / wavelength * np.sin(angle)
-    res = film_response(n, d, wavelength, K, hydrodynamic)
+    res = film_response(n, d, wavelength, K, hydrodynamic, contact)
     k0 = 2 * np.pi / wavelength
     kz0 = outgoing_root((k0 * n[0]) ** 2 - K**2)
     incident = np.real(kz0 / (k0 * n[0] ** 2))

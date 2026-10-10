@@ -109,6 +109,7 @@ class Problem:
     max_evaluations: int = 20000
     coherence: object = None
     hydrodynamic: object = None
+    contact: str = "electrochemical"
 
     def __post_init__(self):
         if self.geometry not in ("films", "cylinders", "spheres"):
@@ -149,6 +150,9 @@ class Problem:
                 raise ValueError("focused beams on hydrodynamic stacks are not supported yet")
             if self.coherence is not None and "i" in self.coherence[1:-1]:
                 raise ValueError("hydrodynamic films need a fully coherent stack")
+            from .hydrodynamic import CONTACTS
+            if self.contact not in CONTACTS:
+                raise ValueError(f"contact must be one of {CONTACTS}")
             object.__setattr__(self, "hydrodynamic", {j: m for j, m in enumerate(regions) if m is not None})
         object.__setattr__(self, "n", n.copy())
         object.__setattr__(self, "dimensions", dimensions.copy())

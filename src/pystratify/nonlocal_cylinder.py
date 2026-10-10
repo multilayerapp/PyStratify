@@ -24,6 +24,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .cylindrical import outgoing_root
+from .hydrodynamic import contact_weights
 from .nonlocal_sphere import hydrodynamic_regions
 from .nonlocal_sweep import ChannelSweep, Traces, channel_sweep
 from .special import cylinder_logs
@@ -151,9 +152,11 @@ class NonlocalCylinder:
     t: np.ndarray
 
 
-def solve_nonlocal_cylinder(radii, n, wavelength, hydrodynamic, *, mu=None, beta=0, m_max=None) -> NonlocalCylinder:
+def solve_nonlocal_cylinder(radii, n, wavelength, hydrodynamic, *, mu=None, beta=0, m_max=None,
+                            contact="electrochemical") -> NonlocalCylinder:
     """Concentric cylinders with hydrodynamic regions ({region: Hydrodynamic}, region 0 the core,
-    the exterior excluded) for orders -m_max..m_max at axial wavenumber ``beta``."""
+    the exterior excluded) for orders -m_max..m_max at axial wavenumber ``beta``; ``contact`` as in
+    :func:`~pystratify.solve_nonlocal_sphere`."""
     radii, n = np.asarray(radii, float), np.asarray(n, complex)
     mu = np.ones_like(n) if mu is None else np.asarray(mu, complex)
     if radii.ndim != 1 or not len(radii) or radii[0] <= 0 or np.any(np.diff(radii) <= 0):
@@ -177,7 +180,7 @@ def solve_nonlocal_cylinder(radii, n, wavelength, hydrodynamic, *, mu=None, beta
         raise ValueError("m_max must be an integer in 1..1500")
     orders = np.arange(-int(m_max), int(m_max) + 1)
     traces = _CylinderTraces(radii, n, mu, float(wavelength), beta, orders, hydro)
-    sweep = channel_sweep(traces, radii, 2, [h is not None for h in hydro])
+    sweep = channel_sweep(traces, radii, 2, [h is not None for h in hydro], contact_weights(hydro, contact))
     host = sweep.outer[-1]
     with np.errstate(over="ignore", under="ignore"):
         t = sweep.R_out[-1] * np.exp(host.LF[:, 0] - host.LG[:, 0])[:, None, None]

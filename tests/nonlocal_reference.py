@@ -70,9 +70,21 @@ def _ric(kind, l, x):
 
 
 # ----------------------------------------------------------------------------- generic global solve
-def _global(regions, radii, n_t, columns, rhs_cols, unknown_index):
+def _weights(models, contact):
+    """Metal/metal row weights (w_J, w_M) per region: 1 (electrochemical) or Boardman's
+    n.v = J_n / (n_0 e) and pressure ~ omega_p^2 M, written independently of the sweep's."""
+    if contact == "electrochemical":
+        return [(1, 1)] * len(models)
+    assert contact == "boardman"
+    return [(1, 1) if m is None else (mp.mpf(m.plasma_wavelength) ** 2, 1 / mp.mpf(m.plasma_wavelength) ** 2)
+            for m in models]
+
+
+def _global(regions, radii, n_t, columns, rhs_cols, unknown_index, weights=None):
     """Assemble and solve.  ``columns`` lists (region, trace(r) -> vector, scale) per unknown;
-    ``rhs_cols`` the incident-wave columns (region, trace).  Traces are [E_t.., H_t.., Jn, M]."""
+    ``rhs_cols`` the incident-wave columns (region, trace).  Traces are [E_t.., H_t.., Jn, M];
+    ``weights[region]`` = (w_J, w_M) multiplies its J_n and M in metal/metal rows."""
+    weights = weights or [(1, 1)] * len(regions)
     rows = []
     rhs = []
     for j, r in enumerate(radii):
@@ -81,17 +93,18 @@ def _global(regions, radii, n_t, columns, rhs_cols, unknown_index):
         both = hin and hout
         for comp in sel + ([2 * n_t, 2 * n_t + 1] if both else []):
             row = [mp.mpc(0)] * len(columns)
+            wt = lambda reg: weights[reg][comp - 2 * n_t] if comp >= 2 * n_t else 1
             for c, (reg, trace, scale) in enumerate(columns):
                 if reg == j + 1:
-                    row[c] += trace(r)[comp] / scale
+                    row[c] += wt(reg) * trace(r)[comp] / scale
                 elif reg == j:
-                    row[c] -= trace(r)[comp] / scale
+                    row[c] -= wt(reg) * trace(r)[comp] / scale
             b = mp.mpc(0)
             for reg, trace in rhs_cols:
                 if reg == j + 1:
-                    b -= trace(r)[comp]
+                    b -= wt(reg) * trace(r)[comp]
                 elif reg == j:
-                    b += trace(r)[comp]
+                    b += wt(reg) * trace(r)[comp]
             rows.append(row)
             rhs.append(b)
         if (hin or hout) and not both:  # hard wall on the hydrodynamic side
@@ -118,7 +131,7 @@ def _global(regions, radii, n_t, columns, rhs_cols, unknown_index):
 
 
 # ----------------------------------------------------------------------------- spheres
-def sphere_t(radii, n, wavelength, hydrodynamic, l, polarization="TM", dps=60):
+def sphere_t(radii, n, wavelength, hydrodynamic, l, polarization="TM", dps=60, contact="electrochemical"):
     """T = B/A of the host for order l (TM or TE), hydrodynamic: {region: Hydrodynamic}."""
     with mp.workdps(dps):
         N = len(radii)
@@ -166,12 +179,13 @@ def sphere_t(radii, n, wavelength, hydrodynamic, l, polarization="TM", dps=60):
                 columns.append((reg, longitudinal(reg, "j"), _sph("j", l, kL * R[reg])[0]))
                 if reg > 0:
                     columns.append((reg, longitudinal(reg, "h"), _sph("h", l, kL * R[reg - 1])[0]))
-        u = _global([m is not None for m in hydro], R, 1, columns, [(N, transverse(N, "psi"))], None)
+        u = _global([m is not None for m in hydro], R, 1, columns, [(N, transverse(N, "psi"))], None,
+                    _weights(hydro, contact))
         return complex(u[-1])
 
 
 # ----------------------------------------------------------------------------- cylinders
-def cylinder_t(radii, n, wavelength, hydrodynamic, m, beta, dps=50):
+def cylinder_t(radii, n, wavelength, hydrodynamic, m, beta, dps=50, contact="electrochemical"):
     """2x2 T block (rows: scattered N, M; columns: incident N, M) for azimuthal order m and
     axial wavenumber beta (PyStratify's vector basis, see pystratify.cylindrical.vectors)."""
     with mp.workdps(dps):
@@ -227,13 +241,14 @@ def cylinder_t(radii, n, wavelength, hydrodynamic, m, beta, dps=50):
         out = np.zeros((2, 2), complex)
         hydro = [j in par for j in range(N + 1)]
         for c, ch in enumerate(("N", "M")):
-            u = _global(hydro, R, 2, columns, [(N, transverse(N, "J", ch)[0])], None)
+            u = _global(hydro, R, 2, columns, [(N, transverse(N, "J", ch)[0])], None,
+                        _weights([hydrodynamic.get(j) for j in range(N + 1)], contact))
             out[0, c], out[1, c] = complex(u[-2]), complex(u[-1])  # host H columns: N then M
         return out
 
 
 # ----------------------------------------------------------------------------- films
-def film_rp(n, thickness, wavelength, hydrodynamic, K, dps=50):
+def film_rp(n, thickness, wavelength, hydrodynamic, K, dps=50, contact="electrochemical"):
     """p-polarised reflection amplitude (H_y convention: r = H_refl / H_inc at the first
     interface) of a stack n[0] (incident) .. n[-1] (exit), thicknesses of n[1:-1], in-plane
     wavenumber K; hydrodynamic: {region: Hydrodynamic} (the exit half-space may be one)."""
@@ -290,7 +305,8 @@ def film_rp(n, thickness, wavelength, hydrodynamic, K, dps=50):
                     columns.append((s, tr, tr(zeta[s - 1])[1 if kind == "T" else 3]))
         hydro = [reg in par for reg in regs]
         inc, _ = transverse(0, +1)
-        u = _global(hydro, zeta[1:M] if False else [zeta[s] for s in range(M - 1)], 1, columns, [(M - 1, inc)], None)
+        u = _global(hydro, [zeta[s] for s in range(M - 1)], 1, columns, [(M - 1, inc)], None,
+                    _weights([hydrodynamic.get(reg) for reg in regs], contact))
         # last column: backward wave in the incident medium (reflected), referred at zeta_{M-2}
         refl = transverse(0, -1)[0]
         scale = refl(zeta[M - 2])[1]

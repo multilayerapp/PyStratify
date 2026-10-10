@@ -40,8 +40,11 @@ Parameters are in PyStratify's wavelength form, unit-agnostic like
 Boundary conditions (``pystratify.nonlocal_sweep``): E_t and H_t are continuous
 everywhere.  Where a hydrodynamic region meets a region without an electron
 gas the normal current vanishes on its side, n.J = 0 (the hard wall).  Where two
-hydrodynamic regions meet, n.J and the perturbation of the electrochemical
-potential, proportional to (beta^2 / omega_p^2) div J, are continuous.
+hydrodynamic regions meet, ``contact="electrochemical"`` (the default) makes n.J
+and the perturbation of the electrochemical potential, proportional to
+(beta^2 / omega_p^2) div J, continuous (Forstmann & Stenschke); ``"boardman"``
+makes n.v and the pressure perturbation, proportional to beta^2 div J,
+continuous.  Both conserve energy; they differ when omega_p differs.
 """
 
 from __future__ import annotations
@@ -50,12 +53,28 @@ from dataclasses import dataclass
 
 import numpy as np
 
-__all__ = ["Hydrodynamic", "HC_EV_NM"]
+__all__ = ["Hydrodynamic", "HC_EV_NM", "CONTACTS", "contact_weights"]
 
 #: h c in eV nm: lambda[nm] = HC_EV_NM / E[eV]
 HC_EV_NM = 1239.841984
 _C = 299792458.0
 _MODELS = ("high-frequency", "thomas-fermi", "halevi")
+
+
+#: boundary conditions between two electron gases: continuity of n.J and of the electrochemical-
+#: potential perturbation (beta^2/omega_p^2) div J (Forstmann & Stenschke, Phys. Rev. Lett. 38, 1365
+#: (1977); the default), or of n.v and of the pressure beta^2 div J (Boardman 1982; Dong et al.)
+CONTACTS = ("electrochemical", "boardman")
+
+
+def contact_weights(regions, contact="electrochemical"):
+    """Per-region weights of the metal/metal rows (``pystratify.nonlocal_sweep.interface_rows``):
+    None for the electrochemical condition, lambda_p^2 (proportional to 1/omega_p^2) for Boardman's."""
+    if contact not in CONTACTS:
+        raise ValueError(f"contact must be one of {CONTACTS}")
+    if contact == "electrochemical":
+        return None
+    return [m.plasma_wavelength**2 if m is not None else 1.0 for m in regions]
 
 
 def _branch(value):

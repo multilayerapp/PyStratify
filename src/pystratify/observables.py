@@ -199,11 +199,12 @@ def _solve_nonlocal(problem, outputs=("rates",), *, theta=None, phi=0):
     from the nonlocal solvers (:mod:`pystratify.nonlocal_sweep`)."""
     geometry, source, n, d, wavelength = problem.geometry, problem.source, problem.n, problem.dimensions, problem.wavelength
     hydro = problem.hydrodynamic
+    contact = problem.contact
     if isinstance(source, PlaneWave):
         if geometry == "films":
             from .nonlocal_film import solve_nonlocal_film
             angle = 0 if source.angle is None else source.angle
-            result = solve_nonlocal_film(n, d, wavelength, hydro, angle)
+            result = solve_nonlocal_film(n, d, wavelength, hydro, angle, contact)
             if source.polarization == "p":
                 R, T = result["R_p"], result["T_p"]
             elif source.polarization == "s":
@@ -214,13 +215,13 @@ def _solve_nonlocal(problem, outputs=("rates",), *, theta=None, phi=0):
         if geometry == "spheres":
             from .farfield import cross_sections
             from .nonlocal_sphere import solve_nonlocal_sphere
-            solution = solve_nonlocal_sphere(d, n, wavelength, hydro, l_max=problem.order).solution
+            solution = solve_nonlocal_sphere(d, n, wavelength, hydro, l_max=problem.order, contact=contact).solution
             return dict(solution=solution, cross_sections=cross_sections(solution))
         from .cylindrical import cross_widths, cylinder_pattern
         from .nonlocal_cylinder import solve_nonlocal_cylinder
         angle = np.pi / 2 if source.angle is None else source.angle
         solution = solve_nonlocal_cylinder(d, n, wavelength, hydro, beta=2 * np.pi * n[-1].real / wavelength * np.cos(angle),
-                                           m_max=problem.order)
+                                           m_max=problem.order, contact=contact)
         result = dict(solution=solution, **cross_widths(solution, source.polarization))
         if theta is not None:
             result["pattern"] = cylinder_pattern(solution, theta, source.polarization)
@@ -232,7 +233,7 @@ def _solve_nonlocal(problem, outputs=("rates",), *, theta=None, phi=0):
         from .nonlocal_sources import NonlocalFilmSource
         if source.layer is None:
             raise ValueError("planar source needs its region index")
-        model = NonlocalFilmSource(n, d, wavelength, source.layer, source.position, source.dipole_type, hydro)
+        model = NonlocalFilmSource(n, d, wavelength, source.layer, source.position, source.dipole_type, hydro, contact)
         r = model.rates(problem.tolerance, problem.max_evaluations)
         total, escape, guided, absorbed = r.total, r.escape, r.guided, r.absorbed
         upper, lower = r.upper, r.lower
@@ -241,7 +242,7 @@ def _solve_nonlocal(problem, outputs=("rates",), *, theta=None, phi=0):
     elif geometry == "cylinders":
         from .nonlocal_sources import NonlocalCylinderSource
         model = NonlocalCylinderSource(d, n, wavelength, source.position, source.dipole_type, problem.order,
-                                       problem.tolerance, hydro)
+                                       problem.tolerance, hydro, contact)
         r = model.rates(problem.tolerance, problem.max_evaluations)
         total, escape, guided, absorbed = r.total, r.escape, r.guided, r.absorbed
         diagnostics = dict(converged=r.converged, integration_error=r.error, evaluations=r.evaluations, orders=r.orders,
@@ -252,7 +253,7 @@ def _solve_nonlocal(problem, outputs=("rates",), *, theta=None, phi=0):
         if source.position < 0 or any(n[j].imag != 0 or n[j].real <= 0 for j in (layer, len(n) - 1)):
             raise ValueError("source radius is nonnegative and source/exterior must be lossless")
         r = nonlocal_sphere_rates(d, n, wavelength, hydro, source.position, dipole=source.dipole_type,
-                                  l_max=problem.order, tol=problem.tolerance)
+                                  l_max=problem.order, tol=problem.tolerance, contact=contact)
         total, escape, absorbed = r.total, r.radiative, r.absorbed
         guided = np.zeros(2)
         diagnostics = dict(converged=bool(r.converged and np.max(r.balance_error) <= problem.tolerance), orders=r.orders,

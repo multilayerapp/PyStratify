@@ -53,3 +53,24 @@ def test_cylinder_emitter(radii, n, r, layer, dipole):
         assert np.all(nonlocal_.total < local.total)
     else:  # a magnetic dipole sees the shift of the shell's resonances, either way
         assert np.max(np.abs(nonlocal_.total / local.total - 1)) > 1e-3
+
+
+AU = Hydrodynamic.from_ev(9.03, 0.053, 1.40e6, model="halevi", diffusion=1.9e-4)
+N_AU = complex(AU.transverse_index(W, 9.5))
+
+
+@pytest.mark.parametrize("contact", ["electrochemical", "boardman"])
+def test_emitters_across_two_metals(contact):
+    """Au|Ag bilayer and Au@Ag wire: energy balance for both metal/metal contacts, and the two contacts
+    give different rates."""
+    n, d = [1.0, 1.46, N_AU, N_AG, 1.5], [np.inf, 20.0, 3.0, 4.0, np.inf]
+    film = {c: NonlocalFilmSource(n, d, W, 1, 19.0, "electric", {2: AU, 3: AG}, c).rates(1e-8)
+            for c in ("electrochemical", contact)}
+    assert film[contact].converged and np.max(film[contact].balance_error) <= 1e-9
+    radii, nc = [6.0, 8.0], [N_AU, N_AG, 1.33]
+    wire = {c: NonlocalCylinderSource(radii, nc, W, 9.0, "electric", m_max=40, hydrodynamic={0: AU, 1: AG},
+                                      contact=c)._rates_once(1e-6, 20000) for c in ("electrochemical", contact)}
+    assert np.max(wire[contact].balance_error) <= 1e-8
+    if contact == "boardman":
+        assert np.max(np.abs(film[contact].total / film["electrochemical"].total - 1)) > 1e-6
+        assert np.max(np.abs(wire[contact].total / wire["electrochemical"].total - 1)) > 1e-6

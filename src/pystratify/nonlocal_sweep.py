@@ -77,9 +77,13 @@ class Traces:
         return vectors if self.U is None else self.U @ vectors
 
 
-def interface_rows(n_t, hydro_in, hydro_out):
+def interface_rows(n_t, hydro_in, hydro_out, w_in=1.0, w_out=1.0):
     """Row selectors (C_in, C_out), each (rows, 2 n_t + 2): the conditions read
-    C_out . trace_out = C_in . trace_in."""
+    C_out . trace_out = C_in . trace_in.  Between two electron gases the rows are w J_n and M / w:
+    w = 1 is continuity of n.J and of the electrochemical-potential perturbation (Forstmann &
+    Stenschke), w = 1/omega_p^2 of each side continuity of n.v and of the pressure (Boardman); both
+    keep J_n* M, the hydrodynamic energy flux, continuous.  A pair (w_J, w_M) weights the two rows
+    independently (any other pair does not conserve energy; the tests use it to show that)."""
     n_comp = 2 * n_t + 2
     jn, mu = 2 * n_t, 2 * n_t + 1
     rows_in, rows_out = [], []
@@ -88,12 +92,13 @@ def interface_rows(n_t, hydro_in, hydro_out):
         e[c] = 1
         rows_in.append(e)
         rows_out.append(e)
-    if hydro_in and hydro_out:  # two electron gases: n.J and the potential perturbation continuous
-        for c in (jn, mu):
-            e = np.zeros(n_comp)
-            e[c] = 1
-            rows_in.append(e)
-            rows_out.append(e)
+    if hydro_in and hydro_out:  # two electron gases
+        (a_j, a_m), (b_j, b_m) = (tuple(w) if np.ndim(w) else (w, 1 / w) for w in (w_in, w_out))
+        for c, a, b in ((jn, a_j, b_j), (mu, a_m, b_m)):
+            e_in, e_out = np.zeros(n_comp), np.zeros(n_comp)
+            e_in[c], e_out[c] = a, b
+            rows_in.append(e_in)
+            rows_out.append(e_out)
     elif hydro_in or hydro_out:  # hard wall on the hydrodynamic side
         e = np.zeros(n_comp)
         e[jn] = 1
@@ -249,15 +254,17 @@ def _normalise(v, log):
     return v / safe[..., None, :], log + np.log(safe)
 
 
-def channel_sweep(traces, radii, n_t, hydro):
+def channel_sweep(traces, radii, n_t, hydro, weights=None):
     """Run both recursions.  ``traces(region, interface)`` returns the :class:`Traces` of
     ``region`` at ``radii[interface]``; ``hydro[j]`` says whether region j carries a
-    longitudinal channel (regions 0..N, N = len(radii))."""
+    longitudinal channel (regions 0..N, N = len(radii)); ``weights[j]`` weights its metal/metal
+    rows (see :func:`interface_rows`; None: all ones)."""
     radii = np.asarray(radii, float)
     N = len(radii)
     inner = [traces(j, j) for j in range(N)]
     outer = [traces(j + 1, j) for j in range(N)]
-    rows = [interface_rows(n_t, hydro[j], hydro[j + 1]) for j in range(N)]
+    w = [1.0] * (N + 1) if weights is None else list(weights)
+    rows = [interface_rows(n_t, hydro[j], hydro[j + 1], w[j], w[j + 1]) for j in range(N)]
     R_in, R_out, X = [None] * N, [None] * N, [None] * N
     for j in range(N):
         ti, to = inner[j], outer[j]

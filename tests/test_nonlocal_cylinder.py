@@ -139,3 +139,20 @@ def test_local_limit_and_passivity():
             assert np.max(np.abs(t - local)) <= 30 * scale * np.max(np.abs(local))
         widths = ps.cross_widths(solve_nonlocal_cylinder([10.0, 12.0], n, w, {1: AG}, beta=beta, m_max=8))
         assert widths["absorption"] > 0 and widths["scattering"] > 0
+
+
+@pytest.mark.parametrize("axial", [0.0, 0.6, 2.5])
+def test_boardman_contact_against_global_matrix(axial):
+    name, radii, index, hydro = CASES[2]
+    assert name == "Au@Ag"
+    for energy in (3.0, 5.5):
+        w = lam(energy)
+        n = index(w)
+        beta = axial * 2 * np.pi * 1.33 / w
+        sol = solve_nonlocal_cylinder(radii, n, w, hydro, beta=beta, m_max=12, contact="boardman")
+        for m in (0, 1, -3, 12):
+            ref = cylinder_t(radii, n, w, hydro, m, beta, contact="boardman")
+            got = sol.t[list(sol.orders).index(m)]
+            mask = np.abs(ref) > 1e-12 * np.max(np.abs(ref))
+            assert np.all(np.abs(got - ref)[mask] <= 1e-11 * np.abs(ref)[mask])
+            assert np.all(np.abs(got - ref)[~mask] <= 1e-13 * np.max(np.abs(ref)))

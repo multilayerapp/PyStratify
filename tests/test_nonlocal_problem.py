@@ -42,3 +42,21 @@ def test_validation():
         ps.Problem("spheres", [10.0, 12.0], [1.46, N_AG, 1.33], W, ps.PointDipole(11.0), hydrodynamic={1: AG})
     with pytest.raises(ValueError):  # not a Hydrodynamic
         ps.Problem("cylinders", [10.0], [N_AG, 1.0], W, hydrodynamic={0: "silver"})
+    with pytest.raises(ValueError):  # not a metal/metal contact condition
+        ps.Problem("cylinders", [10.0], [N_AG, 1.0], W, hydrodynamic={0: AG}, contact="pressure")
+
+
+AU = ps.Hydrodynamic.from_ev(9.03, 0.053, 1.40e6)
+N_AU = complex(AU.transverse_index(W, 9.5))
+
+
+@pytest.mark.parametrize("geometry, dims, n, source, hydro, key", [
+    ("films", [np.inf, 3.0, 4.0, np.inf], [1.0, N_AU, N_AG, 1.5], ps.PlaneWave(angle=0.5), {1: AU, 2: AG}, "reflectance"),
+    ("spheres", [6.0, 8.0], [N_AU, N_AG, 1.33], ps.PlaneWave(), {0: AU, 1: AG}, "cross_sections"),
+    ("cylinders", [6.0, 8.0], [N_AU, N_AG, 1.33], ps.PlaneWave(angle=np.pi / 3), {0: AU, 1: AG}, "extinction"),
+])
+def test_contact_reaches_the_solvers(geometry, dims, n, source, hydro, key):
+    """contact='boardman' changes a metal/metal stack, through every geometry's dispatch."""
+    a = _value(ps.solve_problem(ps.Problem(geometry, dims, n, W, source, hydrodynamic=hydro)), key)
+    b = _value(ps.solve_problem(ps.Problem(geometry, dims, n, W, source, hydrodynamic=hydro, contact="boardman")), key)
+    assert np.max(np.abs(b - a) / np.abs(a)) > 1e-7

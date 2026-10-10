@@ -31,8 +31,10 @@ class NonlocalFilmSource(FilmSource):
     """:class:`~pystratify.planar_emission.FilmSource` with hydrodynamic films ({region: Hydrodynamic};
     neither the source region nor the exteriors)."""
 
-    def __init__(self, n, thickness, wavelength, layer, depth, dipole="electric", hydrodynamic=None):
+    def __init__(self, n, thickness, wavelength, layer, depth, dipole="electric", hydrodynamic=None,
+                 contact="electrochemical"):
         super().__init__(n, thickness, wavelength, layer, depth, dipole)
+        self.contact = contact
         M = len(self.n)
         hydro = hydrodynamic_regions(hydrodynamic, M, host_allowed=True)
         if hydro[0] is not None or hydro[-1] is not None or hydro[layer] is not None:
@@ -57,7 +59,7 @@ class NonlocalFilmSource(FilmSource):
         if self._physical(pol) == "s" or not hydro:
             return super().half(u, half, pol)
         n, d, _ = half  # n are the physical indices (the dual medium only changes mu)
-        response = film_response(n, d, self.wavelength, self.ks * u, hydro)
+        response = film_response(n, d, self.wavelength, self.ks * u, hydro, self.contact)
         return complex(response.r[0]), response
 
     def half_power(self, half, data, pol):
@@ -117,8 +119,10 @@ class NonlocalCylinderSource(CylinderSource):
     region is the jump of its own Poynting plus hydrodynamic flux, taken inside it (well
     conditioned where it absorbs)."""
 
-    def __init__(self, radii, n, wavelength, radius, dipole="electric", m_max=None, tolerance=1e-6, hydrodynamic=None):
+    def __init__(self, radii, n, wavelength, radius, dipole="electric", m_max=None, tolerance=1e-6, hydrodynamic=None,
+                 contact="electrochemical"):
         super().__init__(radii, n, wavelength, radius, dipole, m_max, tolerance)
+        self.contact = contact
         hydro = hydrodynamic_regions(hydrodynamic, len(self.n))
         if hydro[self.layer] is not None:
             raise ValueError("the source region must be local")
@@ -128,7 +132,7 @@ class NonlocalCylinderSource(CylinderSource):
     def solution(self, b, maximum=None):
         from .nonlocal_cylinder import solve_nonlocal_cylinder
         return solve_nonlocal_cylinder(self.radii, self.n, self.wavelength, self.hydro, beta=self.ks * b,
-                                       m_max=self.m_max if maximum is None else maximum)
+                                       m_max=self.m_max if maximum is None else maximum, contact=self.contact)
 
     def guided_poles(self):
         if any(h is not None for h in self.hydro) and not np.any(self.n.imag):

@@ -23,7 +23,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .convergence import truncation_order
-from .hydrodynamic import Hydrodynamic
+from .hydrodynamic import Hydrodynamic, contact_weights
 from .nonlocal_sweep import ChannelSweep, Traces, channel_sweep
 from .riccati import log_riccati
 from .solver import TE, TM, Solution, _batch
@@ -232,13 +232,16 @@ def _outgoing_logs(sweep, N, hydro):
     return log_bo, log_s
 
 
-def solve_nonlocal_sphere(radii, n, wavelength, hydrodynamic, mu=None, l_max=None, regime="far") -> NonlocalSphere:
+def solve_nonlocal_sphere(radii, n, wavelength, hydrodynamic, mu=None, l_max=None, regime="far",
+                          contact="electrochemical") -> NonlocalSphere:
     """Solve a multilayered sphere with hydrodynamic regions for orders l = 1..l_max.
 
     ``radii`` (N,), ``n`` (N + 1,) or (W, N + 1) host last, ``wavelength`` scalar or (W,), as for
     :func:`~pystratify.solve`; ``hydrodynamic``: {region: :class:`~pystratify.Hydrodynamic`},
     region 0 the core, the host excluded.  ``n`` of a hydrodynamic region is its transverse
-    (local) index.  Vectorised over wavelengths and orders.
+    (local) index.  ``contact``: the condition between two electron gases, 'electrochemical'
+    (Forstmann-Stenschke, default) or 'boardman' (see :data:`pystratify.hydrodynamic.CONTACTS`).
+    Vectorised over wavelengths and orders.
     """
     radii = np.atleast_1d(np.asarray(radii, dtype=float))
     if radii.ndim != 1 or radii.size == 0 or radii[0] <= 0 or np.any(np.diff(radii) <= 0) or not np.all(np.isfinite(radii)):
@@ -255,7 +258,7 @@ def solve_nonlocal_sphere(radii, n, wavelength, hydrodynamic, mu=None, l_max=Non
     flags = [m is not None for m in hydro]
     tm_traces = _SphereTraces(radii, n, mu, wavelength, orders, hydro, TM)
     te_traces = _SphereTraces(radii, n, mu, wavelength, orders, hydro, TE)
-    tm = channel_sweep(tm_traces, radii, 1, flags)
+    tm = channel_sweep(tm_traces, radii, 1, flags, contact_weights(hydro, contact))
     te = channel_sweep(te_traces, radii, 1, [False] * (N + 1))
     log_t = np.empty((2, wavelength.size, orders.size), complex)
     log_a = np.empty((2, N + 1, wavelength.size, orders.size), complex)
@@ -307,7 +310,7 @@ def _wronskian_flux(a, b, log, LF, LG, y, k):
     return np.real(y / k**2) * (np.real(np.nan_to_num(cross)) + np.nan_to_num(own))
 
 
-def _rates_centre(radii, n, mu, wavelength, hydro, dipole):
+def _rates_centre(radii, n, mu, wavelength, hydro, dipole, contact="electrochemical"):
     """A dipole at the centre: only l = 1 couples; total = 1 + Re S_1 (S the core's A/B for the
     outgoing solution), the free dipole being the unit l = 1 outgoing wave of the core."""
     N = radii.size
@@ -316,7 +319,7 @@ def _rates_centre(radii, n, mu, wavelength, hydro, dipole):
     p = 0 if dipole == "electric" else 1
     hydro_p = hydro if p == 0 else (None,) * (N + 1)
     tr = _SphereTraces(radii, nn, mm, lam, orders, hydro_p, p)
-    sw = channel_sweep(tr, radii, 1, [m is not None for m in hydro_p])
+    sw = channel_sweep(tr, radii, 1, [m is not None for m in hydro_p], contact_weights(hydro_p, contact))
     k0 = 2 * np.pi / wavelength
     k, y = k0 * n, n / mu
     core = sw.inner[0]
@@ -355,7 +358,7 @@ def _interface_flux(sw, amp, j, lossless, y, k, radii, k0):
     return _trace_flux(vec[0], radii[j], k0)
 
 
-def _rates_once(radii, n, mu, wavelength, hydro, r0, dipole, L):
+def _rates_once(radii, n, mu, wavelength, hydro, r0, dipole, L, contact="electrochemical"):
     N = radii.size
     s = int(np.searchsorted(radii, r0))
     orders = np.arange(1, L + 1)
@@ -363,7 +366,8 @@ def _rates_once(radii, n, mu, wavelength, hydro, r0, dipole, L):
     lam = np.array([wavelength])
     flags = [m is not None for m in hydro]
     traces = {0: _SphereTraces(radii, nn, mm, lam, orders, hydro, TM), 1: _SphereTraces(radii, nn, mm, lam, orders, hydro, TE)}
-    sweeps = {0: channel_sweep(traces[0], radii, 1, flags), 1: channel_sweep(traces[1], radii, 1, [False] * (N + 1))}
+    sweeps = {0: channel_sweep(traces[0], radii, 1, flags, contact_weights(hydro, contact)),
+              1: channel_sweep(traces[1], radii, 1, [False] * (N + 1))}
     k0 = 2 * np.pi / wavelength
     k = k0 * n
     y = n / mu
@@ -449,7 +453,7 @@ def _rates_once(radii, n, mu, wavelength, hydro, r0, dipole, L):
 
 
 def nonlocal_sphere_rates(radii, n, wavelength, hydrodynamic, r, dipole="electric", mu=None, l_max=None,
-                          tol=1e-10, l_cap=3000) -> NonlocalSphereRates:
+                          tol=1e-10, l_cap=3000, contact="electrochemical") -> NonlocalSphereRates:
     """Decay rates of an electric or magnetic dipole at radius ``r`` (on the z axis) in a lossless,
     local shell (or the host) of a multilayered sphere with hydrodynamic regions.
 
@@ -472,10 +476,10 @@ def nonlocal_sphere_rates(radii, n, wavelength, hydrodynamic, r, dipole="electri
     if dipole not in ("electric", "magnetic"):
         raise ValueError("dipole must be electric or magnetic")
     if r0 == 0:
-        total, radiative, absorbed, _ = _rates_centre(radii, n, mu, float(wavelength), hydro, dipole)
+        total, radiative, absorbed, _ = _rates_centre(radii, n, mu, float(wavelength), hydro, dipole, contact)
         L, converged = 1, True
     elif l_max is not None:
-        total, radiative, absorbed, tail = _rates_once(radii, n, mu, float(wavelength), hydro, r0, dipole, int(l_max))
+        total, radiative, absorbed, tail = _rates_once(radii, n, mu, float(wavelength), hydro, r0, dipole, int(l_max), contact)
         L, converged = int(l_max), bool(np.all(tail <= tol * np.abs(total)))
     else:
         gap = np.min(np.abs(radii - r0))
@@ -484,7 +488,7 @@ def nonlocal_sphere_rates(radii, n, wavelength, hydrodynamic, r, dipole="electri
                 int(np.ceil(np.log(tol) / (2 * np.log(ratio)))) + 10 if ratio < 1 else 50, 8)
         L = min(L, l_cap)
         while True:
-            total, radiative, absorbed, tail = _rates_once(radii, n, mu, float(wavelength), hydro, r0, dipole, L)
+            total, radiative, absorbed, tail = _rates_once(radii, n, mu, float(wavelength), hydro, r0, dipole, L, contact)
             converged = bool(np.all(tail <= tol * np.abs(total)))
             if converged or L >= l_cap:
                 break

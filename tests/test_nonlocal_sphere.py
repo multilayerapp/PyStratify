@@ -199,3 +199,33 @@ def test_rates_against_global_matrix_t():
                 xi = mp.sqrt(mp.pi * x0 / 2) * (mp.besselj(l + 0.5, x0) + 1j * mp.bessely(l + 0.5, x0))
                 total += mp.re(1.5 * l * (l + 1) * (2 * l + 1) * mp.mpc(sphere_t([8.0, 10.0], n, w, {1: AG}, l, "TM")) * xi**2 / x0**4)
         assert abs(rates.total[0] - float(total)) <= 1e-11 * float(total)
+
+
+@pytest.mark.parametrize("energy", [3.0, 5.5])
+def test_boardman_contact_against_global_matrix(energy):
+    """Boardman's contact (n.v, pressure) on Au@Ag and on an Ag|SiO2|Ag|Au onion: the sweep against the
+    reference written with its own weights, and different from the electrochemical one."""
+    w = lam(energy)
+    for radii, index, hydro in (CASES[3][1:], CASES[4][1:]):
+        n = index(w)
+        t = solve_nonlocal_sphere(radii, n, w, hydro, l_max=20, contact="boardman").solution.t[ps.TM, 0]
+        fs = solve_nonlocal_sphere(radii, n, w, hydro, l_max=20).solution.t[ps.TM, 0]
+        for l in (1, 4, 20):
+            ref = sphere_t(radii, n, w, hydro, l, "TM", contact="boardman")
+            assert abs(t[l - 1] - ref) <= 1e-12 * abs(ref)
+        assert np.max(np.abs(t - fs) / np.abs(fs)) > 1e-6
+
+
+@pytest.mark.parametrize("contact", ["electrochemical", "boardman"])
+def test_rates_energy_balance_across_two_metals(contact):
+    """Au@Ag, the source 0.5 nm outside: the balance holds for both contacts, which differ."""
+    name, radii, index, hydro, r = EMITTERS[2]
+    rates = {}
+    for energy in (3.0, 5.5):
+        w = lam(energy)
+        for c in ("electrochemical", contact):
+            rates[c] = nonlocal_sphere_rates(radii, index(w), w, hydro, r, tol=1e-10, contact=c)
+        assert rates[contact].converged and np.max(rates[contact].balance_error) <= 1e-12
+        assert np.all(rates[contact].absorbed_by_region >= -1e-12 * rates[contact].total)
+        if contact == "boardman":
+            assert np.max(np.abs(rates[contact].total / rates["electrochemical"].total - 1)) > 1e-6
