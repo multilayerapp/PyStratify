@@ -1,5 +1,8 @@
 # PyStratify
 
+[![PyPI](https://img.shields.io/pypi/v/pystratify)](https://pypi.org/project/pystratify/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23287561.svg)](https://doi.org/10.5281/zenodo.23287561)
+
 Light scattering and emission by **multilayered films, concentric cylinders and concentric
 spheres** in Python, under plane waves, electric and magnetic point dipoles and focused
 (Cassegrain) beams. One modal-response core serves the three geometries: the transfer-matrix
@@ -132,8 +135,10 @@ and pattern cuts at the same polar angle share their mode coefficients.
 Patterns use `outputs=("rates", "pattern"), theta=..., phi=...` with broadcast angle
 arrays in radians, and return normalized power per solid angle. Film theta zero
 points outward into the incident medium; spheres/cylinders use the +z polar axis.
-Cylinder waves interpret their `theta` pattern samples as azimuth. Advanced legacy
-sphere APIs below remain available, with their common-contract migration deferred.
+Cylinder waves interpret their `theta` pattern samples as azimuth. The sphere API
+below is part of the stable 1.x surface, except `shell_average`, `spectral_density`,
+`casimir_polder` and `green_dyadic`, which are provisional, and the normalized-route
+functions, which are legacy ([docs/API.md](https://github.com/multilayerapp/PyStratify/blob/main/docs/API.md)).
 
 `response.py` owns scalar, logarithmic and coupled block composition. Geometry bases,
 source spectra and reconstruction are separate modules. The migrated planar routines
@@ -190,8 +195,8 @@ Python ≥ 3.10, NumPy ≥ 1.24, SciPy ≥ 1.10.
 
 ## Use
 
-Which names are the stable 1.0 surface, which are legacy and which are internal:
-[docs/API.md](https://github.com/multilayerapp/PyStratify/blob/main/docs/API.md) (a draft until 1.0 is tagged).
+Which names are the stable 1.x surface and which are provisional, legacy or internal:
+[docs/API.md](https://github.com/multilayerapp/PyStratify/blob/main/docs/API.md) (ruled 2026-10-10; binding from 1.0).
 
 Lengths are unit-agnostic (give radii and wavelengths in the same unit); the Drude helpers and
 `graphene_conductivity` take nanometres. Shells are indexed from 0 (the core) to N (the host).
@@ -495,7 +500,7 @@ pytest
 ```
 
 * `test_api_contract.py`: every name in `__all__` has exactly one place in `docs/API.md`
-  (frozen, legacy or internal).
+  (frozen, provisional, legacy or internal).
 * `test_focused.py`: focused illumination (above): every semi-analytic form against plane-wave
   superpositions through the existing engines, energy balance, limits, Köhler and Parseval.
 * `test_normalized.py`: the normalized formulation (`normalized.py`: ψ'/ψ, ψξ and normalized j̄ only,
@@ -590,7 +595,10 @@ PyStratify implements the method of STRATIFY; please cite the paper,
 > for a multilayered sphere," *OSA Continuum* **3**, 2290 (2020),
 > [doi:10.1364/OSAC.399979](https://doi.org/10.1364/OSAC.399979),
 
-and this repository at the version you used ([CITATION.cff](https://github.com/multilayerapp/PyStratify/blob/main/CITATION.cff)). Defects of the
+and the software itself: [doi:10.5281/zenodo.23287561](https://doi.org/10.5281/zenodo.23287561)
+names every version and resolves to the latest; each release also has its own DOI on that Zenodo
+page, which is the one to cite for the exact code you ran
+([CITATION.cff](https://github.com/multilayerapp/PyStratify/blob/main/CITATION.cff)). Defects of the
 MATLAB code that PyStratify does not share are listed in [AUDIT.md](https://github.com/multilayerapp/PyStratify/blob/main/AUDIT.md).
 
 ## Licence

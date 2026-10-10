@@ -1,4 +1,4 @@
-"""docs/API.md places every exported name in exactly one list: frozen, legacy or internal.
+"""docs/API.md places every exported name in exactly one list: frozen, provisional, legacy or internal.
 
 A name added to ``__all__`` without a place in the contract, or listed twice, fails here, so the
 1.0 surface cannot grow by accident.
@@ -10,7 +10,7 @@ from pathlib import Path
 import pystratify
 
 API = Path(__file__).resolve().parents[1] / "docs" / "API.md"
-LISTS = ("Frozen", "Legacy", "Internal")
+LISTS = ("Frozen", "Provisional", "Legacy", "Internal")
 
 
 def contract():

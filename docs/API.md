@@ -1,18 +1,20 @@
 # PyStratify public API — the 1.0 contract
 
-**Status: draft (2026-10-10), for Ilia's ruling before 1.0 is tagged.** Written for roadmap WP0.4
-(`multilayerapp/docs/roadmap/README.md`). Every name in `pystratify.__all__` (72 at 0.10.1) sits in
-exactly one of the three lists below; `tests/test_api_contract.py` fails if a name is added to
-`__all__` without being placed here, or placed twice. The rows marked **ruling** are the ones where
-the placement is a judgement, not a reading of the code; the reasons are given so the call can be
-made without re-deriving them.
+**Status: ruled by Ilia on 2026-10-10** (roadmap WP0.4, `multilayerapp/docs/roadmap/README.md`);
+it binds from 1.0. Every name in `pystratify.__all__` (72 at 0.10.2) sits in exactly one of the
+four lists below — 56 frozen, 8 provisional, 4 legacy, 4 internal; `tests/test_api_contract.py`
+fails if a name is added to `__all__` without being placed here, or placed twice. The judgement
+calls and their reasons are under **Rulings** at the end.
 
-## What the three lists promise
+## What the four lists promise
 
 - **Frozen** — stable for every 1.x release: the name, the positional order, keyword names, the
   attribute and key names of what it returns, units and conventions. 1.x may *add* (a keyword with a
   default, an attribute, a dict key, a new source or geometry); it may not rename, reorder or change
   a meaning. A change of meaning waits for 2.0.
+- **Provisional** — shipped, tested and documented, but its signature may change in a 1.x minor
+  release, with a changelog note. For features whose natural home may move under `Problem` once
+  films and cylinders gain the same quantity.
 - **Legacy** — works unchanged through 1.x, stays tested and documented, but a frozen entry point
   does the same job with the same numbers. New features land only on the frozen path. A
   `DeprecationWarning` no earlier than 1.1; removal no earlier than 2.0.
@@ -37,7 +39,7 @@ backend calls it); and the helpers that build *inputs* (sheets, Drude damping). 
 | `PointDipole` | class | source |
 | `FocusedBeam` | class | source |
 | `solve_problem` | function | the one entry point; the backend's cylinder and dipole jobs call it |
-| `solve_focused` | function | what `solve_problem` dispatches a `FocusedBeam` to. **Has no direct test at 0.10.1** — one is owed before 1.0 |
+| `solve_focused` | function | what `solve_problem` dispatches a `FocusedBeam` to; `test_solve_problem_focused_and_validation` covers all three geometries |
 
 ### Geometry-native solutions and what reads them
 
@@ -50,7 +52,7 @@ functions that consume them are part of its contract.
 | `TM` | constant | index into per-polarisation arrays of `Solution` results |
 | `TE` | constant | as `TM` |
 | `CylinderSolution` | class | the cylinder solution `solve_problem` returns |
-| `solve_cylinder` | function | the cylinder analogue of `solve` (oblique incidence via `beta`). **ruling**: frozen for symmetry with `solve`; legacy if only `solve_problem` should reach cylinders |
+| `solve_cylinder` | function | the cylinder analogue of `solve` (oblique incidence via `beta`, `m_max`): a direct, batched entry point to the native solution (ruled) |
 | `cross_widths` | function | reads a `CylinderSolution`; the backend calls it per polarisation |
 | `cylinder_pattern` | function | reads a `CylinderSolution` |
 | `truncation_order` | function | the multipole order every solver uses; the backend picks `l_max` with it |
@@ -102,20 +104,12 @@ functions that consume them are part of its contract.
 | `dipole_far_field` | function | backend; seven examples |
 | `EmissionPattern` | class | returned by `dipole_far_field` |
 | `source_covariance` | function | orientation averages for `dipole_far_field`; README row |
-| `shell_average` | function | emitters spread through a shell; README row, tested. **ruling** (see below) |
-| `ShellAverage` | class | returned by `shell_average` |
-| `spectral_density` | function | J(ω) and shift over wavelength; README row, tested. **ruling** |
-| `SpectralDensity` | class | returned by `spectral_density` |
-| `casimir_polder` | function | README row, tested. **ruling** |
-| `CasimirPolder` | class | returned by `casimir_polder` |
-| `green_dyadic` | function | two-point Green's dyadic; README row, tested. **ruling** |
-| `GreenDyadic` | class | returned by `green_dyadic` |
 
 ### Spheres: chiral media
 
 | name | kind | why frozen |
 |---|---|---|
-| `solve_chiral` | function | Pasteur shells; README, tested. **ruling**: WP1.4 brings Pasteur chirality to films and cylinders in one constitutive form — freeze now only if that form will be this one (D = εE + iκH, B = μH − iκE, Gaussian, treams' convention) |
+| `solve_chiral` | function | Pasteur shells; README, tested. Its convention, D = εE + iκH, B = μH − iκE (Gaussian, e^{−iωt}, treams'; helicity ±1 sees n ± κ), is **the package-wide one** (ruled): WP1.4's planar and cylindrical chirality adopt it, converting internally if a formulation prefers another |
 | `ChiralSolution` | class | returned by `solve_chiral` |
 | `helicity_cross_sections` | function | CD of a chiral shell; README |
 | `HelicityCrossSections` | class | returned by `helicity_cross_sections` |
@@ -132,13 +126,29 @@ functions that consume them are part of its contract.
 | `free_path_correction` | function | thin-shell damping; four examples |
 | `surface_damping_wavelength` | function | the damping wavelength `electric_prefactor` takes; three examples |
 
+## Provisional
+
+Sphere-specific signatures (radii, n, wavelength, …) for quantities films and cylinders do not have
+yet; when they do, the shared form may live under `Problem`.
+
+| name | kind | why provisional |
+|---|---|---|
+| `shell_average` | function | emitters spread through a shell; README row, tested |
+| `ShellAverage` | class | returned by `shell_average` |
+| `spectral_density` | function | J(ω) and shift over wavelength; README row, tested |
+| `SpectralDensity` | class | returned by `spectral_density` |
+| `casimir_polder` | function | README row, tested |
+| `CasimirPolder` | class | returned by `casimir_polder` |
+| `green_dyadic` | function | two-point Green's dyadic; README row, tested |
+| `GreenDyadic` | class | returned by `green_dyadic` |
+
 ## Legacy
 
 | name | kind | superseded by |
 |---|---|---|
-| `normalized_decay_rates` | function | `decay_rates`, whose default `route="auto"` takes total, radiative and shift from the same normalized formulation and adds the losses. **ruling**: legacy unless a caller needs its automatic truncation alone |
+| `normalized_decay_rates` | function | `decay_rates`, whose default `route="auto"` takes total, radiative and shift from the same normalized formulation and adds the losses |
 | `NormalizedRates` | class | returned by `normalized_decay_rates` |
-| `normalized_terms` | function | the per-order Green's forms inside the normalized route. **ruling**: legacy (a documented research hook) or internal (a building block) — it has a README row, so it is not moved to internal without a word |
+| `normalized_terms` | function | the per-order Green's forms inside the normalized route; kept reachable as a documented research hook |
 | `NormalizedTerms` | class | returned by `normalized_terms` |
 
 ## Internal (leave `__all__` at 1.0)
@@ -159,16 +169,20 @@ functions that consume them are part of its contract.
 | `pystratify.problem.check_focused` | internal | the backend imports it (`multilayer/backend/emission.py`) to validate a beam before a job; 1.0 should either export it as a frozen validator or let the backend construct a `Problem` and catch its error |
 | everything else | internal | including the private planar helpers the backend's tests reach for (`_prepare_coherent_inputs`, `_coh_tmm_amplitudes_numpy`, `_coh_tmm_amplitudes_jax`) |
 
-## Open questions for the ruling
+## Rulings (Ilia, 2026-10-10)
 
-1. **Freeze the research-grade sphere features or not?** `shell_average`, `spectral_density`,
-   `casimir_polder`, `green_dyadic` are documented and tested but used by nobody outside the package
-   yet. Frozen is a promise to a JOSS reader; legacy would be wrong (nothing supersedes them). The
-   draft freezes them; the alternative is a fourth list, *provisional*, which the roadmap did not ask for.
-2. **Chiral convention vs WP1.4.** If the 4×4 planar solver adopts a different chirality
-   convention, `solve_chiral` either keeps its own (two conventions in one package) or changes in 2.0.
-3. **`solve_cylinder` frozen or legacy** (see its row).
-4. **README wording.** The README (0.9.0 section) calls the sphere functions "advanced legacy sphere
-   APIs … with their common-contract migration deferred"; the roadmap freezes them. Whichever wins,
-   the README and this file must say the same thing at 1.0 (WP0.5 rewrites the headline anyway).
-5. **`solve_focused` has no direct test.** Frozen means tested; add one before tagging 1.0.
+1. **Research-grade sphere features are provisional**, not frozen: `shell_average`, `spectral_density`,
+   `casimir_polder`, `green_dyadic` and their result types may be reshaped in a 1.x minor (with a
+   changelog note) when films and cylinders gain the same quantities.
+2. **One chirality convention for the whole package**: the spheres' D = εE + iκH, B = μH − iκE
+   (Gaussian, e^{−iωt}). WP1.4 adopts it for films and cylinders, so `solve_chiral` and
+   `helicity_cross_sections` are frozen now.
+3. **`solve_cylinder` is frozen**, with the same standing as the sphere `solve`.
+4. **The normalized route is legacy**: `normalized_decay_rates`, `normalized_terms` and their types
+   are kept and documented through 1.x, superseded by `decay_rates`/`emission_rates`.
+5. The README's 0.9.0 wording "advanced legacy sphere APIs" is replaced: the sphere API is part of
+   the stable surface, as listed here.
+
+Still to do before 1.0 is tagged: give `pystratify.planar` an `__all__` (its public functions, as
+listed above), and either export `check_focused` or have the backend validate by constructing a
+`Problem`.

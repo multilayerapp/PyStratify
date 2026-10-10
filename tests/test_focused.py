@@ -692,6 +692,7 @@ def test_solve_problem_focused_and_validation():
     out = ps.solve_problem(film, reference=reference)
     direct = F.focused_films([1.0, 1.5 + 0.02j, 1.0], [inf, 1.0, inf], 3.0, beam, reference=([1.0, 1.0], [inf, inf]))
     assert np.isclose(out["apparent_absorbance"], direct.apparent_absorbance)
+    assert ps.solve_focused(film, reference=reference)["apparent_absorbance"] == out["apparent_absorbance"]
     sphere = ps.solve_problem(ps.Problem("spheres", [1.0], [1.4 + 0.01j, 1.0], 3.0, beam), ("rates", "field"),
                               points=np.zeros((1, 3)))
     assert sphere["field"].e.shape == (2, 1, 3)

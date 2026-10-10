@@ -7,6 +7,14 @@ authors:
   - family-names: Rasskazov
     given-names: Ilia
 version: 0.10.2
+doi: 10.5281/zenodo.23287561
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.23287561
+    description: "Concept DOI: every version of PyStratify, resolving to the latest"
+  - type: doi
+    value: 10.5281/zenodo.23287562
+    description: "PyStratify 0.10.2"
 date-released: 2026-10-10
 license: GPL-3.0-or-later
 repository-code: "https://github.com/multilayerapp/PyStratify"
