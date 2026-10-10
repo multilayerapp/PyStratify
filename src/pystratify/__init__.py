@@ -50,12 +50,20 @@ from .solver import TE, TM, Solution, solve
 from .problem import Problem, PlaneWave, PointDipole
 from .observables import solve_problem
 from .cylindrical import solve_cylinder, CylinderSolution, cross_widths, cylinder_pattern
+from .hydrodynamic import Hydrodynamic
+from .nonlocal_sphere import NonlocalSphere, NonlocalSphereRates, solve_nonlocal_sphere, nonlocal_sphere_rates
+from .nonlocal_cylinder import NonlocalCylinder, solve_nonlocal_cylinder
+from .nonlocal_film import film_response, solve_nonlocal_film
+from .nonlocal_sources import NonlocalCylinderSource, NonlocalFilmSource
 
 __version__ = "0.9.0"
 
 __all__ = [
     "Problem", "PlaneWave", "PointDipole", "solve_problem",
     "solve_cylinder", "CylinderSolution", "cross_widths", "cylinder_pattern",
+    "Hydrodynamic", "solve_nonlocal_sphere", "NonlocalSphere", "nonlocal_sphere_rates", "NonlocalSphereRates",
+    "solve_nonlocal_cylinder", "NonlocalCylinder", "solve_nonlocal_film", "film_response",
+    "NonlocalFilmSource", "NonlocalCylinderSource",
     "solve",
     "Solution",
     "solve_chiral",

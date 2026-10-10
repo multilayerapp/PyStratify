@@ -38,6 +38,7 @@ class Problem:
     tolerance: float = 1e-6
     order: int | None = None
     max_evaluations: int = 20000
+    hydrodynamic: object = None
 
     def __post_init__(self):
         if self.geometry not in ("films", "cylinders", "spheres"):
@@ -56,5 +57,15 @@ class Problem:
                 raise ValueError("films require matching media/thickness arrays and infinite exterior thicknesses")
         elif dimensions.ndim != 1 or len(n) != len(dimensions) + 1 or not len(dimensions) or np.any(~np.isfinite(dimensions)) or dimensions[0] <= 0 or np.any(np.diff(dimensions) <= 0):
             raise ValueError("radial geometries require increasing positive radii and host-last media")
+        if self.hydrodynamic is not None:
+            from .nonlocal_sphere import hydrodynamic_regions
+            regions = hydrodynamic_regions(self.hydrodynamic, len(n), host_allowed=self.geometry == "films")
+            if self.geometry == "films" and regions[0] is not None:
+                raise ValueError("the incident medium of a film cannot be hydrodynamic")
+            if isinstance(self.source, PointDipole):
+                layer = self.source.layer if self.geometry == "films" else int(np.searchsorted(dimensions, self.source.position))
+                if layer is not None and regions[layer] is not None or (self.geometry == "films" and regions[-1] is not None):
+                    raise ValueError("a point source and the exteriors of its problem must be local")
+            object.__setattr__(self, "hydrodynamic", {j: m for j, m in enumerate(regions) if m is not None})
         object.__setattr__(self, "n", n.copy())
         object.__setattr__(self, "dimensions", dimensions.copy())

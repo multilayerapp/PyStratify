@@ -302,6 +302,54 @@ def _wronskian_flux(a, b, log, LF, LG, y, k):
     return np.real(y / k**2) * (np.real(np.nan_to_num(cross)) + np.nan_to_num(own))
 
 
+def _rates_centre(radii, n, mu, wavelength, hydro, dipole):
+    """A dipole at the centre: only l = 1 couples; total = 1 + Re S_1 (S the core's A/B for the
+    outgoing solution), the free dipole being the unit l = 1 outgoing wave of the core."""
+    N = radii.size
+    orders = np.arange(1, 2)
+    nn, mm, lam = n[None, :], mu[None, :], np.array([wavelength])
+    p = 0 if dipole == "electric" else 1
+    hydro_p = hydro if p == 0 else (None,) * (N + 1)
+    tr = _SphereTraces(radii, nn, mm, lam, orders, hydro_p, p)
+    sw = channel_sweep(tr, radii, 1, [m is not None for m in hydro_p])
+    k0 = 2 * np.pi / wavelength
+    k, y = k0 * n, n / mu
+    core = sw.inner[0]
+    S = sw.S_in[0][0, 0, 0, 0] * np.exp(core.LG[0, 0, 0] - core.LF[0, 0, 0])
+    total = np.full(2, 1 + np.real(S))
+    lossless = [hydro_p[j] is None and n[j].imag == 0 and mu[j].imag == 0 for j in range(N + 1)]
+    LG0 = core.LG[0, :, 0]
+    b0 = np.exp(1j * np.imag(LG0))[None, :, None, None]
+    lg0 = np.real(LG0)[None, :, None]
+    amp = {(0, "out"): (sw.S_in[0] @ b0, b0, lg0)}
+    chain = sw.outgoing_amplitudes(0, b0, lg0)
+    for j in range(1, N + 1):
+        amp[(j, "in")] = chain[j][0]
+        if chain[j][1] is not None:
+            amp[(j, "out")] = chain[j][1]
+    fluxes = [_interface_flux(sw, amp, j, lossless, y, k, radii, k0) for j in range(N)]
+    unit = np.real(y[0] / k[0] ** 2)
+    radiative = np.full(2, fluxes[N - 1][0] / unit)
+    absorbed = np.zeros((N + 1, 2))
+    for j in range(1, N):
+        absorbed[j] = (fluxes[j - 1][0] - fluxes[j][0]) / unit
+    return total, radiative, absorbed, np.zeros(2)
+
+
+def _interface_flux(sw, amp, j, lossless, y, k, radii, k0):
+    """Outward flux through r_j of the solution held in ``amp``, from the better-conditioned side."""
+    for region, side, trs in ((j + 1, "in", sw.outer[j]), (j, "out", sw.inner[j])):
+        if lossless[region] and (region, side) in amp:
+            a, b, lg = amp[(region, side)]
+            return _wronskian_flux(a[0, :, 0, 0], b[0, :, 0, 0], lg[0, :, 0], trs.LF[0, :, 0], trs.LG[0, :, 0],
+                                   y[region], k[region])
+    a, b, lg = amp[(j + 1, "in")]
+    trs = sw.outer[j]
+    with np.errstate(over="ignore", under="ignore"):
+        vec = trs.physical(trs.F @ a + trs.G @ b)[..., 0] * np.exp(lg)
+    return _trace_flux(vec[0], radii[j], k0)
+
+
 def _rates_once(radii, n, mu, wavelength, hydro, r0, dipole, L):
     N = radii.size
     s = int(np.searchsorted(radii, r0))
@@ -380,20 +428,7 @@ def _rates_once(radii, n, mu, wavelength, hydro, r0, dipole, L):
                             amp[(j, "in")] = chain[j][0]
                         amp[(j, "out")] = chain[j][1]
 
-                def flux(j):
-                    """Outward flux through r_j of the source solution, from the better-conditioned side."""
-                    for region, side, trs in ((j + 1, "in", sw.outer[j]), (j, "out", sw.inner[j])):
-                        if lossless[region] and (region, side) in amp:
-                            a, b, lg = amp[(region, side)]
-                            return _wronskian_flux(a[0, :, 0, 0], b[0, :, 0, 0], lg[0, :, 0], trs.LF[0, :, 0],
-                                                   trs.LG[0, :, 0], y[region], k[region])
-                    a, b, lg = amp[(j + 1, "in")]
-                    trs = sw.outer[j]
-                    with np.errstate(over="ignore", under="ignore"):
-                        vec = trs.physical(trs.F @ a + trs.G @ b)[..., 0] * np.exp(lg)
-                    return _trace_flux(vec[0], radii[j], k0)
-
-                fluxes = [flux(j) for j in range(N)]
+                fluxes = [_interface_flux(sw, amp, j, lossless, y, k, radii, k0) for j in range(N)]
                 if s < N:
                     escape = fluxes[N - 1]
                 else:
@@ -424,14 +459,17 @@ def nonlocal_sphere_rates(radii, n, wavelength, hydrodynamic, r, dipole="electri
         raise ValueError("n and mu need one value per region, host last")
     hydro = hydrodynamic_regions(hydrodynamic, N + 1)
     r0 = float(r)
-    if not np.isfinite(r0) or r0 <= 0 or np.any(radii == r0):
-        raise ValueError("the source radius must be positive and off the interfaces")
+    if not np.isfinite(r0) or r0 < 0 or np.any(radii == r0):
+        raise ValueError("the source radius must be nonnegative and off the interfaces")
     s = int(np.searchsorted(radii, r0))
     if hydro[s] is not None or n[s].imag != 0 or n[s].real <= 0 or mu[s].imag != 0 or n[-1].imag != 0:
         raise ValueError("the source shell and the host must be lossless and local")
     if dipole not in ("electric", "magnetic"):
         raise ValueError("dipole must be electric or magnetic")
-    if l_max is not None:
+    if r0 == 0:
+        total, radiative, absorbed, _ = _rates_centre(radii, n, mu, float(wavelength), hydro, dipole)
+        L, converged = 1, True
+    elif l_max is not None:
         total, radiative, absorbed, tail = _rates_once(radii, n, mu, float(wavelength), hydro, r0, dipole, int(l_max))
         L, converged = int(l_max), bool(np.all(tail <= tol * np.abs(total)))
     else:

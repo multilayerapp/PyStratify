@@ -64,6 +64,8 @@ def solve_problem(problem, outputs=("rates",), *, theta=None, phi=0):
     Angles are radians, all lengths share the caller's chosen unit.
     """
     geometry, source, n, d, wavelength = problem.geometry, problem.source, problem.n, problem.dimensions, problem.wavelength
+    if getattr(problem, "hydrodynamic", None):
+        return _solve_nonlocal(problem, outputs, theta=theta, phi=phi)
     if isinstance(source, PlaneWave):
         if geometry == "films":
             from .planar import coh_tmm
@@ -145,4 +147,81 @@ def solve_problem(problem, outputs=("rates",), *, theta=None, phi=0):
             p_y = dipole_far_field(d, n, wavelength, [0,0,source.position], [0,1,0], theta, phi, dipole=source.dipole_type, l_max=problem.order, tol=problem.tolerance)
             isotropic = (raw[0] + raw[1] + p_y.power_density * reference_ratio) / 3
             result["pattern"] = np.stack((raw[0], raw[1], isotropic), axis=-1)
+    return result
+
+
+def _solve_nonlocal(problem, outputs=("rates",), *, theta=None, phi=0):
+    """:func:`solve_problem` with hydrodynamic regions (``problem.hydrodynamic``): the same outputs
+    from the nonlocal solvers (:mod:`pystratify.nonlocal_sweep`)."""
+    geometry, source, n, d, wavelength = problem.geometry, problem.source, problem.n, problem.dimensions, problem.wavelength
+    hydro = problem.hydrodynamic
+    if isinstance(source, PlaneWave):
+        if geometry == "films":
+            from .nonlocal_film import solve_nonlocal_film
+            angle = 0 if source.angle is None else source.angle
+            result = solve_nonlocal_film(n, d, wavelength, hydro, angle)
+            if source.polarization == "p":
+                R, T = result["R_p"], result["T_p"]
+            elif source.polarization == "s":
+                R, T = result["R_s"], result["T_s"]
+            else:
+                R, T = result["reflectance"], result["transmittance"]
+            return dict(solution=result, reflectance=R, transmittance=T, absorptance=1 - R - T)
+        if geometry == "spheres":
+            from .farfield import cross_sections
+            from .nonlocal_sphere import solve_nonlocal_sphere
+            solution = solve_nonlocal_sphere(d, n, wavelength, hydro, l_max=problem.order).solution
+            return dict(solution=solution, cross_sections=cross_sections(solution))
+        from .cylindrical import cross_widths, cylinder_pattern
+        from .nonlocal_cylinder import solve_nonlocal_cylinder
+        angle = np.pi / 2 if source.angle is None else source.angle
+        solution = solve_nonlocal_cylinder(d, n, wavelength, hydro, beta=2 * np.pi * n[-1].real / wavelength * np.cos(angle),
+                                           m_max=problem.order)
+        result = dict(solution=solution, **cross_widths(solution, source.polarization))
+        if theta is not None:
+            result["pattern"] = cylinder_pattern(solution, theta, source.polarization)
+        return result
+    if not isinstance(source, PointDipole):
+        raise ValueError("source must be PlaneWave or PointDipole")
+    model, upper, lower = None, None, None
+    if geometry == "films":
+        from .nonlocal_sources import NonlocalFilmSource
+        if source.layer is None:
+            raise ValueError("planar source needs its region index")
+        model = NonlocalFilmSource(n, d, wavelength, source.layer, source.position, source.dipole_type, hydro)
+        r = model.rates(problem.tolerance, problem.max_evaluations)
+        total, escape, guided, absorbed = r.total, r.escape, r.guided, r.absorbed
+        upper, lower = r.upper, r.lower
+        diagnostics = dict(converged=r.converged, integration_error=r.error, evaluations=r.evaluations,
+                           balance_error=r.balance_error, poles=r.poles)
+    elif geometry == "cylinders":
+        from .nonlocal_sources import NonlocalCylinderSource
+        model = NonlocalCylinderSource(d, n, wavelength, source.position, source.dipole_type, problem.order,
+                                       problem.tolerance, hydro)
+        r = model.rates(problem.tolerance, problem.max_evaluations)
+        total, escape, guided, absorbed = r.total, r.escape, r.guided, r.absorbed
+        diagnostics = dict(converged=r.converged, integration_error=r.error, evaluations=r.evaluations, orders=r.orders,
+                           balance_error=r.balance_error, poles=r.poles, grazing_error=r.grazing_error)
+    else:
+        from .nonlocal_sphere import nonlocal_sphere_rates
+        layer = int(np.searchsorted(d, source.position))
+        if source.position < 0 or any(n[j].imag != 0 or n[j].real <= 0 for j in (layer, len(n) - 1)):
+            raise ValueError("source radius is nonnegative and source/exterior must be lossless")
+        r = nonlocal_sphere_rates(d, n, wavelength, hydro, source.position, dipole=source.dipole_type,
+                                  l_max=problem.order, tol=problem.tolerance)
+        total, escape, absorbed = r.total, r.radiative, r.absorbed
+        guided = np.zeros(2)
+        diagnostics = dict(converged=bool(r.converged and np.max(r.balance_error) <= problem.tolerance), orders=r.orders,
+                           balance_error=r.balance_error, absorbed_by_region=r.absorbed_by_region)
+    result = rate_result(total, escape, guided, absorbed, geometry, source.intrinsic_quantum_yield, **diagnostics)
+    if upper is not None:
+        result.update(upper=orientation_average(upper, geometry), lower=orientation_average(lower, geometry))
+    if "pattern" in outputs and theta is not None:
+        if model is None:
+            raise NotImplementedError("emission patterns of spheres with hydrodynamic shells are not available yet")
+        raw = model.pattern(theta, phi)
+        result["pattern"] = orientation_average(raw, geometry)
+        if geometry == "films":
+            perpendicular_y = model.pattern(theta, np.asarray(phi) + np.pi / 2)[..., 1]
+            result["pattern"][..., -1] = (raw[..., 0] + raw[..., 1] + perpendicular_y) / 3
     return result

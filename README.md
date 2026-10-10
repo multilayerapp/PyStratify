@@ -70,6 +70,45 @@ Run `pytest tests/test_unified.py` for analytic Fresnel/Bessel limits, independe
 flux/Green closure, guided channels, patterns, ED/MD, metal-cylinder endpoint error
 budgets, mode reuse, high-order special functions and treams cylinder benchmarks.
 
+## Hydrodynamic (nonlocal) metals (branch `non-local`, unreleased)
+
+Any region of a film stack, cylinder or sphere can carry a hydrodynamic electron gas
+(`Hydrodynamic`: the hydrodynamic Drude model, Halevi's frequency-dependent beta or GNOR
+diffusion). Its index `n` stays the transverse (local) response, measured data included; the
+interband background eps_b = n^2 + omega_p^2/(omega(omega + i gamma)) follows, so beta -> 0 is the
+local result. Boundary conditions: E_t, H_t continuous; n.J = 0 (hard wall) where a hydrodynamic
+region meets one without an electron gas; n.J and (beta^2/omega_p^2) div J continuous between two
+electron gases, the choice that conserves energy (a pressure-continuity condition does not).
+
+```python
+import numpy as np
+import pystratify as ps
+
+ag = ps.Hydrodynamic.from_ev(9.0, 0.07, 1.39e6)                 # hbar omega_p, hbar gamma (eV), v_F (m/s)
+lam = 400.0                                                       # nm
+n_ag = ag.transverse_index(lam, eps_b=4.5)                        # or measured n
+core_shell = ps.Problem("spheres", [10.0, 12.0], [1.46, n_ag, 1.33], lam, hydrodynamic={1: ag})
+ps.solve_problem(core_shell)["cross_sections"]
+wire = ps.Problem("cylinders", [5.0], [n_ag, 1.33], lam, ps.PointDipole(6.0), hydrodynamic={0: ag})
+ps.solve_problem(wire)["total"]                                   # oblique axial spectrum, TE-TM-L coupled
+```
+
+One recursion (`pystratify.nonlocal_sweep`) serves the three geometries: each region carries
+transverse channels and, if hydrodynamic, a longitudinal one; responses are swept with basis
+functions rescaled at every radius, so the longitudinal wave of one surface reaches the other only
+through ratios taken in their decaying direction (eliminating it in a transfer matrix loses
+~exp(Im k_L d) of the precision: all digits for a silver shell of ~8 nm below the plasma
+frequency). Continuity rows are reduced by the quasi-static admittance so that high orders do not
+cancel (spheres to l = 1200, cylinders at any axial wavenumber). Advanced entry points:
+`solve_nonlocal_sphere`, `nonlocal_sphere_rates`, `solve_nonlocal_cylinder`, `film_response`,
+`solve_nonlocal_film`, `NonlocalFilmSource`, `NonlocalCylinderSource`. Not yet: emission patterns
+of spheres with hydrodynamic shells, near fields inside a hydrodynamic region, guided modes of
+undamped (gamma = 0) hydrodynamic stacks. Tests (`tests/test_nonlocal_*.py`): an independent
+extended-precision global matrix for every geometry, the closed forms of Ruppin (spheres, wires),
+Raza et al.'s l beta/(2R) wire resonances, Melnyk-Harrison film resonances, the order-dependent
+Feibelman d_perp equivalence, identical-metal splitting, volume dissipation against flux jumps
+across two metals, energy balance of every emitter, the local limits.
+
 | quantity | function |
 |---|---|
 | solution of the sphere, batched over wavelengths | `solve` → `Solution` |
