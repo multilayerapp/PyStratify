@@ -498,7 +498,9 @@ lineage: `python benchmarks/planar_codes.py` (after `pip install -e ".[benchmark
 [pyElli](https://github.com/PyEllips/pyElli) (2×2 and Berreman 4×4) and writes
 [benchmarks/PLANAR_CODES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/PLANAR_CODES.md): R, T, r, t, absorption per layer,
 Ψ and Δ agree to 1e-14 in power and 6e-13° in angle, through opaque and 20-µm absorbing layers,
-total internal reflection, a magnetic layer and an incoherent substrate.
+total internal reflection, a magnetic layer and an incoherent substrate; plane-wave fields agree with
+PyMoosh to 2e-14, and the guided modes behind a film emitter's guided channel with PyMoosh's mode
+search (1e-11) and the slab dispersion relation (7e-14).
 [benchmarks/MATRIX.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/MATRIX.md) maps every check, existing and planned, by
 geometry, source and quantity.
 
@@ -509,7 +511,8 @@ pip install -e ".[test]"
 pytest
 ```
 
-* `test_planar_codes.py`: the planar solver against PyMoosh and pyElli (skipped unless the
+* `test_planar_codes.py`: the planar solver, its fields and its guided modes against PyMoosh, pyElli
+  and the slab dispersion relation (skipped unless the
   `benchmarks` extra is installed; the CI job `benchmarks` installs it).
 * `test_api_contract.py`: every name in `__all__` has exactly one place in `docs/API.md`
   (frozen, provisional, legacy or internal).

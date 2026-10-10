@@ -29,6 +29,7 @@ An agreement only counts as independent when the reference does not share the co
 | `crosscheck` | a `crosscheck/` script that writes CSV and PNG to lay over a published figure; agreement read by eye |
 | `branch` | on the unmerged `non-local` branch (worktree `PyStratify-nonlocal`) |
 | `to build` | not yet written; the row names what to compare and the tolerance to aim for |
+| `out of scope` | ruled out, with the reason in the row |
 
 Paths are relative to `PyStratify/` unless they start with `multilayer/`. Tolerances are what the
 test asserts (relative unless noted). Cells marked "to build" give a target.
@@ -48,7 +49,7 @@ blank = the reference cannot compute it.
 | BHMIE (Bohren & Huffman) | code | | | | | | | ● | | |
 | treams | code | | | | ● | ○ | | ● | ○ | |
 | pyElli (2×2 and Berreman 4×4) | code | ● | | | | | | | | |
-| PyMoosh | code | ● | ○ | | | | | | | |
+| PyMoosh | code | ● | ● | | | | | | | |
 | tmmax | code | ○ | | | | | | | | |
 | scattnlay | code | | | | | | | ○ | | |
 | pyGDM2 (volume Green dyadic) | code | | | | | | | ○ | ○ | |
@@ -84,7 +85,7 @@ blank = the reference cannot compute it.
 | **pyElli**, 2×2 and 4×4 solvers | code | R, Ψ, Δ on nine stacks (AR pair, 10-pair Bragg mirror, thin and opaque Au, a 20 µm absorber, beyond critical, frustrated TIR) × 4 angles × 3 wavelengths | `tests/test_planar_codes.py`; `benchmarks/planar_codes.py` → `PLANAR_CODES.md` | 1e-12 (R), 1e-10° (Ψ, Δ); observed ≤ 5e-15, ≤ 6e-13° | suite (`benchmarks` extra; CI job `benchmarks`) |
 | **pyElli** 4×4, uniaxial film | code | the **anisotropy reference for WP1.4** | to build with WP1.4: `tests/test_anisotropic.py` | 1e-10 | to build |
 | **PyMoosh** (independent S-matrix code) | code | R, T, r, t, per-layer A on the same stacks plus a magnetic layer (μ = 2) | `tests/test_planar_codes.py`; `benchmarks/planar_codes.py` → `PLANAR_CODES.md` | 1e-12; observed ≤ 1.2e-14 | suite (`benchmarks` extra) |
-| **PyMoosh** `field` | code | E(z) profile | to build: extend `benchmarks/planar_codes.py` | 1e-10 | to build |
+| **PyMoosh** `field` (one Fourier order: a single plane wave) | code | E_y (s) and H_y (p) every 5 nm through the stacks above | `tests/test_planar_codes.py`; `benchmarks/planar_codes.py` | 1e-12; observed ≤ 1.6e-14 | suite (`benchmarks` extra) |
 | **PyMoosh** `incoherent.py` | code | incoherent R, T of coherent films on a thick incoherent substrate: the **first independent incoherent reference** | `tests/test_planar_codes.py` | 1e-12; observed ≤ 5e-15 | suite (`benchmarks` extra) |
 | **PyMoosh** `anisotropic.py` | code | a second anisotropy reference for WP1.4 | to build with WP1.4 | 1e-10 | to build |
 | **PyMoosh** `non_local.py` | code | planar hydrodynamic films, against the `non-local` branch | to build with the `non-local` merge | 1e-8 | to build |
@@ -100,7 +101,9 @@ blank = the reference cannot compute it.
 | guided-pole uncertainty within tolerance; 3D sources are not line sources | method | guided rate | `tests/test_unified.py::test_planar_guided_pole_uncertainty_meets_tolerance`, `::test_guided_point_sources_not_line_sources` | 1e-6 | suite |
 | emission pattern normalization; grazing limit | analytic | pattern | `tests/test_unified.py::test_pattern_normalization_and_film_grazing_limit` | — | suite |
 | Chance–Prock–Silbey / Ford–Weber closed forms, dipole above a metal half-space | analytic | total and radiative rate against distance | to build: `tests/test_planar_emission_references.py` | 1e-8 | to build |
-| **PyMoosh** `green.py`, `modes.py` | code | dipole rates in a three-layer stack; guided-mode effective indices against the guided channel's poles | to build: `benchmarks/planar_codes.py` | 1e-6 | to build |
+| **PyMoosh** `modes.guided_modes` | code | every guided n_eff (TE and TM) of four lossless guides against `FilmSource.guided_poles`, the poles behind the guided channel | `tests/test_planar_codes.py`; `benchmarks/planar_codes.py` | 1e-9 (PyMoosh's search stops at 1e-10); observed ≤ 1.1e-11 | suite (`benchmarks` extra) |
+| three-layer slab dispersion, κd = mπ + atan(ρ₁γ₁/κ) + atan(ρ₃γ₃/κ) | analytic | the same guided n_eff | `tests/test_planar_codes.py`; `benchmarks/planar_codes.py` | 1e-12; observed ≤ 6.6e-14 | suite (`benchmarks` extra) |
+| **PyMoosh** `green` | code | — | out of scope: a 2D TE line source on a periodic window, not a 3D point dipole | — | out of scope |
 | OLED outcoupling papers (e.g. Furno et al. 2012; Neyts 1998) | paper | outcoupled / guided / absorbed fractions against ETL thickness | to build: `crosscheck/` script per paper (WP1.6/1.8) | plotting precision | to build |
 
 ### Focused beam
@@ -201,12 +204,15 @@ blank = the reference cannot compute it.
 - **Films now have two independent codes** (2026-10-10): PyMoosh and pyElli agree with
   `pystratify.planar` to ≤ 1.2e-14 in R, T, r, t and per-layer A, and to ≤ 6e-13° in Ψ and Δ, including
   opaque and 20 µm absorbing layers, total internal reflection and a magnetic layer
-  (`PLANAR_CODES.md`). Conventions that had to be mapped: PyMoosh's p-polarised t is the H-field
-  ratio, and pyElli's Δ = 180° − Δ(tmm). Still open on films: fields against PyMoosh, and anisotropy
-  (pyElli's 4×4, with WP1.4).
-- **Film and cylinder emitters have no external reference.** Their checks are internal: conservation,
-  limits and an independent flux budget. A closed form for a dipole above a half-space, and PyMoosh's
-  dipole source, are the cheapest outside checks.
+  (`PLANAR_CODES.md`). Plane-wave fields agree with PyMoosh to ≤ 1.6e-14, and every guided mode of
+  four lossless guides with PyMoosh (≤ 1.1e-11) and the slab dispersion relation (≤ 6.6e-14).
+  Conventions that had to be mapped: PyMoosh's p-polarised t is the H-field ratio, and pyElli's
+  Δ = 180° − Δ(tmm). Still open on films: anisotropy (pyElli's 4×4, with WP1.4).
+- **Film and cylinder emitters have no external rate reference.** The guided poles of a film's
+  source are now checked (PyMoosh, slab dispersion), but the rates themselves rest on conservation,
+  limits and an independent flux budget. PyMoosh's source is a 2D line source, so it cannot help; a
+  closed form for a dipole at or above a half-space (Lukosz; Chance, Prock & Silbey) is the cheapest
+  outside check.
 - **Spheres are the best covered**: precision, BHMIE, treams and five papers. They lack a check by a
   different *method* (BEM or a volume Green dyadic), which would catch a shared Mie-formulation
   error that every Mie code would repeat.
