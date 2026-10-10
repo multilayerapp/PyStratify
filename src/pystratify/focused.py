@@ -140,7 +140,8 @@ class FocusedResult:
     host); ``apparent_absorbance`` = -log10(detected / reference). Films carry
     ``reflectance``, ``transmittance``, ``absorptance`` and ``layer_absorptance`` (B, W,
     internal layers); spheres and cylinders ``extinction``, ``scattering`` and
-    ``absorption``, their per-order shares in ``multipoles`` and, for cylinders, every
+    ``absorption``, their per-order shares in ``multipoles`` (a list per beam when the beams mix the
+    vector and scalar models, whose orders differ) and, for cylinders, every
     quantity per pupil polarization in ``by_polarization`` ('x' across the axis, 'y'
     along it). ``diagnostics`` holds orders, quadrature errors and convergence.
     """
@@ -166,14 +167,20 @@ class FocusedResult:
 
 
 def _result(rows, single, keys, multipole_keys=(), polarized=False):
-    """Stack per-beam dictionaries of (W,)-arrays into a FocusedResult."""
+    """Stack per-beam dictionaries of (W,)-arrays into a FocusedResult. Beams whose arrays differ in
+    shape (a scalar beam's orders start at l = 0 with one wave type, a vector beam's at 1 with two)
+    stay a list, one array per beam."""
     def stack(name, source):
-        value = np.array([row[name] for row in source])
-        return value[0] if single else value
+        values = [np.asarray(row[name]) for row in source]
+        if single:
+            return values[0]
+        return np.array(values) if len({v.shape for v in values}) == 1 else values
     values = {k: stack(k, rows) for k in keys}
     multipoles = {k: stack(k, [row["multipoles"] for row in rows]) for k in multipole_keys}
     if multipole_keys:
-        multipoles["orders"] = rows[0]["multipoles"]["orders"]
+        orders = [np.asarray(row["multipoles"]["orders"]) for row in rows]
+        same = all(o.shape == orders[0].shape and np.array_equal(o, orders[0]) for o in orders)
+        multipoles["orders"] = orders[0] if single or same else orders
     by_polarization = {}
     if polarized:
         for p in ("x", "y"):

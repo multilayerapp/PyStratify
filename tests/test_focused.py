@@ -291,6 +291,24 @@ def test_sphere_axis_path_equals_general_path():
                 assert np.allclose(a[key], g[key], rtol=1e-12, atol=1e-14), key
 
 
+def test_mixed_models_in_one_call():
+    """A list of beams may mix the vector and scalar models: each keeps its own per-order shares."""
+    radii, n = SPHERE
+    beams = [ps.FocusedBeam(0.5, 0.23), ps.FocusedBeam(0.5, 0.23, model="scalar"),
+             ps.FocusedBeam(0.5, 0.23, illumination="kohler", field_stop=30.0)]
+    r = F.focused_spheres(radii, n, [2.5, 4.0], beams)
+    assert r.detected.shape == (3, 2)
+    vector, scalar, kohler = r.multipoles["extinction"]
+    assert vector.shape[1] == 2 and scalar.shape[1] == 1 and kohler.shape == vector.shape
+    assert r.multipoles["orders"][1][0] == 0 and r.multipoles["orders"][0][0] == 1
+    for b, beam in enumerate(beams):
+        one = F.focused_spheres(radii, n, [2.5, 4.0], beam)
+        assert np.allclose(r.detected[b], one.detected) and np.allclose(r.multipoles["extinction"][b], one.multipoles["extinction"])
+    c = F.focused_cylinders(CYLINDER[0], CYLINDER[1], 3.0, [ps.FocusedBeam(0.5, 0.23), ps.FocusedBeam(0.5, 0.23, model="scalar")],
+                            m_max=14)
+    assert c.detected.shape == (2, 1) and not c.by_polarization
+
+
 def test_sphere_energy_and_shares():
     radii, n = SPHERE
     beam = ps.FocusedBeam(0.5, 0.23, offset=(0.4, 0.1, -0.2))
