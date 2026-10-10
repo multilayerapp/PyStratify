@@ -32,8 +32,9 @@ __all__ = ["NonlocalCylinder", "solve_nonlocal_cylinder"]
 
 
 class _CylinderTraces:
-    def __init__(self, radii, n, mu, wavelength, beta, orders, hydro):
+    def __init__(self, radii, n, mu, wavelength, beta, orders, hydro, reduce=True):
         self.radii, self.orders, self.beta = radii, orders, complex(beta)
+        self.reduce = reduce
         self.k0 = 2 * np.pi / wavelength
         self.n, self.mu, self.y = n, mu, n / mu
         self.k = self.k0 * n
@@ -127,6 +128,8 @@ class _CylinderTraces:
         U[:, range(6), range(6)] = 1
         U[:, 1, 2] = c_m
         U[:, 3, 0] = c_n
+        if not self.reduce:
+            return Traces(U @ F, U @ G, LF, LG)
         return Traces(F, G, LF, LG, U)
 
 

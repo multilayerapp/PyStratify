@@ -66,8 +66,9 @@ def _riccati_parts(log_u, orders, x):
 
 
 class _SphereTraces:
-    def __init__(self, radii, n, mu, wavelength, orders, hydro, polarization):
+    def __init__(self, radii, n, mu, wavelength, orders, hydro, polarization, reduce=True):
         self.radii, self.orders, self.polarization = radii, orders, polarization
+        self.reduce = reduce  # False: plain E_t, H_t rows (for studying the high-order cancellation)
         self.k0 = 2 * np.pi / wavelength  # (W,)
         self.n, self.mu = n, mu  # (W, N + 1)
         self.k = self.k0[:, None] * n
@@ -141,6 +142,10 @@ class _SphereTraces:
             U[..., 0, 1] = 1j * (l + 1) / (k0r * eps_ref)
         else:
             U[..., 1, 0] = 1j * (l + 1) / (k0r * mu_ref)
+        if not self.reduce:  # undo the reduction numerically: the physical rows, formed by subtraction
+            for out in (F, G):
+                out[...] = U @ out
+            U = None
         if hydro:
             kL = self.kL[region]
             xL = kL * r
