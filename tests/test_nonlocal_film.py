@@ -140,3 +140,27 @@ def test_tonks_dattner_peaks():
     for order in (1, 2, 3):
         assert abs(peaks[found[order]] - predicted[order]) < 2e-3
     assert heights[found[2]] < heights[found[1]] / 100 and heights[found[2]] < heights[found[3]] / 100
+
+
+def test_half_space_is_feibelman_d_perp_of_K():
+    """A hydrodynamic half-space reflects exactly as a Feibelman surface with d_par = 0 and
+    d_perp(K) = -[(eps_T/eps_b - 1)/(eps_T/eps_d - 1)] i/k_zL, k_zL = sqrt(k_L^2 - K^2):
+    r_p = [k_d/eps_d - k_m/eps_T + c] / [k_d/eps_d + k_m/eps_T - c], c = i d_perp K^2 (1/eps_d - 1/eps_T)."""
+    def root(v):
+        q = np.sqrt(complex(v))
+        return -q if (q.imag < 0 or (q.imag == 0 and q.real < 0)) else q
+
+    for energy in (2.5, 3.5, 5.0):
+        w = lam(energy)
+        k0 = 2 * np.pi / w
+        eT = nd(AG, w, 4.5) ** 2
+        eb = complex(AG.background(w, eT))
+        kL = complex(AG.longitudinal_wavenumber(w, eT))
+        for ed in (1.0, 1.77):
+            for K in (0.3 * k0, 2 * k0, 0.5, 3.0, 20.0):
+                kd, km, kzL = root(ed * k0**2 - K**2), root(eT * k0**2 - K**2), root(kL**2 - K**2)
+                d_perp = -(eT / eb - 1) / (eT / ed - 1) * 1j / kzL
+                c = 1j * d_perp * K**2 * (1 / ed - 1 / eT)
+                r_feibelman = (kd / ed - km / eT + c) / (kd / ed + km / eT - c)
+                r = film_response([np.sqrt(ed), np.sqrt(eT)], [np.inf, np.inf], w, K, {1: AG}).r[0]
+                assert abs(r - r_feibelman) <= 1e-13 * abs(r)
