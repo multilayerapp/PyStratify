@@ -107,7 +107,10 @@ def _solve(K, rhs):
     scale = np.max(np.abs(K), axis=-1, keepdims=True)
     scale = np.where(scale > 0, scale, 1.0)
     with np.errstate(all="ignore"):
-        out = np.linalg.solve(K / scale, rhs / scale)
+        try:
+            out = np.linalg.solve(K / scale, rhs / scale)
+        except np.linalg.LinAlgError:
+            raise ArithmeticError("singular interface matching (a light line or an exact eigenmode)") from None
     if not np.all(np.isfinite(out)):
         raise ArithmeticError("singular interface matching (an exact eigenmode of the structure)")
     return out
@@ -158,6 +161,16 @@ class ChannelSweep:
         tr = self.inner[interface] if interface == region else self.outer[interface]
         return tr.LF, tr.LG
 
+    def scaled_factor(self, region, to_interface, from_interface, kind):
+        """nu(r_to)/nu(r_from) per channel of ``region`` ('f' regular, 'g' outgoing) as (factor scaled to
+        a largest modulus of one, real log of that scale): magnitudes such as exp(-K d) through a thick
+        film stay in the carried logarithm and never pass through subnormal numbers."""
+        i = 0 if kind == "f" else 1
+        diff = self.log_scales(region, to_interface)[i] - self.log_scales(region, from_interface)[i]
+        top = np.max(np.real(diff), axis=-1)
+        with np.errstate(under="ignore"):
+            return np.exp(diff - top[..., None]), top
+
     def regular_factor(self, region, to_interface, from_interface):
         """nu_f(r_to) / nu_f(r_from) of every channel of ``region``, shape (..., c)."""
         return _decay(self.log_scales(region, to_interface)[0], self.log_scales(region, from_interface)[0])
@@ -181,7 +194,8 @@ class ChannelSweep:
             outer = (a_o, self.R_in[j] @ a_o, log)
             inner = None
             if j:
-                a_i, log = _normalise(self.regular_factor(j, j - 1, j)[..., :, None] * a_o, log)
+                factor, shift = self.scaled_factor(j, j - 1, j, "f")
+                a_i, log = _normalise(factor[..., :, None] * a_o, log + shift[..., None])
                 inner = (a_i, self.R_out[j - 1] @ a_i, log)
                 A = a_i
             out[j] = (inner, outer)
@@ -199,7 +213,8 @@ class ChannelSweep:
             outer = (a_o, self.R_in[j] @ a_o, log)
             inner = None
             if j:
-                a_i, log = _normalise(self.regular_factor(j, j - 1, j)[..., :, None] * a_o, log)
+                factor, shift = self.scaled_factor(j, j - 1, j, "f")
+                a_i, log = _normalise(factor[..., :, None] * a_o, log + shift[..., None])
                 inner = (a_i, self.R_out[j - 1] @ a_i, log)
                 A = a_i
             out[j] = (inner, outer)
@@ -217,8 +232,8 @@ class ChannelSweep:
             b_in, log = _normalise(b_in, log)
             inner = (self.S_out[j] @ b_in, b_in, log)
             if j + 1 < N:
-                b_o = self.outgoing_factor(j + 1, j + 1, j)[..., :, None] * b_in
-                b_o, log = _normalise(b_o, log)
+                factor, shift = self.scaled_factor(j + 1, j + 1, j, "g")
+                b_o, log = _normalise(factor[..., :, None] * b_in, log + shift[..., None])
                 outer = (self.S_in[j + 1] @ b_o, b_o, log)
                 B = b_o
             else:
