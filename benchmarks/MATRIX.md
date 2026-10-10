@@ -9,7 +9,7 @@ report live in a runnable script in `benchmarks/` (`.py` or `.ipynb`), so a read
 see the numbers for themselves; `tests/` only imports that script and asserts the tolerances. Built so
 far this way: `planar_codes.py` → `PLANAR_CODES.md`, `emitter_references.py` →
 `EMITTER_REFERENCES.md`, `mnpbem_spheres.py` → `MNPBEM_SPHERES.md`, `mie_codes.py` → `MIE_CODES.md`,
-`convergence.py` → `RESULTS.md`. Rows whose check exists only inside
+`gdm_spheres.py` → `GDM_SPHERES.md`, `convergence.py` → `RESULTS.md`. Rows whose check exists only inside
 `tests/` still owe a `benchmarks/` script; WP1.5 is not done until they have one.
 
 ## Kinds of reference
@@ -61,7 +61,7 @@ blank = the reference cannot compute it.
 | PyMoosh | code | ● | ● | | | | | | | |
 | tmmax | code | ○ | | | | | | | | |
 | scattnlay | code | | | | | | | ● | | |
-| pyGDM2 (volume Green dyadic) | code | | | | | | | ○ | ○ | |
+| pyGDM2 (volume Green dyadic) | code | | | | | | | ● | ● | |
 | MNPBEM (boundary elements, under GNU Octave) | code | | | | | | | ● | ● | |
 | smuthi (T-matrix + Sommerfeld, dipole sources) | code | | ● | | | | | ○ | ○ | |
 | Meep (FDTD; cylindrical coordinates where the source is on axis) | code | | ○ | | ○ | ○ | | ○ | ○ | |
@@ -189,7 +189,7 @@ blank = the reference cannot compute it.
 | **scattnlay** | code | Q_ext, Q_sca, Q_abs, Q_back, S₁, S₂ at 0–180° for 10 spheres up to x = 1000 (double and multiple precision) | `benchmarks/mie_codes.py` → `MIE_CODES.md`; `tests/test_mie_codes.py` | 1e-10 with 20 orders beyond Wiscombe (observed ≤ 1.8e-11); 1e-7 at PyStratify's default truncation (observed ≤ 3.7e-8) | suite (`benchmarks` extra) |
 | **scattnlay**, near fields | code | E near multilayers | to build: extend `benchmarks/mie_codes.py` | 1e-10 | to build |
 | **MNPBEM** (boundary elements; MNPBEM17 from the CPC program library, run under GNU Octave) | code | C_ext, C_sca of a 40 nm sphere (ε = −10 + i) in vacuum and in water, and of a 10 nm-shell nanoshell, on refined meshes | `benchmarks/mnpbem_spheres.py` → `MNPBEM_SPHERES.md`; `benchmarks/mnpbem_octave.py` builds MNPBEM; `tests/test_mnpbem_spheres.py` | converges toward PyStratify; finest mesh ≤ 5% and closer than the coarsest; observed 0.45–4.4% | suite where Octave is installed |
-| **pyGDM2** (a second different method: volume Green dyadic) | code | Q_ext of a 20–50 nm Au/SiO₂ shell | to build: `benchmarks/sphere_codes.py`; pip-installable | discretization-limited, ~1e-2 | to build |
+| **pyGDM2** (a second different method: volume Green dyadic) | code | C_ext, C_sca, C_abs of 40 nm-radius n = 2 and n = 2 + 0.1i spheres at the volume-equivalent radius, 425–2235 dipoles; metal spheres shown | `benchmarks/gdm_spheres.py` → `GDM_SPHERES.md`; `tests/test_gdm_spheres.py` | finest mesh within 4%; observed +2.2–2.9% (the lattice's error at these meshes); metals not asserted (ε = −10 + i still +173% absorption) | suite (`benchmarks` extra) |
 | thin (5 nm) nanoshell: MNPBEM against three Mie codes | code | C_ext, C_sca | `benchmarks/mnpbem_spheres.py` (shown, not asserted) | — | **MNPBEM under-resolved**: ~12% low at every affordable mesh, while PyStratify, treams and scattnlay agree to all printed digits (995.384013 nm²) |
 | Oldenburg et al. 1998 nanoshells; Kerker conditions | paper | Q spectra; zero backscattering | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
 | Dong et al. 2017 nonlocal nanoshells | paper | Q_ext with hydrodynamic Au | reproduced on `non-local` (`AGENTS.md` §13.6: their efficiencies carry an extra n_host²) | plotting precision | branch |
@@ -211,7 +211,7 @@ blank = the reference cannot compute it.
 | **treams** (spherical-wave expansion of a dipole) | code | total rate beside a coated sphere | to build: `benchmarks/sphere_codes.py` | 1e-10 | to build |
 | Anger, Bharadwaj & Novotny 2006 | paper | quenching against distance from Au | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
 | **MNPBEM** `dipoleret` | code | total and radiative decay rates 5 nm from a 40 nm sphere (ε = −10 + i), radial and tangential | `benchmarks/mnpbem_spheres.py`; `tests/test_mnpbem_spheres.py` | converges toward PyStratify; finest mesh 1.4% (radial total), 0.04% (tangential) | suite where Octave is installed |
-| **pyGDM2** | code | Purcell factor at 10 nm from a 40 nm Au sphere | to build: `benchmarks/sphere_codes.py` | discretization-limited | to build |
+| **pyGDM2** `decay_rate` | code | total decay rates 20 and 40 nm from the n = 2 and n = 2 + 0.1i spheres, radial and tangential | `benchmarks/gdm_spheres.py`; `tests/test_gdm_spheres.py` | 0.5% at 40 nm (observed ≤ 0.14%), 10% at 20 nm (observed ≤ 7.2%) | suite (`benchmarks` extra) |
 | **Meep**, cylindrical coordinates (dipole on the axis through the sphere) | code | Purcell factor beside a dielectric and a Drude sphere; Q_ext | to build: `benchmarks/fdtd_meep.py` | ~1e-2 | to build |
 | **smuthi** (dipole source and a sphere, by Mie T-matrix) | code | total rate | to build: extend `benchmarks/emitter_references.py` or a sphere script | 1e-6 | to build |
 
@@ -247,7 +247,8 @@ blank = the reference cannot compute it.
   publicly (scattnlay and treams agree with PyStratify to ≤ 1.8e-11 once 20 orders beyond Wiscombe's
   truncation are kept; at the default truncation, what a user gets, to ≤ 3.7e-8) and a
   different *method*: MNPBEM's boundary elements converge toward PyStratify for cross sections and
-  decay rates (`MNPBEM_SPHERES.md`). A 5 nm nanoshell is beyond MNPBEM's affordable meshes here; three
+  decay rates (`MNPBEM_SPHERES.md`), and pyGDM2's volume dipoles agree within ~3% for dielectric
+  spheres (`GDM_SPHERES.md`). A 5 nm nanoshell is beyond MNPBEM's affordable meshes here; three
   Mie codes (PyStratify, treams, scattnlay) settle that case exactly.
 - **Focused beams are verified only against their own plane-wave engines.** The FT-IR papers are
   the outside check.

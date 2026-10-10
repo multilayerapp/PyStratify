@@ -22,4 +22,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e ".[test,benchmarks]"
-      - run: pytest -q tests/test_planar_codes.py tests/test_mie_codes.py
+      - run: pytest -q tests/test_planar_codes.py tests/test_mie_codes.py tests/test_gdm_spheres.py

@@ -526,7 +526,11 @@ converge toward PyStratify as the mesh is refined, to 0.5–4% at the finest mes
 cross sections, backscattering and amplitudes of ten spheres up to x = 1000 (nanoshells, a
 matryoshka, a 10-layer graded sphere) and the T-matrices of chiral multilayers agree to 2e-11 once
 20 orders beyond Wiscombe's truncation are kept, and to 4e-8 at the default truncation
-([benchmarks/MIE_CODES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/MIE_CODES.md)). Every comparison is a
+([benchmarks/MIE_CODES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/MIE_CODES.md)).
+`python benchmarks/gdm_spheres.py` adds a third method, the volume Green dyadic method of
+[pyGDM2](https://gitlab.com/wiechapeter/pyGDM2): dielectric spheres agree within 3% in cross sections
+and 0.2% in decay rates 40 nm from the surface, at the volume-equivalent radius
+([benchmarks/GDM_SPHERES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/GDM_SPHERES.md)). Every comparison is a
 script in `benchmarks/` that writes its own report, so it can be rerun by anyone; the tests import
 them. [benchmarks/MATRIX.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/MATRIX.md) maps every check, existing and planned, by
 geometry, source and quantity.
@@ -542,6 +546,8 @@ pytest
   parallel) against the Sommerfeld reference of `benchmarks/emitter_references.py`, itself checked
   against the image dipole at a perfect mirror; sources outside lossless guides against the lossless
   limit and smuthi (the latter skipped unless smuthi is installed).
+* `test_gdm_spheres.py`: pyGDM2's volume dipoles within a few percent of PyStratify for dielectric
+  spheres (skipped unless the `benchmarks` extra is installed).
 * `test_mie_codes.py`: spheres against scattnlay and treams (skipped unless the `benchmarks` extra is
   installed; the CI job `benchmarks` installs it).
 * `test_mnpbem_spheres.py`: MNPBEM's boundary elements approach PyStratify's sphere cross sections and
