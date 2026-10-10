@@ -131,6 +131,14 @@ class FilmSource:
         low, high = max(self.n[0].real, self.n[-1].real) / self.ns, max(self.n.real) / self.ns
         if high <= low:
             return []
+        if self.layer in (0, len(self.n) - 1):
+            # From an exterior the source-side half has no interface, so r_up r_down vanishes and the
+            # modes are poles of the other half's r alone. They belong to the stack, not to the source:
+            # find them by transverse resonance in the highest-index finite layer, in this source's u.
+            inner = 1 + int(np.argmax(self.n.real[1:-1]))
+            probe = FilmSource(self.n, self.d, self.wavelength, inner, self.d[inner] / 2,
+                               "magnetic" if np.any(self.mu != 1) else "electric")
+            return [u * probe.ns / self.ns for u in probe.guided_poles()]
         count = min(10000, max(400, int(40 * self.k0 * np.sum(self.n[1:-1].real * self.d[1:-1]))))
         split = np.unique(np.r_[low, self.n.real / self.ns, high])
         split = split[(split >= low) & (split <= high)]

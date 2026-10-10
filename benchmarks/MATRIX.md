@@ -4,6 +4,13 @@ What PyStratify is checked against, geometry by geometry, source by source and q
 (roadmap WP0.6, 2026-10-10). One row is one cell: a reference × a quantity. **WP1.5** fills every
 `to build` row or rules it out of scope with a reason, and then publishes the result.
 
+**Every comparison is public** (Ilia, 2026-10-10). The reference implementation, the cases and the
+report live in a runnable script in `benchmarks/` (`.py` or `.ipynb`), so a reader can rerun it and
+see the numbers for themselves; `tests/` only imports that script and asserts the tolerances. Built so
+far this way: `planar_codes.py` → `PLANAR_CODES.md`, `emitter_references.py` →
+`EMITTER_REFERENCES.md`, `convergence.py` → `RESULTS.md`. Rows whose check exists only inside
+`tests/` still owe a `benchmarks/` script; WP1.5 is not done until they have one.
+
 ## Kinds of reference
 
 An agreement only counts as independent when the reference does not share the code under test.
@@ -55,7 +62,7 @@ blank = the reference cannot compute it.
 | scattnlay | code | | | | | | | ○ | | |
 | pyGDM2 (volume Green dyadic) | code | | | | | | | ○ | ○ | |
 | MNPBEM (boundary elements) | code | | | | | | | ○ | ○ | |
-| smuthi (T-matrix + Sommerfeld, dipole sources) | code | | ○ | | | | | ○ | ○ | |
+| smuthi (T-matrix + Sommerfeld, dipole sources) | code | | ● | | | | | ○ | ○ | |
 | Meep (FDTD; cylindrical coordinates where the source is on axis) | code | | ○ | | ○ | ○ | | ○ | ○ | |
 | NGSolve (finite elements) | code | | | | | ○ | | | ○ | |
 | OpenSANS (CPC 2023, nonlocal) | code | | | | ○ | | | ○ | | |
@@ -104,13 +111,14 @@ blank = the reference cannot compute it.
 | independent flux budget (escape + guided + absorbed = total) | method | rate channels | `tests/test_unified.py::test_absorbing_coating_independent_power_budget` | 1e-5 | suite |
 | guided-pole uncertainty within tolerance; 3D sources are not line sources | method | guided rate | `tests/test_unified.py::test_planar_guided_pole_uncertainty_meets_tolerance`, `::test_guided_point_sources_not_line_sources` | 1e-6 | suite |
 | emission pattern normalization; grazing limit | analytic | pattern | `tests/test_unified.py::test_pattern_normalization_and_film_grazing_limit` | — | suite |
-| image dipole at a perfect mirror (Drexhage; Chance, Prock & Silbey) | analytic | perpendicular and parallel rates, electric and magnetic; validates the Sommerfeld reference below | `tests/test_planar_emission_references.py::test_reference_reduces_to_the_image_dipole_at_a_perfect_mirror` | 1e-10 | suite |
-| Sommerfeld integrals over s = k_ρ/k₁ with Parratt-recursion r_s, r_p, written without `pystratify` | method | perpendicular and parallel total rates, ED and MD, 10–300 nm above glass, silver, absorbing films; a TIR case | `tests/test_planar_emission_references.py::test_film_emitter_rates_against_the_sommerfeld_reference` | 1e-10; observed ≤ 5e-12 | suite |
-| the same reference with guided poles | method | rates near lossless guides | out of scope for plain quadrature: real-axis poles need residues, which is what `FilmSource` does | — | out of scope |
+| image dipole at a perfect mirror (Drexhage; Chance, Prock & Silbey) | analytic | perpendicular and parallel rates, electric and magnetic; validates the Sommerfeld reference below | `benchmarks/emitter_references.py` → `EMITTER_REFERENCES.md`; `tests/test_planar_emission_references.py` | 1e-10; observed 1e-15 | suite |
+| Sommerfeld integrals over s = k_ρ/k₁ with Parratt-recursion r_s, r_p, written without `pystratify` | method | perpendicular and parallel total rates, ED and MD, 10–300 nm above glass, silver, absorbing films; a TIR case | `benchmarks/emitter_references.py`; `tests/test_planar_emission_references.py` | 1e-10; observed ≤ 5e-12 | suite |
+| the same reference on a weakly absorbing guide (k = 1e-3), quasi-poles as breakpoints | method | rates 50 nm above 200 nm TiO₂ | `tests/test_planar_emission_references.py::test_weakly_absorbing_guide_against_the_sommerfeld_reference` | 1e-8 | suite |
+| lossless limit: a source outside a lossless guide equals the k → 0 limit of an absorbing one | analytic | ED and MD rates, sources above and below two guides | `benchmarks/emitter_references.py`; `tests/test_planar_emission_references.py::test_source_outside_a_lossless_guide_is_the_lossless_limit` | 1e-5; observed ≤ 2e-7 | suite. **Caught a bug, 2026-10-10**: before 0.10.3 `FilmSource.guided_poles` found no poles for a source in an exterior half-space and dropped the guided power (−20% at 30 nm above 200 nm TiO₂) |
 | **PyMoosh** `modes.guided_modes` | code | every guided n_eff (TE and TM) of four lossless guides against `FilmSource.guided_poles`, the poles behind the guided channel | `tests/test_planar_codes.py`; `benchmarks/planar_codes.py` | 1e-9 (PyMoosh's search stops at 1e-10); observed ≤ 1.1e-11 | suite (`benchmarks` extra) |
 | three-layer slab dispersion, κd = mπ + atan(ρ₁γ₁/κ) + atan(ρ₃γ₃/κ) | analytic | the same guided n_eff | `tests/test_planar_codes.py`; `benchmarks/planar_codes.py` | 1e-12; observed ≤ 6.6e-14 | suite (`benchmarks` extra) |
 | **PyMoosh** `green` | code | — | out of scope: a 2D TE line source on a periodic window, not a 3D point dipole | — | out of scope |
-| **smuthi** `DipoleSource.dissipated_power` | code | total rate in a layered medium, incl. lossless guides (its own Sommerfeld contour) | to build: `benchmarks/emitter_codes.py`; pip install compiles NFM-DS with gfortran (installed) | 1e-6 | to build |
+| **smuthi** `DipoleSource.dissipated_power` | code | total rate 30 and 100 nm above two lossless guides (its own deflected Sommerfeld contour) | `benchmarks/emitter_references.py`; `tests/test_planar_emission_references.py::test_lossless_guide_against_smuthi` | 5e-6; observed ≤ 4.8e-7 (smuthi's contour resolution) | suite where smuthi is installed (Python ≤ 3.10; see the script's docstring for the build) |
 | **Meep**, cylindrical coordinates, dipole on the axis (m = 0 perpendicular, m = ±1 parallel) | code | Purcell factor above a film; a different method (FDTD), so it also checks the Sommerfeld formulation | to build: `benchmarks/fdtd_meep.py`; conda-forge `pymeep` | ~1e-2 (grid, PML) | to build |
 | OLED outcoupling papers (e.g. Furno et al. 2012; Neyts 1998) | paper | outcoupled / guided / absorbed fractions against ETL thickness | to build: `crosscheck/` script per paper (WP1.6/1.8) | plotting precision | to build |
 
@@ -177,7 +185,7 @@ blank = the reference cannot compute it.
 | near-field truncation against 120 orders | precision | \|E\|², energy density | `benchmarks/RESULTS.md` "Near field and energy density" | report | report |
 | **treams**, achiral multilayer | code | Q, near field | to build: extend `tests/test_chiral.py::test_against_treams` to κ = 0 multilayers with fields | 1e-11 | to build |
 | **scattnlay** | code | Q_ext/Q_sca/Q_abs, near field of multilayers, x up to 1e4 | to build: `benchmarks/sphere_codes.py` | 1e-10 | to build |
-| **pyGDM2** or **MNPBEM** (a different method: volume Green dyadic or boundary elements) | code | Q_ext of a 20–50 nm Au/SiO₂ shell | to build: `benchmarks/sphere_codes.py`. MNPBEM needs MATLAB (not installed; Octave at `/opt/homebrew/bin/octave` is untried), pyGDM2 is pip-installable | discretization-limited, ~1e-2 | to build |
+| **pyGDM2** or **MNPBEM** (a different method: volume Green dyadic or boundary elements) | code | Q_ext of a 20–50 nm Au/SiO₂ shell | to build: `benchmarks/sphere_codes.py`. MNPBEM runs under GNU Octave 11.3 (`/opt/homebrew/bin/octave`; Ilia wants it as a benchmark); pyGDM2 is pip-installable | discretization-limited, ~1e-2 | to build |
 | Oldenburg et al. 1998 nanoshells; Kerker conditions | paper | Q spectra; zero backscattering | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
 | Dong et al. 2017 nonlocal nanoshells | paper | Q_ext with hydrodynamic Au | reproduced on `non-local` (`AGENTS.md` §13.6: their efficiencies carry an extra n_host²) | plotting precision | branch |
 | extended-precision nonlocal global matrix | precision | nonlocal coefficients for all three geometries | `tests/nonlocal_reference.py` on `non-local` | — | branch |
@@ -197,9 +205,9 @@ blank = the reference cannot compute it.
 | Casimir–Polder non-retarded limit | analytic | potential | `tests/test_casimir.py::test_non_retarded_limit_near_a_large_sphere` | 1e-12 | suite |
 | **treams** (spherical-wave expansion of a dipole) | code | total rate beside a coated sphere | to build: `benchmarks/sphere_codes.py` | 1e-10 | to build |
 | Anger, Bharadwaj & Novotny 2006 | paper | quenching against distance from Au | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
-| **pyGDM2** / **MNPBEM** | code | Purcell factor at 10 nm from a 40 nm Au sphere | to build: `benchmarks/sphere_codes.py`; MNPBEM needs MATLAB | discretization-limited | to build |
+| **pyGDM2** / **MNPBEM** | code | Purcell factor at 10 nm from a 40 nm Au sphere | to build: `benchmarks/sphere_codes.py`; MNPBEM runs under GNU Octave 11.3 (`/opt/homebrew/bin/octave`) | discretization-limited | to build |
 | **Meep**, cylindrical coordinates (dipole on the axis through the sphere) | code | Purcell factor beside a dielectric and a Drude sphere; Q_ext | to build: `benchmarks/fdtd_meep.py` | ~1e-2 | to build |
-| **smuthi** (dipole source and a sphere, by Mie T-matrix) | code | total rate | to build: `benchmarks/emitter_codes.py` | 1e-6 | to build |
+| **smuthi** (dipole source and a sphere, by Mie T-matrix) | code | total rate | to build: extend `benchmarks/emitter_references.py` or a sphere script | 1e-6 | to build |
 
 ### Focused beam
 
@@ -220,10 +228,10 @@ blank = the reference cannot compute it.
   four lossless guides with PyMoosh (≤ 1.1e-11) and the slab dispersion relation (≤ 6.6e-14).
   Conventions that had to be mapped: PyMoosh's p-polarised t is the H-field ratio, and pyElli's
   Δ = 180° − Δ(tmm). Still open on films: anisotropy (pyElli's 4×4, with WP1.4).
-- **Film emitter rates now have an outside reference** (2026-10-10): independently written
-  Sommerfeld integrals, themselves pinned to the image-dipole closed form, agree with
-  `FilmSource` to ≤ 5e-12 for electric and magnetic dipoles above glass, silver and absorbing films.
-  Stacks with lossless guides need pole residues and wait for smuthi. **Cylinder emitters still have no
+- **Film emitter rates now have two outside references** (2026-10-10): independently written
+  Sommerfeld integrals, pinned to the image-dipole closed form, agree with `FilmSource` to ≤ 5e-12;
+  smuthi agrees on lossless guides to ≤ 4.8e-7. The guide comparison **found a bug**: a source in an
+  exterior half-space lost all guided power (fixed in 0.10.3). **Cylinder emitters still have no
   outside reference**: no closed form exists, so FDTD (Meep) or FEM (NGSolve) is the way, at ~1%.
 - **Volume methods (FDTD, FEM, BEM) are a different-method check at ~1%**, not a precision check:
   they test the formulation (sign conventions, normalisation, multipole bookkeeping), not the digits.

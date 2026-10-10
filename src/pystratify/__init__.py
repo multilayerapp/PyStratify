@@ -62,7 +62,7 @@ from .focused import (
 )
 from .cylindrical import solve_cylinder, CylinderSolution, cross_widths, cylinder_pattern
 
-__version__ = "0.10.2"
+__version__ = "0.10.3"
 
 __all__ = [
     "Problem", "PlaneWave", "PointDipole", "FocusedBeam", "solve_problem", "solve_focused",

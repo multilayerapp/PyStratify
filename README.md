@@ -16,6 +16,16 @@ outside the particle, with angle-resolved far fields and decay rates. The numeri
 that every quantity stays finite and accurate to the orders it needs, and the defects found in the
 MATLAB code are fixed ([AUDIT.md](https://github.com/multilayerapp/PyStratify/blob/main/AUDIT.md)).
 
+## 0.10.3: guided power from a source outside the stack
+
+A point source in an exterior half-space of a film stack (above or below it) lost the power it couples
+into the stack's guided modes: the transverse-resonance search ran at the source plane, where the
+source side has no interface, and found no poles. Total rates near lossless guides were low (by 20%,
+30 nm above 200 nm of TiO2 on glass) while the solve reported convergence; lossy stacks, and sources
+inside a finite layer, were unaffected. The modes are now found inside the stack. smuthi and the
+lossless limit of an absorbing guide confirm it
+([benchmarks/EMITTER_REFERENCES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/EMITTER_REFERENCES.md)).
+
 ## Focused illumination (0.10.0)
 
 A fourth source for all three geometries: a beam focused by an aplanatic objective whose
@@ -501,7 +511,13 @@ lineage: `python benchmarks/planar_codes.py` (after `pip install -e ".[benchmark
 total internal reflection, a magnetic layer and an incoherent substrate; plane-wave fields agree with
 PyMoosh to 2e-14, and the guided modes behind a film emitter's guided channel with PyMoosh's mode
 search (1e-11) and the slab dispersion relation (7e-14).
-[benchmarks/MATRIX.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/MATRIX.md) maps every check, existing and planned, by
+`python benchmarks/emitter_references.py` checks film emitters: decay rates against Sommerfeld
+integrals written without `pystratify` (themselves pinned to the image dipole at a perfect mirror, to
+5e-12), and near lossless guides against [smuthi](https://gitlab.com/AmosEgel/smuthi) and the
+lossless limit of an absorbing guide
+([benchmarks/EMITTER_REFERENCES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/EMITTER_REFERENCES.md)). Every comparison is a
+script in `benchmarks/` that writes its own report, so it can be rerun by anyone; the tests import
+them. [benchmarks/MATRIX.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/MATRIX.md) maps every check, existing and planned, by
 geometry, source and quantity.
 
 ## Tests
@@ -512,8 +528,9 @@ pytest
 ```
 
 * `test_planar_emission_references.py`: film emitter rates (electric and magnetic, perpendicular and
-  parallel) against Sommerfeld integrals written without `pystratify`, which are themselves checked
-  against the image dipole at a perfect mirror.
+  parallel) against the Sommerfeld reference of `benchmarks/emitter_references.py`, itself checked
+  against the image dipole at a perfect mirror; sources outside lossless guides against the lossless
+  limit and smuthi (the latter skipped unless smuthi is installed).
 * `test_planar_codes.py`: the planar solver, its fields and its guided modes against PyMoosh, pyElli
   and the slab dispersion relation (skipped unless the
   `benchmarks` extra is installed; the CI job `benchmarks` installs it).
