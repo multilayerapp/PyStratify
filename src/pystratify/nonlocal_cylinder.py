@@ -70,7 +70,9 @@ class _CylinderTraces:
         c = i y_r |m| k_r / (q_r^2 rho) and c' = -i |m| k_r / (y_r q_r^2 rho); the regular
         functions' reduced entries are formed from J_(|m|+1)/J_|m| and the exact contrast."""
         r = self.radii[interface]
-        ref = interface + 1
+        # the reference admittance comes from the side farther from its light line: k/q^2 of a
+        # region at grazing (q -> 0, the exterior near beta = k) would swamp the rows it reduces
+        ref = interface + 1 if abs(self.q[interface + 1]) >= abs(self.q[interface]) else interface
         m = self.orders.astype(float)
         am = np.abs(m)
         hydro = self.hydro[region] is not None

@@ -36,6 +36,10 @@ def hydrodynamic_regions(hydrodynamic, regions, host_allowed=False):
     out = [None] * regions
     if hydrodynamic is None:
         return tuple(out)
+    if isinstance(hydrodynamic, (tuple, list)):  # already one entry per region
+        if len(hydrodynamic) != regions:
+            raise ValueError(f"a per-region hydrodynamic sequence needs {regions} entries")
+        hydrodynamic = {j: m for j, m in enumerate(hydrodynamic) if m is not None}
     if not hasattr(hydrodynamic, "items"):
         raise ValueError("hydrodynamic must map region indices to Hydrodynamic objects")
     for j, model in hydrodynamic.items():
