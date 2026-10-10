@@ -176,6 +176,16 @@ def guide_with_loss(n, k):
     return [n[0]] + [v + 1j * k for v in n[1:-1]] + [n[-1]]
 
 
+def weakly_absorbing_guide(n, d, height, k=1e-3):
+    """PyStratify and the Sommerfeld reference on a guide with core loss k; its quasi-poles are breakpoints."""
+    from pystratify.planar_emission import FilmSource
+
+    core = 1 + int(np.argmax(np.real(n[1:-1])))
+    poles = np.array(FilmSource(n, d, WAVELENGTH, core, d[core] / 2).guided_poles()) * n[core]
+    absorbing = guide_with_loss(n, k)
+    return stratify_rates(absorbing, d, height), reference_rates(absorbing, d, height, poles=poles)
+
+
 def compare(smuthi=True):
     """Worst relative difference per (case, reference)."""
     worst = {}
@@ -203,6 +213,8 @@ def compare(smuthi=True):
                     lossless = stratify_rates(n, d, height, dipole, below, 1e-8)
                     absorbing = stratify_rates(guide_with_loss(n, 1e-7), d, height, dipole, below, 1e-8)
                     record(name, "continuity, core k = 1e-7", np.max(np.abs(lossless / absorbing - 1)))
+            ours, theirs = weakly_absorbing_guide(n, d, height)
+            record(name, "Sommerfeld, core k = 1e-3", np.max(np.abs(ours / theirs - 1)))
             if smuthi:
                 ours = stratify_rates(n, d, height, tolerance=1e-8)
                 record(name, "smuthi", np.max(np.abs(ours / smuthi_rates(n, d, height) - 1)))

@@ -14,7 +14,7 @@ from numpy import inf
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
 from emitter_references import (  # noqa: E402
     GUIDES, HEIGHTS, STACKS, WAVELENGTH, guide_with_loss, image_dipole, reference_rates, smuthi_rates,
-    stratify_rates,
+    stratify_rates, weakly_absorbing_guide,
 )
 
 
@@ -47,15 +47,11 @@ def test_source_outside_a_lossless_guide_is_the_lossless_limit(name, dipole, bel
     assert np.allclose(lossless, absorbing, rtol=1e-5, atol=0), (lossless, absorbing)
 
 
-def test_weakly_absorbing_guide_against_the_sommerfeld_reference():
+@pytest.mark.parametrize("name", list(GUIDES))
+def test_weakly_absorbing_guide_against_the_sommerfeld_reference(name):
     """The reference integrates a weakly absorbing guide, its quasi-poles as breakpoints."""
-    from pystratify.planar_emission import FilmSource
-
-    n, d = GUIDES["air above 200 nm TiO2 on glass"]
-    poles = np.array(FilmSource(n, d, WAVELENGTH, 1, d[1] / 2).guided_poles()) * n[1]
-    absorbing = guide_with_loss(n, 1e-3)
-    assert np.allclose(stratify_rates(absorbing, d, 50.0), reference_rates(absorbing, d, 50.0, poles=poles),
-                       rtol=1e-8, atol=0)
+    ours, theirs = weakly_absorbing_guide(*GUIDES[name], 50.0)
+    assert np.allclose(ours, theirs, rtol=1e-8, atol=0)
 
 
 @pytest.mark.parametrize("name", list(GUIDES))
