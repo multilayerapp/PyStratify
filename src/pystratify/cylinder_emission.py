@@ -64,6 +64,11 @@ class CylinderSource:
         self.explicit_order = m_max is not None
 
     def solution(self, b, maximum=None):
+        # the integrand is integrable at a layer's light line but q^2 = k^2 - beta^2 rounds to zero within
+        # ~1e-15 of it: evaluate 1e-12 away, on the same side (an ulp in b is not an ulp in q^2)
+        for line in self.n.real[self.n.imag == 0] / self.n[self.layer].real:
+            if abs(b - line) < 1e-12 * line:
+                b = line + (1e-12 if b >= line else -1e-12) * line
         return solve_cylinder(self.radii, self.n, self.wavelength, mu=self.mu, beta=self.ks * b, m_max=self.m_max if maximum is None else maximum)
 
     def coefficients(self, solution):
@@ -159,7 +164,10 @@ class CylinderSource:
         if high <= low:
             return []
         count = min(4000, max(160, int(30 * self.k0 * self.radii[-1] * max(self.n.real))))
-        grid = np.linspace(low + 1e-8, high - 1e-8, count)
+        # modes near cutoff sit just above the host light line: sample it geometrically, or a root in
+        # the first cell of the uniform grid could never be an interior minimum
+        near_cutoff = low + (high - low) * np.geomspace(1e-8, 1 / count, 24)
+        grid = np.unique(np.r_[near_cutoff, np.linspace(low + 1e-8, high - 1e-8, count)])
         positive = np.arange(self.m_max, 2 * self.m_max + 1)
         def determinant(b):
             sol = solve_cylinder(self.radii, self.n, self.wavelength, mu=self.mu, beta=self.ks * b, m_max=self.m_max, _response_only=True)
@@ -172,10 +180,22 @@ class CylinderSource:
             indices = np.flatnonzero((values[1:-1, m] < values[:-2, m]) & (values[1:-1, m] < values[2:, m])) + 1
             for j in indices:
                 fit = minimize_scalar(lambda b: abs(determinant(b)[m]), bounds=(grid[j - 1], grid[j + 1]), method="bounded", options={"xatol":1e-13})
-                if fit.fun < 1e-7 and not any(abs(fit.x - p) < 2e-7 for p in poles):
-                    h = min(1e-5, (grid[j + 1] - grid[j - 1]) / 10)
-                    phase = np.exp(-1j * np.angle(determinant(fit.x + h)[m] - determinant(fit.x - h)[m]))
+                # |det| is V-shaped at a root, where Brent's parabolic steps stall short of zero (a TM01
+                # mode stopped at 1.2e-7 and was dropped): bracket the projected determinant and judge
+                # the root itself, not the minimiser's last value
+                h = min(1e-5, (fit.x - grid[j - 1]) / 2, (grid[j + 1] - fit.x) / 2)
+                if h <= 0:
+                    continue
+                ends = determinant(fit.x - h)[m], determinant(fit.x + h)[m]
+                phase = np.exp(-1j * np.angle(ends[1] - ends[0]))
+                try:
                     root = brentq(lambda b: np.real(phase * determinant(b)[m]), fit.x - h, fit.x + h, xtol=2e-13)
+                except ValueError:  # no sign change: a minimum of |det| that is not a zero
+                    continue
+                # a zero, judged against the determinant's own scale: toward the host light line the
+                # normalised determinant of every m >= 1 falls like (b - b_light), below any fixed bar
+                value = abs(determinant(root)[m])
+                if value < 1e-7 and value < 1e-3 * max(abs(ends[0]), abs(ends[1])) and not any(abs(root - p) < 2e-7 for p in poles):
                     poles.append(root)
         return sorted(poles)
 
@@ -197,14 +217,18 @@ class CylinderSource:
 
     def _rates_once(self, tolerance=1e-6, max_evaluations=20000):
         poles = self.guided_poles()
+        light_line = self.n[-1].real / self.n[self.layer].real
+        # a mode near cutoff must not regularise across the host light line, a branch point
+        steps = [min(1e-5 * max(1, root), (root - light_line) / 2) for root in poles]
         guided, regular_parts, residue_error = np.zeros(3), [], 0.0
-        for root in poles:
-            step = 1e-5 * max(1, root)
+        for root, step in zip(poles, steps):
             def residue(h):
                 return h * (self.spectral(root + h, powers=False)[0] - self.spectral(root - h, powers=False)[0]) / 2
-            r1, r2 = residue(step), residue(step / 2)
-            r2 = (4 * r2 - r1) / 3
-            residue_error += np.pi * float(np.max(np.abs(r1 - r2)))
+            # two Richardson extrapolates (the h^2 term cancelled): their difference is the error of
+            # the one used; the raw-against-extrapolated difference overstated it ~1e3x near cutoff
+            r1, r2, r4 = residue(step), residue(step / 2), residue(step / 4)
+            coarse, r2 = (4 * r2 - r1) / 3, (4 * r4 - r2) / 3
+            residue_error += np.pi * float(np.max(np.abs(coarse - r2)))
             guided -= np.pi * r2.imag
             left = self.spectral(root - step, powers=False)[0].real + r2.real / step
             right = self.spectral(root + step, powers=False)[0].real - r2.real / step
@@ -243,7 +267,7 @@ class CylinderSource:
                     return value
             return sample(b)
         breaks = [0, *[v / self.n[self.layer].real for v in self.n.real if v > 0], self.maximum]
-        breaks += [p - 1e-5 * max(1, p) for p in poles] + [p + 1e-5 * max(1, p) for p in poles]
+        breaks += [p - step for p, step in zip(poles, steps)] + [p + step for p, step in zip(poles, steps)]
         integral = integrate(integrand, [b for b in breaks if 0 <= b <= self.maximum], tolerance, max_evaluations - cap_evaluations)
         total, escape, absorbed = 1 + integral.value[:3] + guided, integral.value[3:6], integral.value[6:9]
         balance = np.abs(total - escape - guided - absorbed) / np.maximum(1, abs(total))

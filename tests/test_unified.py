@@ -163,6 +163,37 @@ def test_cylinder_grazing_uncertainty_cannot_pass_a_tighter_tolerance():
     assert not rates.converged
 
 
+@pytest.mark.parametrize('wavelength',[.62,.64,.645,.67,.677])
+def test_cylinder_finds_every_guided_mode_near_cutoff(wavelength):
+    """TE01 and TM01 of a step-index fibre against their closed-form dispersion relations
+    (Snyder & Love, Table 12-4): J1(u)/(u J0(u)) + c K1(w)/(w K0(w)) = 0, c = 1 (TE) or (n2/n1)^2
+    (TM). The pole search dropped one of them at most of these wavelengths while reporting
+    convergence, and the total rate jumped by 12%."""
+    from scipy.optimize import brentq
+    from scipy.special import j0, j1, k0, k1
+    from pystratify.cylinder_emission import CylinderSource
+    radius,n1,n2=.15,2.0,1.0
+    V=2*np.pi/wavelength*radius
+    def relation(b,c):
+        u,w=V*np.sqrt(n1**2-b**2),V*np.sqrt(b**2-n2**2)
+        return j1(u)/(u*j0(u))+c*(n2/n1)**2*k1(w)/(w*k0(w)) if c else j1(u)/(u*j0(u))+k1(w)/(w*k0(w))
+    upper=np.sqrt(n1**2-(2.404825557695773/V)**2)  # J0's first zero: the root lies below it
+    exact=sorted(brentq(relation,n2+1e-12,upper-1e-12,args=(c,),xtol=1e-15) for c in (0,1))
+    source=CylinderSource([radius],[n1,n2],wavelength,.25)
+    poles=source.guided_poles()
+    assert len(poles)==3 and poles[2]>1.4  # TE01, TM01 and HE11
+    np.testing.assert_allclose(poles[:2],exact,rtol=0,atol=1e-10)
+    rates=source.rates(tolerance=1e-7)
+    assert rates.converged and np.allclose(rates.total,rates.escape+rates.guided,rtol=1e-7)
+
+
+def test_cylinder_rates_are_smooth_through_a_mode_cutoff():
+    lams=np.linspace(.66,.70,9)  # TE01 and TM01 cut off near 0.678 um
+    total=np.array([ps.solve_problem(ps.Problem('cylinders',[.15],[2.0,1],lam,ps.PointDipole(.25,'electric',1),1e-7))['total'][:3] for lam in lams])
+    curvature=np.abs(total[2:]-2*total[1:-1]+total[:-2])
+    assert np.max(curvature)<2e-3, curvature  # a dropped mode moved the radial rate by 0.15
+
+
 def test_cylinder_pattern_reuses_modes_for_azimuthal_cuts(monkeypatch):
     from pystratify.cylinder_emission import CylinderSource
     source=CylinderSource([.1],[1.5,1],.6,.2,m_max=20)

@@ -16,6 +16,23 @@ outside the particle, with angle-resolved far fields and decay rates. The numeri
 that every quantity stays finite and accurate to the orders it needs, and the defects found in the
 MATLAB code are fixed ([AUDIT.md](https://github.com/multilayerapp/PyStratify/blob/main/AUDIT.md)).
 
+## 0.10.4: every guided mode of a cylinder
+
+A point source beside or inside a lossless cylinder could lose the power it couples into some of the
+cylinder's guided modes. The mode search minimised the dispersion determinant on a grid and kept a
+minimum only if the minimiser's last value was below a fixed bar; at a root |det| is V-shaped, Brent's
+parabolic steps stalled just above it, and real modes were dropped while the solve reported convergence.
+Over 60 random lossless cylinders (electric and magnetic sources) the totals moved by more than 1e-3
+in 28 of 97 comparable cases (up to 9.5%), and 11 that raised an error now solve. Roots are now
+bracketed and judged at the root, against the determinant's own scale; the light line, where modes cut
+off, is sampled geometrically and never evaluated within 1e-12 of; the residue's error estimate
+measures the value used. For a step-index fibre the modes found are exactly
+those of its closed-form dispersion relation, and the rates are smooth through a mode's cutoff. Found by
+a 3D FDTD comparison with Meep
+([benchmarks/FDTD_MEEP.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/FDTD_MEEP.md)).
+A mode within ~1e-5 of cutoff can still exhaust the evaluation budget at tight tolerances (an error, not a
+wrong number). Near fields are now exact at a sphere's centre (below).
+
 ## 0.10.3: guided power from a source outside the stack
 
 A point source in an exterior half-space of a film stack (above or below it) lost the power it couples
