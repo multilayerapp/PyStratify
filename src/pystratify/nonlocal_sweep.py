@@ -187,13 +187,31 @@ class ChannelSweep:
             out[j] = (inner, outer)
         return out
 
-    def outgoing_amplitudes(self, region, b_outer):
+    def regular_chain(self, region, a_inner, log=None):
+        """Regular solution continued inwards from ``region`` (> 0): ``a_inner`` is A^ of ``region`` at
+        its inner radius r_(region-1), shape (..., c, k), with real log magnitude ``log`` (..., k).
+        Returns per region < ``region`` (inner, outer) as in :meth:`regular_amplitudes`."""
+        log = np.zeros(a_inner.shape[:-2] + a_inner.shape[-1:]) if log is None else log
+        out = {}
+        A, log = _normalise(a_inner, log)
+        for j in range(region - 1, -1, -1):
+            a_o, log = _normalise(self.X[j] @ A, log)
+            outer = (a_o, self.R_in[j] @ a_o, log)
+            inner = None
+            if j:
+                a_i, log = _normalise(self.regular_factor(j, j - 1, j)[..., :, None] * a_o, log)
+                inner = (a_i, self.R_out[j - 1] @ a_i, log)
+                A = a_i
+            out[j] = (inner, outer)
+        return out
+
+    def outgoing_amplitudes(self, region, b_outer, log=None):
         """Outgoing solution continued outwards from ``region``: ``b_outer`` is B^ of ``region`` at
-        its outer radius (..., c, k).  Returns per region > ``region`` (A^, B^, log) at its inner
-        boundary and at its outer boundary (None for the host)."""
+        its outer radius (..., c, k), with real log magnitude ``log`` (..., k).  Returns per region >
+        ``region`` (A^, B^, log) at its inner boundary and at its outer boundary (None for the host)."""
         N = self.count
         out = {}
-        B, log = _normalise(b_outer, np.zeros(b_outer.shape[:-2] + b_outer.shape[-1:]))
+        B, log = _normalise(b_outer, np.zeros(b_outer.shape[:-2] + b_outer.shape[-1:]) if log is None else log)
         for j in range(region, N):
             b_in = self.Y[j] @ B
             b_in, log = _normalise(b_in, log)
