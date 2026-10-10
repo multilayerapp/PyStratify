@@ -10,6 +10,77 @@ by [STRATIFY](https://gitlab.com/iliarasskazov/stratify) (Rasskazov, Carney & Mo
 so that every quantity stays finite and accurate to the orders it needs, and the defects found in
 the MATLAB code are fixed ([AUDIT.md](AUDIT.md)).
 
+## Focused illumination (0.10.0)
+
+A fourth source for all three geometries: a beam focused by an aplanatic objective whose
+pupil is filled uniformly, through an annulus (a Cassegrain, `obscuration` > 0) or a disc,
+as in FT-IR microspectroscopy (Davis, Carney & Bhargava, *Anal. Chem.* 82, 3474 (2010) and
+83, 525 (2011); van Dijk et al., *Appl. Spectrosc.* 67, 546 (2013)). Powers are fractions
+of the beam's power; the detected one passes a condenser's annulus (transmission) or the
+objective's (film transflection), and the apparent absorbance is −log₁₀ of its ratio to a
+reference setup's.
+
+```python
+import numpy as np
+import pystratify as ps
+
+beam = ps.FocusedBeam(0.5, 0.23)                       # NA, obscuration NA (n sin θ in the host)
+wavenumber = np.linspace(1000, 4000, 301)              # cm⁻¹
+wavelength = 1e4 / wavenumber                          # µm
+fibre = ps.focused_cylinders([5.0], [1.49 + 0.01j, 1.0], wavelength, beam)
+fibre.apparent_absorbance, fibre["extinction"], fibre.by_polarization["y"]["detected"]
+film = ps.focused_films([1, n_polymer, 1.43, 1], [np.inf, 2.0, 400.0, np.inf], wavelength, beam,
+                        coherence=["i", "c", "i", "i"],
+                        reference=([1, 1.43, 1], [np.inf, 400.0, np.inf], ["i", "i", "i"]))
+sphere = ps.focused_spheres([5.0], [n_pmma, 1.0], wavelength,
+                            [ps.FocusedBeam(0.5, 0.23, offset=(x, 0, 0)) for x in (0, 2, 4)])  # a line scan
+field = ps.focused_field_spheres([5.0], [n_pmma[0], 1.0], wavelength[0], beam, points)    # |E|² = 1 at the focus
+```
+
+`FocusedBeam(na, obscuration, collection_na, collection_obscuration, mode, illumination,
+field_stop, model, polarization, offset)`: the condenser defaults to the objective;
+`illumination="kohler"` makes every pupil direction an independent plane wave filling a
+field stop of diameter `field_stop` (a cylinder through it is lit over that chord);
+`model="scalar"` is the corrected scalar theory of the coherent sphere and cylinder spot;
+`polarization` is the pupil's (`"x"`, `"y"` or `"unpolarized"`; a cylinder's axis is y);
+`offset` moves the focus (coherent only). `solve_problem(Problem(..., source=beam))` takes
+one wavelength, with `reference=Problem(...)` for films and `points=` for `"field"`; the
+`focused_*` functions batch wavelengths and take a list of beams (an NA sweep or a focus
+scan), sharing every Mie, oblique-cylinder and planar solve between them.
+
+* **Films**: the cone average, uniform in sin²θ, s and p equally, of plane-wave R and T and
+  each layer's absorptance, by adaptive quadrature split at the condenser's edges and every
+  lossless layer's critical angle, with the plane-wave solver the coherence column calls for
+  (`planar.layered_response`). A 400-µm coherent window is resolved fringe by fringe.
+  Coherent and Köhler illumination coincide.
+* **Spheres**: the beam's vector multipole coefficients (m = ±1, a 1-D pupil integral, when the
+  focus lies on the axis through the centre; every m, by FFT in the azimuth, otherwise), the
+  T-matrix, P_ext = −4 Re Σ T|c|², P_sca = 4 Σ |Tc|² and the collected power over the condenser
+  in closed form per order. Köhler uses the cross sections over the cone and the scattering
+  landing in the condenser (Legendre addition theorem).
+* **Cylinders** (axis y, beam z): each pupil row s_y is a 2-D problem; one oblique solve per row
+  serves every transverse angle, the rows add in power, and the s_y integral is adaptive with an
+  error estimate, split where rows cross an annulus edge. The scattered light is collected over
+  the condenser at its true angle, asin(s_x/√(1−s_y²)) — never masked to the illumination.
+* **Scalar model**: U and ∂U/∂r continuous; the sphere's order-l coefficient is the TE one plus a
+  monopole, the cylinder's the axial-electric one at normal incidence with indices
+  √(n² − (n_host s_y)²); the pupil weighting is the vector model's, so vector − scalar isolates
+  polarization.
+* **Near fields** (coherent): spheres from the beam's multipoles and the shells' radial
+  functions, cylinders as the coherent sum over rows, films as every pupil direction's coh_tmm
+  field summed over the azimuth in closed form (Bessel J₀, J₁, J₂); the beam alone in the host
+  is the Richards–Wolf integral.
+
+The ambient (films) or host must be lossless and NA < n there. `pytest tests/test_focused.py`
+checks every semi-analytic form against a plane-wave superposition on a dense pupil grid through
+`amplitude_matrix`, the oblique `solve_cylinder`, `coh_tmm`/`position_resolved`, `near_field`
+and `CylinderSolution.field`; energy balance (lossless: absorption 0, per row for cylinders);
+NA → 0 against the plane-wave cross section and cross width; an index-matched sphere and an
+empty stack invisible; the aplanatic film path factor ⟨1/cos θ⟩ = 1.0357 (n = 1.5, NA 0.23–0.5);
+Köhler against cone averages of plane-wave results; the scalar coefficients against closed
+forms; and the film near field's lateral integral against the cone-averaged plane-wave
+intensity (Parseval).
+
 ## Unified films, cylinders and spheres (0.9.0)
 
 `solve_problem(Problem(...))` chooses the geometry's modal basis and uses the owned
@@ -454,6 +525,8 @@ pip install -e ".[test]"
 pytest
 ```
 
+* `test_focused.py`: focused illumination (above): every semi-analytic form against plane-wave
+  superpositions through the existing engines, energy balance, limits, Köhler and Parseval.
 * `test_normalized.py`: the normalized formulation (`normalized.py`: ψ'/ψ, ψξ and normalized j̄ only,
   reflection ratios swept outwards and inwards) against the solver, extended precision and the
   unnormalized formulas, including emitters and interfaces at real zeros of ψ_l, the small real
