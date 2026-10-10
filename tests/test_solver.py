@@ -31,6 +31,8 @@ def log_error(log_value, exact):
         # nearly index-matched: B is set by a contrast of 1e-6, so it is known to ~ l eps / contrast
         ([40, 60], [1.5, 1.5 + 1e-6, 1.5 + 2e-6], 1e-7),
         ([40, 60], [1.5, 1.6 - 0.02j, 1.33], 1e-10),  # gain shell
+        # benchmarks/mie_codes.py's graded sphere, where scattnlay's internal fields fail in the inner layers
+        (list(np.linspace(114.6, 1146.0, 10)), list(np.linspace(1.6, 1.35, 10)) + [1.0], 1e-10),
     ],
 )
 def test_coefficients_against_60_digit_transfer_matrices(radii, n, tol):

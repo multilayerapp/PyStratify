@@ -102,8 +102,11 @@ def near_field(
 ) -> NearField:
     """Electric and magnetic near field at Cartesian points (x, y, z).
 
-    Points at the origin are evaluated at r = 1e-9 R_0 (the field is
-    continuous there).  In the host the incident wave is exact and the
+    At the origin only the l = 1 internal waves survive and the field is
+    exact: E = -(2/3) m_1 A_1^TM x_hat, H = -(2/3) (n_0/mu_0) m_1 A_1^TE y_hat,
+    m_1 = i sqrt(3/4pi) and A_1 including i sqrt(3 pi), i.e. Bohren & Huffman's
+    d_1 and m c_1 for a homogeneous sphere (spherical components are those at
+    theta = phi = 0).  In the host the incident wave is exact and the
     scattered series converges with the Solution's orders at any distance;
     fields right at the surface converge more slowly, see
     ``solve(..., regime='near')``.  ``incident=False`` returns the scattered
@@ -119,9 +122,11 @@ def near_field(
     x, y, z = np.broadcast_arrays(*(np.asarray(v, dtype=float) for v in (x, y, z)))
     shape = x.shape
     x, y, z = x.ravel(), y.ravel(), z.ravel()
-    r = np.maximum(np.sqrt(x**2 + y**2 + z**2), 1e-9 * sol.radii[0])
-    theta = np.arctan2(np.hypot(x, y), z)
-    phi = np.arctan2(y, x)
+    r = np.sqrt(x**2 + y**2 + z**2)
+    origin = r == 0
+    r = np.where(origin, 0.5 * sol.radii[0], r)  # a core placeholder; the exact centre is filled in below
+    theta = np.where(origin, 0.0, np.arctan2(np.hypot(x, y), z))  # -0.0 would give theta = pi
+    phi = np.where(origin, 0.0, np.arctan2(y, x))
     l = sol.orders
     w = wavelength_index
     weights = _partial_waves(l, orders, polarisations)
@@ -166,6 +171,12 @@ def near_field(
     factor = -1j * (sol.n[w] / sol.mu[w])[shell]
     for c in h:
         h[c] = h[c] * factor
+    if origin.any():  # E(0) along x, H(0) along y; theta = phi = 0 there
+        centre = -(2 / 3) * m[0] * np.exp(sol.log_a[:, 0, w, 0] + _log_incident(l[0]))
+        if weights is not None:
+            centre = centre * weights[:, 0]
+        e["theta"][origin], e["r"][origin], e["phi"][origin] = centre[TM], 0, 0
+        h["phi"][origin], h["r"][origin], h["theta"][origin] = centre[TE] * sol.n[w, 0] / sol.mu[w, 0], 0, 0
 
     ct, st, cp, sp = np.cos(theta), np.sin(theta), np.cos(phi), np.sin(phi)
     host = shell == sol.n_shells

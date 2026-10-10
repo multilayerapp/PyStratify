@@ -23,10 +23,23 @@ the host: size parameters k_host r and indices relative to the host.
 
 The chiral comparison is the one ``tests/test_chiral.py`` asserts: helicity T-matrix elements of
 chiral (Pasteur) multilayers against treams, whose negative-helicity waves differ by a sign.
+
+Near fields are compared against scattnlay's ``fieldnlay`` inside every layer and in the host (and the
+scattered host field against treams' T-matrix where it fits, l_max <= ``TREAMS_NEAR_MAX_ORDER``), at
+points away from the interfaces, as max |F_ours - F_theirs| / |F_ours| (vector norms) over the
+points of a region. scattnlay takes positions in units of 1/k_host, has E_x = exp(i k z) and H in
+SI (H_y = 1/Z0, Z0 = 4 pi 1e-7 c), so its H Z0 is compared with PyStratify's Gaussian H / n_host;
+both use the same truncation. At the centre only l = 1 survives and PyStratify is exact there: the
+report also compares it with Bohren & Huffman's d_1 and m c_1 (E(0) = d_1 x_hat, H(0) = m c_1
+y_hat for a homogeneous sphere) and lists scattnlay's centre separately, since its fields lose
+digits as k r -> 0 (agreeing to ~1e-14 at 0.1 R_0, ~1e-7 at 1e-3 R_0 and ~1e-3 from 1e-6 R_0 down
+to the centre itself).
 """
 
 from __future__ import annotations
 
+import contextlib
+import os
 import sys
 import warnings
 from pathlib import Path
@@ -65,6 +78,17 @@ CHIRAL = {
     "strongly chiral, gain in kappa": ([200.0, 230.0], [2.0 + 0.05j, 1.5, 1.0], [0.3, -0.2 + 0.01j, 0], [1, 1, 1],
                                        500.0, 30),
 }
+
+
+# near fields: cases from CASES (scattnlay's fields are double precision, so small and moderate spheres)
+NEAR_FIELD_CASES = ("dielectric, x = 1", "absorbing, x = 10", "metal-like, eps = -10 + i, 40 nm",
+                    "high-index (Kerker regime), n = 3.5", "nanoshell, 10 nm shell", "thin nanoshell, 5 nm shell",
+                    "matryoshka metal/silica/metal in water", "graded index, 10 layers, x = 12")
+NEAR_FIELD_POLAR_DEG = np.array([0.0, 30.0, 90.0, 150.0, 180.0])
+NEAR_FIELD_AZIMUTH_DEG = 40.0
+HOST_RADII = (1.05, 1.5, 3.0)  # in units of the outer radius
+Z0 = 4e-7 * np.pi * 299792458.0  # scattnlay's impedance of free space
+TREAMS_NEAR_MAX_ORDER = 40  # treams' dense T-matrix is 2 L (L + 2) square: 150 MB at L = 40, 775 MB at 58
 
 
 def size_parameter(radii, n):
@@ -120,6 +144,125 @@ def chiral_against_treams(name):
     return worst
 
 
+def bohren_huffman_centre(m, x):
+    """E(0) = d_1 and H(0) = m c_1 (Gaussian, host index 1) of a homogeneous sphere, Bohren & Huffman
+    Eq. (4.53) with mu = 1: d_1 = i m / (m psi(mx) xi'(x) - xi(x) psi'(mx)),
+    c_1 = i / (psi(mx) xi'(x) / m - xi(x) psi'(mx)), psi_1(z) = z j_1(z), xi_1(z) = z h_1(z)."""
+    from scipy.special import spherical_jn, spherical_yn
+
+    def riccati(z):
+        j, y = spherical_jn(1, z), spherical_yn(1, z)
+        jd, yd = spherical_jn(1, z, derivative=True), spherical_yn(1, z, derivative=True)
+        return z * j, z * (j + 1j * y), j + z * jd, (j + 1j * y) + z * (jd + 1j * yd)
+
+    psi_mx, _, dpsi_mx, _ = riccati(complex(m * x))
+    _, xi_x, _, dxi_x = riccati(complex(x))
+    d1 = 1j * m / (m * psi_mx * dxi_x - xi_x * dpsi_mx)
+    c1 = 1j / (psi_mx * dxi_x / m - xi_x * dpsi_mx)
+    return d1, m * c1
+
+
+def near_field_points(radii):
+    """{region: [(radius, (N, 3) points in nm)]}: the middle of the core and of every shell
+    ("inside", one entry per layer) and three host radii ("host")."""
+    polar, azimuth = np.radians(NEAR_FIELD_POLAR_DEG), np.radians(NEAR_FIELD_AZIMUTH_DEG)
+    directions = np.stack([np.sin(polar) * np.cos(azimuth), np.sin(polar) * np.sin(azimuth), np.cos(polar)], 1)
+    inner = np.concatenate([[0.0], radii])
+    regions = {"inside": [(a + b) / 2 for a, b in zip(inner[:-1], inner[1:])],
+               "host": [f * radii[-1] for f in HOST_RADII]}
+    return {region: [(r, r * directions) for r in rs] for region, rs in regions.items()}
+
+
+@contextlib.contextmanager
+def _quiet_stdout():
+    """scattnlay's C++ prints 'Near-field early convergence ...' on file descriptor 1."""
+    sys.stdout.flush()
+    saved = os.dup(1)
+    try:
+        with open(os.devnull, "w") as null:
+            os.dup2(null.fileno(), 1)
+            yield
+    finally:
+        os.dup2(saved, 1)
+        os.close(saved)
+
+
+def scattnlay_fields(radii, n, points, l_max):
+    """(E, H Z0) at points (N, 3) in nm, from scattnlay's fieldnlay."""
+    from scattnlay import fieldnlay
+
+    host = np.real(n[-1])
+    k = 2 * np.pi * host / WAVELENGTH
+    x, m = k * np.asarray(radii), np.asarray(n[:-1], complex) / host
+    with _quiet_stdout():
+        _, e, h = fieldnlay(x, m, *(k * points[:, i] for i in range(3)), nmax=l_max)
+    return e, h * Z0
+
+
+def treams_scattered_fields(radii, n, points, l_max):
+    """Scattered (E, H) in the host at points (N, 3) in nm: treams' T-matrix applied to the expanded
+    plane wave, both in the parity basis (treams' default T-matrix is in helicities)."""
+    import treams
+
+    k0 = 2 * np.pi / WAVELENGTH
+    materials = [treams.Material(complex(v) ** 2) for v in n]
+    tmatrix = treams.TMatrix.sphere(l_max, k0, radii, materials, poltype="parity")
+    incident = treams.plane_wave([0, 0, k0 * np.real(n[-1])], [1, 0, 0], k0=k0, material=materials[-1],
+                                 poltype="parity")
+    scattered = tmatrix @ incident.expand(tmatrix.basis)
+    return np.asarray(scattered.efield(points)), np.asarray(scattered.hfield(points))
+
+
+def stratify_fields(sol, points, host, incident=True):
+    f = ps.near_field(sol, points[:, 0], points[:, 1], points[:, 2], incident=incident)
+    return np.stack([f.e[c] for c in "xyz"], 1), np.stack([f.h[c] for c in "xyz"], 1) / host
+
+
+def _vector_difference(ours, theirs):
+    """Worst relative difference over the points; nan (scattnlay returns nan) counts as infinite."""
+    d = np.linalg.norm(ours - theirs, axis=1) / np.linalg.norm(ours, axis=1)
+    return float(np.max(np.where(np.isnan(d), np.inf, d)))
+
+
+def compare_near_fields(cases=NEAR_FIELD_CASES):
+    """{case: {quantity: difference}}: E and H inside and in the host against scattnlay, the centre
+    against Bohren & Huffman (homogeneous spheres) and against scattnlay."""
+    out = {}
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for name in cases:
+            radii, n = CASES[name]
+            l_max = ps.truncation_order(radii[-1], n[-1], WAVELENGTH, regime="near") + EXTRA_ORDERS
+            sol = ps.solve(radii, np.array([n], complex), np.array([WAVELENGTH]), l_max=l_max)
+            host = np.real(n[-1])
+            values = {}
+            for region, layers in near_field_points(radii).items():
+                worst = []
+                for radius, points in layers:
+                    ours, theirs = stratify_fields(sol, points, host), scattnlay_fields(radii, n, points, l_max)
+                    worst.append((radius, _vector_difference(ours[0], theirs[0]), _vector_difference(ours[1], theirs[1])))
+                values[f"E {region}"] = max(e for _, e, _ in worst)
+                values[f"H {region}"] = max(h for _, _, h in worst)
+                if region == "inside":
+                    values["inside by layer"] = worst  # (mid radius, E, H) from the core out
+            if l_max <= TREAMS_NEAR_MAX_ORDER:
+                points = np.concatenate([p for _, p in near_field_points(radii)["host"]])
+                ours, theirs = stratify_fields(sol, points, 1.0, incident=False), treams_scattered_fields(
+                    radii, n, points, l_max)
+                values["E host, treams"] = _vector_difference(ours[0], theirs[0])
+                values["H host, treams"] = _vector_difference(ours[1], theirs[1])
+            centre = np.zeros((1, 3))
+            (e0, h0), (e1, h1) = stratify_fields(sol, centre, host), scattnlay_fields(radii, n, centre, l_max)
+            if len(radii) == 1:
+                d1, mc1 = bohren_huffman_centre(n[0] / n[1], 2 * np.pi * host * radii[0] / WAVELENGTH)
+                values["centre E, BH"] = _vector_difference(e0, np.array([[d1, 0, 0]]))
+                values["centre H, BH"] = _vector_difference(h0, np.array([[0, mc1, 0]]))
+            values["centre E, scattnlay"] = _vector_difference(e0, e1)
+            values["centre H, scattnlay"] = _vector_difference(h0, h1)
+            out[name] = values
+    return out
+
+
 def _difference(ours, theirs, quantity):
     if quantity in ("S1", "S2"):
         return float(np.max(np.abs(ours[quantity] - theirs[quantity])) / np.max(np.abs(theirs[quantity])))
@@ -170,5 +313,35 @@ def report(results):
         print(f"| {name} | {reference} | " + " | ".join(cells) + " |")
 
 
+def report_near_fields(results):
+    quantities = ("E inside", "H inside", "E host", "H host", "E host, treams", "H host, treams", "centre E, BH",
+                  "centre H, BH", "centre E, scattnlay", "centre H, scattnlay")
+    print("\n## Near fields\n")
+    print("Generated by the same script. max |F_ours - F_theirs| / |F_ours| over the points of a region: the")
+    print(f"middle of the core and of every shell, and {', '.join(f'{f:g}' for f in HOST_RADII)} outer radii in the host,")
+    print(f"each at polar angles {', '.join(f'{a:g}' for a in NEAR_FIELD_POLAR_DEG)} deg and azimuth "
+          f"{NEAR_FIELD_AZIMUTH_DEG:g} deg; H compared as")
+    print("scattnlay's H Z0 against PyStratify's H / n_host; nan = scattnlay returned nan at a point. Both")
+    print(f"codes keep the near-field truncation (Allardice & Le Ru) + {EXTRA_ORDERS} orders. The treams columns are the")
+    print(f"scattered field alone in the host, where treams' T-matrix fits (l_max <= {TREAMS_NEAR_MAX_ORDER}); its H is in")
+    print("PyStratify's units (H_inc = n_host), so it is compared directly. At the centre PyStratify is")
+    print("exact (l = 1 only) and matches Bohren & Huffman's d_1 and m c_1 (BH, homogeneous spheres); scattnlay's")
+    print("own fields lose digits as k r -> 0, hence its separate centre columns. - = not applicable.\n")
+    print("| case | " + " | ".join(quantities) + " |")
+    print("|---|" + "---|" * len(quantities))
+    for name, values in results.items():
+        cells = [f"{values[q]:.1e}" if q in values else "-" for q in quantities]
+        print(f"| {name} | " + " | ".join(cells).replace("inf", "nan") + " |")
+    for name, values in results.items():
+        if max(values["E inside"], values["H inside"]) <= 1e-10:
+            continue
+        print(f"\n**{name}, inside, layer by layer** (mid radius: E, H):")
+        print(", ".join(f"{r:.4g} nm: {e:.1e}, {h:.1e}".replace("inf", "nan") for r, e, h in values["inside by layer"]) + ".")
+        print("scattnlay's internal field degrades toward the core; PyStratify's internal coefficients of every layer")
+        print("of this sphere agree with 60-digit transfer matrices to ~2e-12")
+        print("(`tests/test_solver.py::test_coefficients_against_60_digit_transfer_matrices`).")
+
+
 if __name__ == "__main__":
     report(compare())
+    report_near_fields(compare_near_fields())

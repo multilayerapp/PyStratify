@@ -172,7 +172,8 @@ blank = the reference cannot compute it.
 
 | reference | kind | quantity | script | tolerance | status |
 |---|---|---|---|---|---|
-| 60-digit transfer matrices | precision | Mie coefficients of every shell | `tests/test_solver.py::test_coefficients_against_60_digit_transfer_matrices` | 1e-10 (1e-7 nearly index-matched) | suite |
+| 60-digit transfer matrices | precision | Mie coefficients of every shell (six multilayers incl. `mie_codes.py`'s 10-layer graded sphere) | `tests/test_solver.py::test_coefficients_against_60_digit_transfer_matrices` | 1e-10 (1e-7 nearly index-matched) | suite |
+| Bohren & Huffman d₁, c₁ (only l = 1 survives at r = 0) | analytic | E(0), H(0) of four homogeneous spheres, incl. ±0.0 inputs | `benchmarks/mie_codes.py` → `MIE_CODES.md` "Near fields"; `tests/test_mie_codes.py::test_field_at_the_centre_is_bohren_huffman_d1_and_c1` | 1e-13; observed ≤ 1.1e-14 | suite |
 | textbook Mie (homogeneous); identical shells = one sphere | analytic | Q_ext, Q_sca, S1, S2 | `tests/test_physics.py::test_homogeneous_sphere_equals_mie`, `tests/test_solver.py::test_fifty_shells_of_one_material_are_one_sphere`, `tests/test_farfield.py::test_amplitude_matrix_against_textbook_mie` | 1e-10 / 1e-11 / 1e-10 | suite |
 | Bohren & Huffman reference values | paper | Q, backscattering | `tests/test_physics.py::test_bohren_huffman_reference_values`, `tests/test_farfield.py::test_bohren_huffman_backscattering_from_the_pattern` | 1e-5 (printed digits) | suite |
 | optical theorem; Rayleigh limit; lossless absorbs nothing | analytic | Q_ext, Q_abs | `tests/test_physics.py::test_optical_theorem_and_backscattering`, `::test_rayleigh_limit`, `::test_lossless_multilayers_absorb_nothing` | 1e-12 / 1e-7 | suite |
@@ -185,9 +186,9 @@ blank = the reference cannot compute it.
 | graphene-coated sphere plasmons; thin-film limit of a sheet | analytic | resonance position; second-order limit | `tests/test_sheets.py::test_graphene_sphere_plasmons`, `::test_thin_film_limit_is_second_order` | retardation shift; 2e-3 | suite |
 | near-field truncation against 120 orders | precision | \|E\|², energy density | `benchmarks/RESULTS.md` "Near field and energy density" | report | report |
 | **treams**, achiral spheres and multilayers (x ≤ 15) | code | Q_ext, Q_sca, Q_abs of 8 cases incl. nanoshells, a matryoshka and a 10-layer graded sphere | `benchmarks/mie_codes.py`; `tests/test_mie_codes.py` | 1e-10 with 20 orders beyond Wiscombe; observed ≤ 1.1e-14 | suite (`benchmarks` extra) |
-| **treams**, near fields | code | E near multilayers | to build: extend `benchmarks/mie_codes.py` | 1e-10 | to build |
+| **treams**, near fields | code | scattered E and H in the host (1.05–3 radii, five polar angles) of six spheres and multilayers where its dense T-matrix fits (l_max ≤ 40) | `benchmarks/mie_codes.py` → `MIE_CODES.md` "Near fields"; `tests/test_mie_codes.py::test_near_fields_agree_with_scattnlay_and_treams` | 1e-10; observed ≤ 6.6e-14 | suite (`benchmarks` extra) |
 | **scattnlay** | code | Q_ext, Q_sca, Q_abs, Q_back, S₁, S₂ at 0–180° for 10 spheres up to x = 1000 (double and multiple precision) | `benchmarks/mie_codes.py` → `MIE_CODES.md`; `tests/test_mie_codes.py` | 1e-10 with 20 orders beyond Wiscombe (observed ≤ 1.8e-11); 1e-7 at PyStratify's default truncation (observed ≤ 3.7e-8) | suite (`benchmarks` extra) |
-| **scattnlay**, near fields | code | E near multilayers | to build: extend `benchmarks/mie_codes.py` | 1e-10 | to build |
+| **scattnlay**, near fields | code | E and H in every layer and in the host of eight spheres and multilayers (x ≤ 12) | `benchmarks/mie_codes.py` → `MIE_CODES.md` "Near fields"; `tests/test_mie_codes.py::test_near_fields_agree_with_scattnlay_and_treams` | 1e-10; observed ≤ 8.2e-13. Shown, not asserted: **scattnlay fails** in the inner three layers of the 10-layer graded sphere (nan, up to 1e3; PyStratify's coefficients there are pinned to 60 digits) and loses digits toward the centre (≤ 4.7e-3 at r = 0, where PyStratify is exact) | suite (`benchmarks` extra) |
 | **MNPBEM** (boundary elements; MNPBEM17 from the CPC program library, run under GNU Octave) | code | C_ext, C_sca of a 40 nm sphere (ε = −10 + i) in vacuum and in water, and of a 10 nm-shell nanoshell, on refined meshes | `benchmarks/mnpbem_spheres.py` → `MNPBEM_SPHERES.md`; `benchmarks/mnpbem_octave.py` builds MNPBEM; `tests/test_mnpbem_spheres.py` | converges toward PyStratify; finest mesh ≤ 5% and closer than the coarsest; observed 0.45–4.4% | suite where Octave is installed |
 | **pyGDM2** (a second different method: volume Green dyadic) | code | C_ext, C_sca, C_abs of 40 nm-radius n = 2 and n = 2 + 0.1i spheres at the volume-equivalent radius, 425–2235 dipoles; metal spheres shown | `benchmarks/gdm_spheres.py` → `GDM_SPHERES.md`; `tests/test_gdm_spheres.py` | finest mesh within 4%; observed +2.2–2.9% (the lattice's error at these meshes); metals not asserted (ε = −10 + i still +173% absorption) | suite (`benchmarks` extra) |
 | thin (5 nm) nanoshell: MNPBEM against three Mie codes | code | C_ext, C_sca | `benchmarks/mnpbem_spheres.py` (shown, not asserted) | — | **MNPBEM under-resolved**: ~12% low at every affordable mesh, while PyStratify, treams and scattnlay agree to all printed digits (995.384013 nm²) |
@@ -249,7 +250,11 @@ blank = the reference cannot compute it.
   different *method*: MNPBEM's boundary elements converge toward PyStratify for cross sections and
   decay rates (`MNPBEM_SPHERES.md`), and pyGDM2's volume dipoles agree within ~3% for dielectric
   spheres (`GDM_SPHERES.md`). A 5 nm nanoshell is beyond MNPBEM's affordable meshes here; three
-  Mie codes (PyStratify, treams, scattnlay) settle that case exactly.
+  Mie codes (PyStratify, treams, scattnlay) settle that case exactly. **Near fields** too
+  (2026-10-10): E and H inside every layer and outside agree with scattnlay to ≤ 8.2e-13 and the
+  scattered field with treams to ≤ 6.6e-14; the centre is exact (Bohren & Huffman's d₁, c₁ to
+  1e-14), where scattnlay loses up to 5e-3, and scattnlay's internal field fails toward the core of a
+  10-layer sphere whose PyStratify coefficients agree with 60-digit transfer matrices.
 - **Focused beams are verified only against their own plane-wave engines.** The FT-IR papers are
   the outside check.
 - **The incoherent film path** has only the explicit phase average as an independent check. The

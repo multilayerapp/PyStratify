@@ -400,6 +400,11 @@ from a metal needs l ≈ 500–1000. PyStratify keeps the physics and changes th
   so that disjoint selections add up to their union and all orders together to the field itself.
   `energy_density` and `shell_energy` take the same selection; averaged over a sphere the partial
   waves do not interfere, so there the selections add up in energy, not only in field.
+* **Exact field at the centre.** At r = 0 only the l = 1 internal waves survive, so `near_field`
+  evaluates the origin in closed form rather than at a small offset: E(0) = d₁ x̂ and H(0) = m c₁ ŷ
+  for a homogeneous sphere (Bohren & Huffman), to ~1e-15
+  ([benchmarks/MIE_CODES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/MIE_CODES.md)).
+  scattnlay, which evaluates the series there, is off by up to 5e-3.
   `scattering_amplitudes(..., orders=, polarisations=)` keeps chosen partial waves of the far
   field: their amplitudes add up, their |S|² does not.
 * **Vectorised.** `solve` takes a whole spectrum at once (array operations over wavelength ×
