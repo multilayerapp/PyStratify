@@ -1,14 +1,17 @@
 # PyStratify
 
-Light scattering by **multilayered (stratified) spheres** in Python: any number of concentric
-shells, absorbing, magnetic, gain or chiral media, 2D materials (graphene, TMD monolayers) on the
-interfaces, and emitters inside or outside the particle - electric, magnetic, chiral (p + m) and
-electric-quadrupole - with angle-resolved far fields and decay rates. The physics is the
-recursive transfer-matrix method of Moroz (2005) as used
-by [STRATIFY](https://gitlab.com/iliarasskazov/stratify) (Rasskazov, Carney & Moroz,
-[OSA Continuum 3, 2290 (2020)](https://doi.org/10.1364/OSAC.399979)). The numerics are rebuilt
-so that every quantity stays finite and accurate to the orders it needs, and the defects found in
-the MATLAB code are fixed ([AUDIT.md](AUDIT.md)).
+Light scattering and emission by **multilayered films, concentric cylinders and concentric
+spheres** in Python, under plane waves, electric and magnetic point dipoles and focused
+(Cassegrain) beams. One modal-response core serves the three geometries: the transfer-matrix
+method for films (after Byrnes's [`tmm`](https://github.com/sbyrnes321/tmm)), its cylindrical
+analogue for cylinders, and for spheres the recursive transfer-matrix method of Moroz (2005) as
+used by [STRATIFY](https://gitlab.com/iliarasskazov/stratify) (Rasskazov, Carney & Moroz,
+[OSA Continuum 3, 2290 (2020)](https://doi.org/10.1364/OSAC.399979)). Spheres go further:
+absorbing, magnetic, gain and chiral (Pasteur) shells, 2D materials and Feibelman d-parameters on
+the interfaces, and electric, magnetic, chiral (p + m) and electric-quadrupole emitters inside or
+outside the particle, with angle-resolved far fields and decay rates. The numerics are rebuilt so
+that every quantity stays finite and accurate to the orders it needs, and the defects found in the
+MATLAB code are fixed ([AUDIT.md](https://github.com/multilayerapp/PyStratify/blob/main/AUDIT.md)).
 
 ## Focused illumination (0.10.0)
 
@@ -178,12 +181,17 @@ what tables cannot supply, the free-electron damping.
 ## Install
 
 ```bash
-pip install git+https://github.com/multilayerapp/pystratify.git
+pip install pystratify
 ```
+
+The development version: `pip install git+https://github.com/multilayerapp/pystratify.git`.
 
 Python ≥ 3.10, NumPy ≥ 1.24, SciPy ≥ 1.10.
 
 ## Use
+
+Which names are the stable 1.0 surface, which are legacy and which are internal:
+[docs/API.md](https://github.com/multilayerapp/PyStratify/blob/main/docs/API.md) (a draft until 1.0 is tagged).
 
 Lengths are unit-agnostic (give radii and wavelengths in the same unit); the Drude helpers and
 `graphene_conductivity` take nanometres. Shells are indexed from 0 (the core) to N (the host).
@@ -472,7 +480,7 @@ Typical timings on one core:
 
 `python benchmarks/convergence.py` reruns the test cases of the multilayered-sphere literature
 against independent references and writes the report in
-[benchmarks/RESULTS.md](benchmarks/RESULTS.md): decay rates near silver and silicon spheres down
+[benchmarks/RESULTS.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/RESULTS.md): decay rates near silver and silicon spheres down
 to 0.25-nm gaps (Majic & Le Ru 2020) and inside and outside gold nanoshells and a matryoshka
 (against high-precision transfer matrices), a dipole in a layered magnetic sphere and a Luneburg lens
 (Yuan, Zhu & Zhu 2023, 2024), 1000-layer spheres at x = 1000, a graded 250-µm droplet at the
@@ -486,6 +494,8 @@ pip install -e ".[test]"
 pytest
 ```
 
+* `test_api_contract.py`: every name in `__all__` has exactly one place in `docs/API.md`
+  (frozen, legacy or internal).
 * `test_focused.py`: focused illumination (above): every semi-analytic form against plane-wave
   superpositions through the existing engines, energy balance, limits, Köhler and Parseval.
 * `test_normalized.py`: the normalized formulation (`normalized.py`: ψ'/ψ, ψξ and normalized j̄ only,
@@ -580,8 +590,8 @@ PyStratify implements the method of STRATIFY; please cite the paper,
 > for a multilayered sphere," *OSA Continuum* **3**, 2290 (2020),
 > [doi:10.1364/OSAC.399979](https://doi.org/10.1364/OSAC.399979),
 
-and this repository at the version you used ([CITATION.cff](CITATION.cff)). Defects of the
-MATLAB code that PyStratify does not share are listed in [AUDIT.md](AUDIT.md).
+and this repository at the version you used ([CITATION.cff](https://github.com/multilayerapp/PyStratify/blob/main/CITATION.cff)). Defects of the
+MATLAB code that PyStratify does not share are listed in [AUDIT.md](https://github.com/multilayerapp/PyStratify/blob/main/AUDIT.md).
 
 ## Licence
 
