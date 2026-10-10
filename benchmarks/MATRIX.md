@@ -8,7 +8,8 @@ What PyStratify is checked against, geometry by geometry, source by source and q
 report live in a runnable script in `benchmarks/` (`.py` or `.ipynb`), so a reader can rerun it and
 see the numbers for themselves; `tests/` only imports that script and asserts the tolerances. Built so
 far this way: `planar_codes.py` → `PLANAR_CODES.md`, `emitter_references.py` →
-`EMITTER_REFERENCES.md`, `mnpbem_spheres.py` → `MNPBEM_SPHERES.md`, `convergence.py` → `RESULTS.md`. Rows whose check exists only inside
+`EMITTER_REFERENCES.md`, `mnpbem_spheres.py` → `MNPBEM_SPHERES.md`, `mie_codes.py` → `MIE_CODES.md`,
+`convergence.py` → `RESULTS.md`. Rows whose check exists only inside
 `tests/` still owe a `benchmarks/` script; WP1.5 is not done until they have one.
 
 ## Kinds of reference
@@ -59,7 +60,7 @@ blank = the reference cannot compute it.
 | pyElli (2×2 and Berreman 4×4) | code | ● | | | | | | | | |
 | PyMoosh | code | ● | ● | | | | | | | |
 | tmmax | code | ○ | | | | | | | | |
-| scattnlay | code | | | | | | | ○ | | |
+| scattnlay | code | | | | | | | ● | | |
 | pyGDM2 (volume Green dyadic) | code | | | | | | | ○ | ○ | |
 | MNPBEM (boundary elements, under GNU Octave) | code | | | | | | | ● | ● | |
 | smuthi (T-matrix + Sommerfeld, dipole sources) | code | | ● | | | | | ○ | ○ | |
@@ -177,14 +178,16 @@ blank = the reference cannot compute it.
 | optical theorem; Rayleigh limit; lossless absorbs nothing | analytic | Q_ext, Q_abs | `tests/test_physics.py::test_optical_theorem_and_backscattering`, `::test_rayleigh_limit`, `::test_lossless_multilayers_absorb_nothing` | 1e-12 / 1e-7 | suite |
 | **BHMIE** | code | Q_ext, Q_sca to x = 20000 | `tests/test_solver.py::test_very_large_absorbing_spheres_against_bhmie`; `benchmarks/RESULTS.md` "Large homogeneous spheres" | 1e-10 / report | suite, report |
 | many layers, graded profiles, rainbow, Luneburg lens [W97, WW91, Y24] | paper / analytic | Q, S(θ) | `benchmarks/convergence.py` → `RESULTS.md` "Many layers" | report | report |
-| **treams**, chiral shells | code | T-matrix, helicity cross sections | `tests/test_chiral.py::test_against_treams` | 1e-11 | suite |
+| **treams**, chiral shells | code | helicity T-matrix of three chiral multilayers (gold, magnetic and gain-in-κ shells) | `benchmarks/mie_codes.py` → `MIE_CODES.md`; `tests/test_chiral.py::test_against_treams` | 1e-11; observed ≤ 6.1e-14 | suite |
 | 80-digit chiral transfer matrices | precision | chiral T-matrix, layer solutions | `tests/test_chiral.py::test_t_matrix_against_80_digit_transfer_matrices`, `::test_layer_solutions_against_80_digit_transfer_matrices` | 1e-11 | suite |
 | published small chiral sphere polarisabilities | paper | α_ee, α_em, α_mm | `tests/test_chiral.py::test_small_chiral_sphere_matches_published_polarisabilities` | 1e-4 (quasi-static) | suite |
 | Gonçalves et al. 2020 (Feibelman d-parameters) | paper | Mie coefficients with d⊥, d∥ | `tests/test_feibelman.py::test_sphere_against_goncalves` | 1e-13 | suite |
 | graphene-coated sphere plasmons; thin-film limit of a sheet | analytic | resonance position; second-order limit | `tests/test_sheets.py::test_graphene_sphere_plasmons`, `::test_thin_film_limit_is_second_order` | retardation shift; 2e-3 | suite |
 | near-field truncation against 120 orders | precision | \|E\|², energy density | `benchmarks/RESULTS.md` "Near field and energy density" | report | report |
-| **treams**, achiral multilayer | code | Q, near field | to build: extend `tests/test_chiral.py::test_against_treams` to κ = 0 multilayers with fields | 1e-11 | to build |
-| **scattnlay** | code | Q_ext/Q_sca/Q_abs, near field of multilayers, x up to 1e4 | to build: `benchmarks/sphere_codes.py` | 1e-10 | to build |
+| **treams**, achiral spheres and multilayers (x ≤ 15) | code | Q_ext, Q_sca, Q_abs of 8 cases incl. nanoshells, a matryoshka and a 10-layer graded sphere | `benchmarks/mie_codes.py`; `tests/test_mie_codes.py` | 1e-10 with 20 orders beyond Wiscombe; observed ≤ 1.1e-14 | suite (`benchmarks` extra) |
+| **treams**, near fields | code | E near multilayers | to build: extend `benchmarks/mie_codes.py` | 1e-10 | to build |
+| **scattnlay** | code | Q_ext, Q_sca, Q_abs, Q_back, S₁, S₂ at 0–180° for 10 spheres up to x = 1000 (double and multiple precision) | `benchmarks/mie_codes.py` → `MIE_CODES.md`; `tests/test_mie_codes.py` | 1e-10 with 20 orders beyond Wiscombe (observed ≤ 1.8e-11); 1e-7 at PyStratify's default truncation (observed ≤ 3.7e-8) | suite (`benchmarks` extra) |
+| **scattnlay**, near fields | code | E near multilayers | to build: extend `benchmarks/mie_codes.py` | 1e-10 | to build |
 | **MNPBEM** (boundary elements; MNPBEM17 from the CPC program library, run under GNU Octave) | code | C_ext, C_sca of a 40 nm sphere (ε = −10 + i) in vacuum and in water, and of a 10 nm-shell nanoshell, on refined meshes | `benchmarks/mnpbem_spheres.py` → `MNPBEM_SPHERES.md`; `benchmarks/mnpbem_octave.py` builds MNPBEM; `tests/test_mnpbem_spheres.py` | converges toward PyStratify; finest mesh ≤ 5% and closer than the coarsest; observed 0.45–4.4% | suite where Octave is installed |
 | **pyGDM2** (a second different method: volume Green dyadic) | code | Q_ext of a 20–50 nm Au/SiO₂ shell | to build: `benchmarks/sphere_codes.py`; pip-installable | discretization-limited, ~1e-2 | to build |
 | thin (5 nm) nanoshell: MNPBEM against three Mie codes | code | C_ext, C_sca | `benchmarks/mnpbem_spheres.py` (shown, not asserted) | — | **MNPBEM under-resolved**: ~12% low at every affordable mesh, while PyStratify, treams and scattnlay agree to all printed digits (995.384013 nm²) |
@@ -240,7 +243,9 @@ blank = the reference cannot compute it.
   they test the formulation (sign conventions, normalisation, multipole bookkeeping), not the digits.
   Meep in cylindrical coordinates is cheap for a dipole on the symmetry axis (films, spheres);
   off-axis sources and cylinders need 3D runs, one at a time on this 8 GB Mac.
-- **Spheres are the best covered**: precision, BHMIE, treams and five papers, and since 2026-10-10 a
+- **Spheres are the best covered**: precision, BHMIE, five papers, and since 2026-10-10 two Mie codes run
+  publicly (scattnlay and treams agree with PyStratify to ≤ 1.8e-11 once 20 orders beyond Wiscombe's
+  truncation are kept; at the default truncation, what a user gets, to ≤ 3.7e-8) and a
   different *method*: MNPBEM's boundary elements converge toward PyStratify for cross sections and
   decay rates (`MNPBEM_SPHERES.md`). A 5 nm nanoshell is beyond MNPBEM's affordable meshes here; three
   Mie codes (PyStratify, treams, scattnlay) settle that case exactly.

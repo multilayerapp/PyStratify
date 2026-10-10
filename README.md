@@ -520,7 +520,13 @@ lossless limit of an absorbing guide
 [MNPBEM](https://doi.org/10.17632/gbyj97hfnc.1) run under GNU Octave (`benchmarks/mnpbem_octave.py`
 fetches the CPC program, verifies it and builds an Octave-ready copy): cross sections and decay rates
 converge toward PyStratify as the mesh is refined, to 0.5–4% at the finest mesh
-([benchmarks/MNPBEM_SPHERES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/MNPBEM_SPHERES.md)). Every comparison is a
+([benchmarks/MNPBEM_SPHERES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/MNPBEM_SPHERES.md)).
+`python benchmarks/mie_codes.py` compares spheres with two independent Mie codes,
+[scattnlay](https://github.com/ovidiopr/scattnlay) and [treams](https://github.com/tfp-photonics/treams):
+cross sections, backscattering and amplitudes of ten spheres up to x = 1000 (nanoshells, a
+matryoshka, a 10-layer graded sphere) and the T-matrices of chiral multilayers agree to 2e-11 once
+20 orders beyond Wiscombe's truncation are kept, and to 4e-8 at the default truncation
+([benchmarks/MIE_CODES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/MIE_CODES.md)). Every comparison is a
 script in `benchmarks/` that writes its own report, so it can be rerun by anyone; the tests import
 them. [benchmarks/MATRIX.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/MATRIX.md) maps every check, existing and planned, by
 geometry, source and quantity.
@@ -536,6 +542,8 @@ pytest
   parallel) against the Sommerfeld reference of `benchmarks/emitter_references.py`, itself checked
   against the image dipole at a perfect mirror; sources outside lossless guides against the lossless
   limit and smuthi (the latter skipped unless smuthi is installed).
+* `test_mie_codes.py`: spheres against scattnlay and treams (skipped unless the `benchmarks` extra is
+  installed; the CI job `benchmarks` installs it).
 * `test_mnpbem_spheres.py`: MNPBEM's boundary elements approach PyStratify's sphere cross sections and
   decay rates as the mesh is refined (skipped unless GNU Octave is installed).
 * `test_planar_codes.py`: the planar solver, its fields and its guided modes against PyMoosh, pyElli

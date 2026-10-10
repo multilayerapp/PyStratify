@@ -9,6 +9,9 @@ kappa -> -kappa exchanges the helicities, and an impedance-matched (dual)
 particle cannot flip helicity.
 """
 
+import sys
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -63,24 +66,16 @@ def test_achiral_limit_is_the_achiral_solver(radii, n, mu):
 
 
 def test_against_treams():
-    """An independent code (helicity basis; its negative-helicity waves differ by a sign)."""
-    treams = pytest.importorskip("treams")
-    cases = [
-        ([40.0, 55.0], [1.45 + 0.01j, 1.6 + 0.02j, 1.33], [0, 0.05 + 0.01j, 0], [1, 1, 1], 614.0, 12),
-        ([30.0, 33.0, 60.0], [1.5, AU, 1.55 + 0.001j, 1.33], [0.02, 0, 0.1 + 0.003j, 0], [1, 1, 1.2, 1], 614.0, 20),
-        ([200.0, 230.0], [2.0 + 0.05j, 1.5, 1.0], [0.3, -0.2 + 0.01j, 0], [1, 1, 1], 500.0, 30),
-    ]
-    for radii, n, kappa, mu, lam, lmax in cases:
-        materials = [treams.Material(v**2 / m, m, k) for v, k, m in zip(n, kappa, mu)]
-        tm = treams.TMatrix.sphere(lmax, 2 * np.pi / lam, radii, materials, poltype="helicity")
-        basis, block = tm.basis, np.asarray(tm)
-        ours = ps.solve_chiral(radii, n, kappa, lam, mu, l_max=lmax).t_helicity[0]
-        for l in range(1, lmax + 1):
-            plus, minus = (
-                int(np.flatnonzero((basis.l == l) & (basis.m == 0) & (basis.pol == pol))[0]) for pol in (1, 0)
-            )
-            theirs = np.array([[block[plus, plus], -block[plus, minus]], [-block[minus, plus], block[minus, minus]]])
-            assert np.abs(ours[l - 1] - theirs).max() < 1e-11 * np.abs(theirs).max(), (radii, l)
+    """An independent code (helicity basis; its negative-helicity waves differ by a sign).
+
+    The comparison itself is public, in benchmarks/mie_codes.py.
+    """
+    pytest.importorskip("treams")
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
+    from mie_codes import CHIRAL, chiral_against_treams
+
+    for name in CHIRAL:
+        assert chiral_against_treams(name) < 1e-11, name
 
 
 def test_lossless_chiral_multilayers_absorb_nothing():
