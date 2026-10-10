@@ -13,3 +13,13 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: pip install -e ".[test]"
       - run: pytest -q
+  benchmarks:
+    # Independent planar codes (benchmarks/planar_codes.py); optional dependencies, so a job of its own
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[test,benchmarks]"
+      - run: pytest -q tests/test_planar_codes.py

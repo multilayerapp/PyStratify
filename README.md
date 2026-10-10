@@ -492,6 +492,16 @@ to 0.25-nm gaps (Majic & Le Ru 2020) and inside and outside gold nanoshells and 
 rainbow angle and the Cauchy profile (Wu & Wang 1991; Wu et al. 1997), absorbing spheres to
 x = 20000, and fields far from the particle.
 
+The planar solver descends from Byrnes's `tmm`, so it is checked against two codes outside that
+lineage: `python benchmarks/planar_codes.py` (after `pip install -e ".[benchmarks]"`) compares it with
+[PyMoosh](https://github.com/AnMoreau/PyMoosh) (scattering matrices) and
+[pyElli](https://github.com/PyEllips/pyElli) (2×2 and Berreman 4×4) and writes
+[benchmarks/PLANAR_CODES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/PLANAR_CODES.md): R, T, r, t, absorption per layer,
+Ψ and Δ agree to 1e-14 in power and 6e-13° in angle, through opaque and 20-µm absorbing layers,
+total internal reflection, a magnetic layer and an incoherent substrate.
+[benchmarks/MATRIX.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/MATRIX.md) maps every check, existing and planned, by
+geometry, source and quantity.
+
 ## Tests
 
 ```bash
@@ -499,6 +509,8 @@ pip install -e ".[test]"
 pytest
 ```
 
+* `test_planar_codes.py`: the planar solver against PyMoosh and pyElli (skipped unless the
+  `benchmarks` extra is installed; the CI job `benchmarks` installs it).
 * `test_api_contract.py`: every name in `__all__` has exactly one place in `docs/API.md`
   (frozen, provisional, legacy or internal).
 * `test_focused.py`: focused illumination (above): every semi-analytic form against plane-wave
