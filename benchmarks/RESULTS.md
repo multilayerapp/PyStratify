@@ -29,7 +29,7 @@ surface; reference: [MLR] Eqs. 34-37 in mpmath.  Errors are the worst of both or
 ## Decay rates inside and outside layered spheres
 
 Au at 614 nm (0.27 + 2.93i), water host; matryoshka of OSAC Fig. 2(b) at 690 nm.  Reference:
-2x2 transfer matrices in mpmath at the precision their cancellation needs (tests/references.py).
+2x2 transfer matrices in mpmath at the precision their cancellation needs (src/pystratify/references.py).
 Shell normalisation; errors are the worst of both orientations.
 
 | structure | r (nm) | tol | orders | total | radiative | nonradiative | balance | time |

@@ -4,7 +4,7 @@
     python benchmarks/convergence.py --quick    # skips the slowest cases
 
 Every case is checked against something computed another way (see
-tests/references.py): mpmath sums of textbook Mie theory, BHMIE, 60-digit
+src/pystratify/references.py): mpmath sums of textbook Mie theory, BHMIE, 60-digit
 transfer matrices, energy conservation, or the same quantity at a much higher
 truncation.  Sources of the cases:
 
@@ -72,7 +72,7 @@ def decay_near_spheres(quick):
 def decay_in_layered_spheres(quick):
     print("## Decay rates inside and outside layered spheres\n")
     print("Au at 614 nm (0.27 + 2.93i), water host; matryoshka of OSAC Fig. 2(b) at 690 nm.  Reference:")
-    print("2x2 transfer matrices in mpmath at the precision their cancellation needs (tests/references.py).")
+    print("2x2 transfer matrices in mpmath at the precision their cancellation needs (src/pystratify/references.py).")
     print("Shell normalisation; errors are the worst of both orientations.\n")
     print("| structure | r (nm) | tol | orders | total | radiative | nonradiative | balance | time |")
     print("|---|---|---|---|---|---|---|---|---|")
