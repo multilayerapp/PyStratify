@@ -91,7 +91,7 @@ blank = the reference cannot compute it.
 | scattering matrix (Redheffer star product) | method | R, T on lossy, oblique and opaque stacks | `test_analytic_invariants.py::test_absorbing_metal_stack_agrees`, `::test_beyond_critical_agrees`, `::test_opaque_layer_agrees_where_m_matrix_is_clamped` | 1e-10 abs | backend |
 | explicit phase average of coherent solves | method | incoherent R, T, per-layer A | `multilayer/tests/test_layer_absorption.py::test_pim_tmm_matches_gtmm_and_explicit_phase_average` | 1e-9 | backend |
 | RCWA with zero patterning | method | R | `multilayer/tests/test_rcwa.py::test_rcwa_reduces_to_tmm_on_an_unpatterned_stack` | 1e-9 abs | backend |
-| position-resolved field against Parseval | method | E(z), absorption density | `tests/test_focused.py::test_film_near_field_against_position_resolved_and_parseval` (normal-incidence slice) | 1e-10 | suite |
+| position-resolved field against Parseval | method | E(z), absorption density | `benchmarks/focused_checks.py` → `FOCUSED_CHECKS.md`; `tests/test_focused.py::test_film_near_field_against_position_resolved_and_parseval` (normal-incidence slice) | 1e-10 | suite |
 | `inc_tmm` ("GTMM" in the backend tests) | lineage | incoherent R, T, A | `test_layer_absorption.py::test_pim_tmm_matches_gtmm_*` | 1e-8 | backend |
 | `tutorial-engine.js` | lineage | R, T, A, per-layer A, field, sRGB | `multilayer_web/tests/tutorial-parity.mjs` | machine precision | web |
 | replication corpus: 181 published records from 177 papers | paper | R, T, A spectra and angle scans against digitized figures | `harvester/verify.py` (`AGENTS.md` §5.4) | fit score per record | corpus |
@@ -128,9 +128,9 @@ blank = the reference cannot compute it.
 
 | reference | kind | quantity | script | tolerance | status |
 |---|---|---|---|---|---|
-| cone quadrature against a pupil grid | method | detected power, apparent absorbance | `tests/test_focused.py::test_film_cone_quadrature_against_pupil_grid` | 1e-9 | suite |
-| aplanatic path factor; transparent stack has zero absorbance; Köhler = coherent | analytic | apparent absorbance | `tests/test_focused.py::test_film_path_factor_is_the_aplanatic_one`, `::test_empty_or_transparent_film_stack_has_zero_absorbance`, `::test_film_koehler_equals_coherent_and_beams_batch` | 1e-12 | suite |
-| near field against position-resolved plane waves and Parseval | method | E at points | `tests/test_focused.py::test_film_near_field_against_position_resolved_and_parseval` | 1e-10 (3e-4 Parseval quadrature) | suite |
+| cone quadrature against a pupil grid | method | detected power, apparent absorbance | `benchmarks/focused_checks.py` → `FOCUSED_CHECKS.md`; `tests/test_focused.py::test_film_cone_quadrature_against_pupil_grid` | 1e-9 | suite |
+| aplanatic path factor; transparent stack has zero absorbance; Köhler = coherent | analytic | apparent absorbance | `benchmarks/focused_checks.py` → `FOCUSED_CHECKS.md`; `tests/test_focused.py::test_film_path_factor_is_the_aplanatic_one`, `::test_empty_or_transparent_film_stack_has_zero_absorbance`, `::test_film_koehler_equals_coherent_and_beams_batch` | 1e-12 | suite |
+| near field against position-resolved plane waves and Parseval | method | E at points | `benchmarks/focused_checks.py` → `FOCUSED_CHECKS.md`; `tests/test_focused.py::test_film_near_field_against_position_resolved_and_parseval` | 1e-10 (3e-4 Parseval quadrature) | suite |
 | Davis, Carney & Bhargava, *Anal. Chem.* **82**, 3474 (2010) | paper | absorbance of a homogeneous film under a Cassegrain | to build: `crosscheck/davis_2010.py` (WP1.6) | plotting precision | to build |
 
 ## Cylinders
@@ -162,10 +162,10 @@ blank = the reference cannot compute it.
 
 | reference | kind | quantity | script | tolerance | status |
 |---|---|---|---|---|---|
-| rows against plane-wave sums; whole beam against fixed quadrature | method | detected power | `tests/test_focused.py::test_cylinder_rows_against_plane_wave_sums`, `::test_cylinder_whole_beam_against_fixed_quadrature` | 1e-9 | suite |
-| Köhler against a plane-wave cone average; energy; NA → 0 is the plane wave | method / analytic | detected power, absorbance | `tests/test_focused.py::test_cylinder_koehler_against_plane_wave_cone_average`, `::test_cylinder_energy_and_na_limit` | 1e-8 | suite |
-| near field against plane-wave fields | method | E at points | `tests/test_focused.py::test_cylinder_near_field_against_plane_wave_fields` | 1e-7 | suite |
-| scalar model: coefficients, energy, brute-force sum | method | detected power | `tests/test_focused.py::test_scalar_cylinder_coefficient_energy_and_brute_force` | — | suite |
+| rows against plane-wave sums; whole beam against fixed quadrature | method | detected power | `benchmarks/focused_checks.py` → `FOCUSED_CHECKS.md`; `tests/test_focused.py::test_cylinder_rows_against_plane_wave_sums`, `::test_cylinder_whole_beam_against_fixed_quadrature` | 1e-9 | suite |
+| Köhler against a plane-wave cone average; energy; NA → 0 is the plane wave | method / analytic | detected power, absorbance | `benchmarks/focused_checks.py` → `FOCUSED_CHECKS.md`; `tests/test_focused.py::test_cylinder_koehler_against_plane_wave_cone_average`, `::test_cylinder_energy_and_na_limit` | 1e-8 | suite |
+| near field against plane-wave fields | method | E at points | `benchmarks/focused_checks.py` → `FOCUSED_CHECKS.md`; `tests/test_focused.py::test_cylinder_near_field_against_plane_wave_fields` | 1e-7 | suite |
+| scalar model: coefficients, energy, brute-force sum | method | detected power | `benchmarks/focused_checks.py` → `FOCUSED_CHECKS.md`; `tests/test_focused.py::test_scalar_cylinder_coefficient_energy_and_brute_force` | — | suite |
 | an FT-IR microspectroscopy paper on fibres or cylinders (to identify) | paper | apparent absorbance of a fibre | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
 
 ## Spheres
@@ -222,10 +222,10 @@ blank = the reference cannot compute it.
 
 | reference | kind | quantity | script | tolerance | status |
 |---|---|---|---|---|---|
-| amplitude-matrix superposition of plane waves | method | detected power | `tests/test_focused.py::test_sphere_against_amplitude_matrix_superposition` | 2e-8 | suite |
-| axis path equals general path; index-matched sphere invisible; NA → 0 is the plane wave | analytic / method | detected power | `tests/test_focused.py::test_sphere_axis_path_equals_general_path`, `::test_sphere_index_matched_is_invisible_and_na_limit_is_plane_wave` | 1e-12 | suite |
-| Köhler against a plane-wave cone average | method | detected power | `tests/test_focused.py::test_sphere_koehler_against_plane_wave_cone_average` | 1e-9 | suite |
-| near field against plane-wave near fields | method | E at points | `tests/test_focused.py::test_sphere_near_field_against_plane_wave_near_fields` | 1e-8 | suite |
+| amplitude-matrix superposition of plane waves | method | detected power | `benchmarks/focused_checks.py` → `FOCUSED_CHECKS.md`; `tests/test_focused.py::test_sphere_against_amplitude_matrix_superposition` | 2e-8 | suite |
+| axis path equals general path; index-matched sphere invisible; NA → 0 is the plane wave | analytic / method | detected power | `benchmarks/focused_checks.py` → `FOCUSED_CHECKS.md`; `tests/test_focused.py::test_sphere_axis_path_equals_general_path`, `::test_sphere_index_matched_is_invisible_and_na_limit_is_plane_wave` | 1e-12 | suite |
+| Köhler against a plane-wave cone average | method | detected power | `benchmarks/focused_checks.py` → `FOCUSED_CHECKS.md`; `tests/test_focused.py::test_sphere_koehler_against_plane_wave_cone_average` | 1e-9 | suite |
+| near field against plane-wave near fields | method | E at points | `benchmarks/focused_checks.py` → `FOCUSED_CHECKS.md`; `tests/test_focused.py::test_sphere_near_field_against_plane_wave_near_fields` | 1e-8 | suite |
 | an FT-IR microspectroscopy paper on spheres (to identify; Mie scattering of a PMMA bead is the usual case) | paper | apparent absorbance of a sphere | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
 
 ## What the matrix shows
