@@ -16,6 +16,17 @@ outside the particle, with angle-resolved far fields and decay rates. The numeri
 that every quantity stays finite and accurate to the orders it needs, and the defects found in the
 MATLAB code are fixed ([AUDIT.md](https://github.com/multilayerapp/PyStratify/blob/main/AUDIT.md)).
 
+## 0.10.5: cylinder emitters at a mode's cutoff
+
+Next to a light line the reflected spectral density of a cylinder source loses digits: its m = ±1
+TE/TM-coupled terms carry 1/q factors that cancel, ~1e-4 ε/(1 − b)² (1e-5 at 1e-7 from the line, noise
+at 1e-10). A guided mode just above cutoff (HE₁ₙ modes approach it exponentially) puts a sharp feature
+there, and the quadrature chased the noise until its budget ran out; with scipy 1.18 even a plain fibre
+did so at tolerance 1e-7. Within 1e-3 of the host's and the source medium's light lines the real part now
+comes from the power balance at that axial wavenumber, escape + absorbed − direct (direct = ¾(1 + b²)
+transverse, 3/2(1 − b²) axial), which equals the reflected density to ~1e-14 wherever that is accurate;
+elsewhere the balance stays an independent check. Converged results are unchanged.
+
 ## 0.10.4: every guided mode of a cylinder
 
 A point source beside or inside a lossless cylinder could lose the power it couples into some of the
@@ -30,8 +41,7 @@ measures the value used. For a step-index fibre the modes found are exactly
 those of its closed-form dispersion relation, and the rates are smooth through a mode's cutoff. Found by
 a 3D FDTD comparison with Meep
 ([benchmarks/FDTD_MEEP.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/FDTD_MEEP.md)).
-A mode within ~1e-5 of cutoff can still exhaust the evaluation budget at tight tolerances (an error, not a
-wrong number). Near fields are now exact at a sphere's centre (below).
+Near fields are now exact at a sphere's centre (below).
 
 ## 0.10.3: guided power from a source outside the stack
 

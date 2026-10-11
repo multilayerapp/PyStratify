@@ -154,7 +154,16 @@ class CylinderSource:
                     E, H = self.field_at(solution, amplitudes, j, r)
                     flux.append(r * np.sum(np.real(E[:, 1] * H[:, 2].conj() - E[:, 2] * H[:, 1].conj()), axis=0))
                 absorbed += .75 * np.pi * self.mu[self.layer].real * self.k0 * (flux[0] - flux[1])
-        tail = 0.0 if self.radius == 0 else float(np.max(np.sum(np.abs(work[np.abs(solution.orders) >= max(1, solution.orders[-1] - 3)]), axis=0)))
+            # Near the host's and the source medium's light lines the M, N basis carries 1/q factors whose
+            # TE/TM-coupled terms cancel in the reflected work (m = +-1 lost ~1e-4 eps / (1 - b)^2: 1e-5 at
+            # 1e-7 from the line, nonsense at 1e-10). There take its real part from the power balance at
+            # this axial wavenumber, Re(green) = escape + absorbed - direct, which holds to ~1e-14 wherever
+            # green is accurate; elsewhere the balance stays an independent check.
+            host_line = self.n[-1].real / self.n[self.layer].real
+            if min(abs(b - host_line) / host_line, abs(b - 1)) < 1e-3:
+                direct = np.array([.75 * (1 + b * b), .75 * (1 + b * b), 1.5 * (1 - b * b)]) if b < 1 else np.zeros(3)
+                green = escape + absorbed - direct + 1j * green.imag
+        tail =0.0 if self.radius == 0 else float(np.max(np.sum(np.abs(work[np.abs(solution.orders) >= max(1, solution.orders[-1] - 3)]), axis=0)))
         return green, escape, absorbed, tail
 
     def guided_poles(self):

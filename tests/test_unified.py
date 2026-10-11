@@ -194,6 +194,22 @@ def test_cylinder_rates_are_smooth_through_a_mode_cutoff():
     assert np.max(curvature)<2e-3, curvature  # a dropped mode moved the radial rate by 0.15
 
 
+def test_cylinder_density_near_the_light_line_is_the_power_balance():
+    """A guided mode 1.7e-5 above the host light line: the reflected density's m = +-1 terms lose
+    ~1e-4 eps / (1 - b)^2 there, so the quadrature chased noise until the budget ran out. The real part
+    now comes from the per-beta power balance escape + absorbed - direct, which equals the reflected
+    density to ~1e-14 wherever that is accurate (checked here away from the line)."""
+    from pystratify.cylinder_emission import CylinderSource
+    source=CylinderSource([.024,.07],[1.898,2.168,1.0],.912,.113,'magnetic')
+    for b in (.3,.9,.99):
+        green,escape,absorbed,_=source.spectral(b)
+        direct=np.array([.75*(1+b*b),.75*(1+b*b),1.5*(1-b*b)])
+        np.testing.assert_allclose(green.real,escape+absorbed-direct,rtol=0,atol=1e-13)
+    rates=source.rates(tolerance=1e-6)
+    assert rates.converged and np.isclose(rates.poles[0],1+1.66769e-5,rtol=0,atol=1e-9)
+    np.testing.assert_allclose(rates.total,rates.escape+rates.guided,rtol=1e-6)
+
+
 def test_cylinder_pattern_reuses_modes_for_azimuthal_cuts(monkeypatch):
     from pystratify.cylinder_emission import CylinderSource
     source=CylinderSource([.1],[1.5,1],.6,.2,m_max=20)
