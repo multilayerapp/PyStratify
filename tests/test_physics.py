@@ -5,15 +5,19 @@ theory, published reference values, the optical theorem, plane-wave limits,
 interface continuity, brute-force quadrature, or energy conservation.
 """
 
+import sys
+from pathlib import Path
 import numpy as np
 import pytest
-from scipy.integrate import trapezoid
 
-from scipy.special import spherical_jn, spherical_yn
 
 import pystratify as ps
 
-from pystratify.references import layered_decay_rates, sphere_decay_rates
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
+import sphere_checks as spheres  # noqa: E402
+import sphere_emitter_checks as emitters  # noqa: E402
+from checks import assert_rows  # noqa: E402
 
 LAM = 614.0
 AU = 0.27 + 2.93j
@@ -30,51 +34,19 @@ def _drude_gold(wavelength_nm):
     return np.sqrt(9.5 - 1 / (w * (w + 1j * model.damping_ratio)))
 
 
-def _riccati(l, z, derivative=False):
-    """psi, xi (or derivatives) from scipy's spherical Bessel functions."""
-    j, y = spherical_jn(l, z), spherical_yn(l, z)
-    if not derivative:
-        return z * j, z * (j + 1j * y)
-    jd, yd = spherical_jn(l, z, derivative=True), spherical_yn(l, z, derivative=True)
-    return j + z * jd, (j + 1j * y) + z * (jd + 1j * yd)
 
 
 # ------------------------------------------------------------------ far field
 
 
-def _mie_ab(m, x, lmax):
-    """Bohren & Huffman Eq. 4.53, written independently."""
-    l = np.arange(1, lmax + 1)
-    mx = m * x
-    (psi, xi), (dpsi, dxi) = _riccati(l, x), _riccati(l, x, True)
-    psim, dpsim = _riccati(l, mx)[0], _riccati(l, mx, True)[0]
-    a = (m * psim * dpsi - psi * dpsim) / (m * psim * dxi - xi * dpsim)
-    b = (psim * dpsi - m * psi * dpsim) / (psim * dxi - m * xi * dpsim)
-    return a, b
 
-
-@pytest.mark.parametrize("m, x", [(1.55, 5.213), (1.5 + 0.1j, 2.0), (AU / 1.33, 1.1)])
+@pytest.mark.parametrize("m, x", spheres.MIE_CASES)
 def test_homogeneous_sphere_equals_mie(m, x):
-    nh = 1.33
-    r = x * LAM / (2 * np.pi * nh)
-    L = ps.truncation_order(r, nh, LAM) + 5
-    S = _sol([r], [m * nh, nh], L=L)
-    a, b = _mie_ab(m, x, L)
-    assert np.allclose(S.a[0], a, rtol=1e-10, atol=1e-15)
-    assert np.allclose(S.b[0], b, rtol=1e-10, atol=1e-15)
+    assert_rows(spheres.homogeneous_sphere_equals_mie(m, x))
 
 
 def test_bohren_huffman_reference_values():
-    # BHMIE test case: m = 1.55, a = 0.525 um, lambda = 0.6328 um
-    x = 2 * np.pi * 0.525 / 0.6328
-    r = x * LAM / (2 * np.pi)
-    S = _sol([r], [1.55, 1.0], L=20)
-    cs = ps.cross_sections(S)
-    assert cs.q_ext[0] == pytest.approx(3.10543, abs=1e-5)
-    assert cs.q_abs[0] == pytest.approx(0, abs=1e-12)
-    l = S.orders
-    q_back = np.abs(np.sum((2 * l + 1) * (-1) ** l * (S.a[0] - S.b[0]))) ** 2 / x**2
-    assert q_back == pytest.approx(2.92534, abs=1e-5)
+    assert_rows(spheres.bohren_huffman_reference_values())
 
 
 def test_identical_shells_collapse_to_single_sphere():
@@ -84,18 +56,7 @@ def test_identical_shells_collapse_to_single_sphere():
 
 
 def test_optical_theorem_and_backscattering():
-    S = _sol([50.0, 55.0], [1.45, AU, 1.0])
-    cs = ps.cross_sections(S)
-    par, per = ps.scattering_amplitudes(S, np.array([0.0, np.pi / 2, np.pi]))
-    k = 2 * np.pi / LAM
-    assert cs.ext[0] == pytest.approx(4 * np.pi / k**2 * np.real(-par[0, 0]), rel=1e-12)
-    assert np.all(np.isfinite(par)) and par[0, 0] == pytest.approx(per[0, 0])
-    p2, _ = ps.scattering_amplitudes(S, np.array([np.pi - 1e-6]))
-    assert p2[0, 0] == pytest.approx(par[0, 2], rel=1e-8)
-    th = np.linspace(0, np.pi, 4001)
-    p, q = ps.scattering_amplitudes(S, th)
-    csca = np.pi / k**2 * trapezoid((np.abs(p[0]) ** 2 + np.abs(q[0]) ** 2) * np.sin(th), th)
-    assert csca == pytest.approx(cs.sca[0], rel=1e-5)
+    assert_rows(spheres.optical_theorem_and_backscattering())
 
 
 def test_wavelength_batch_is_vectorised():
@@ -356,56 +317,19 @@ def test_decay_close_to_metal_needs_and_gets_high_orders():
     assert r.balance_error.max() < 1e-10
 
 
-@pytest.mark.parametrize("radius, gap", [(50.0, 1.0), (100.0, 5.0), (10.0, 5.0)])
+@pytest.mark.parametrize("radius, gap", emitters.MIE_RATE_CASES)
 def test_decay_rates_against_mie_reference(radius, gap):
-    """Majic & Le Ru, Appl. Opt. 59, 1293 (2020): silver at 633 nm, emitter in air,
-    against their Eqs. 34-37 summed in mpmath."""
-    ag = 0.093 + 4j
-    total_perp, total_par, rad_perp, rad_par = sphere_decay_rates(radius, ag, 633.0, radius + gap, orders=1400)
-    r = ps.decay_rates([radius], [ag, 1.0], 633.0, [radius + gap], tol=1e-10)
-    assert r.converged.all()
-    assert np.allclose(r.total[0], [total_perp, total_par], rtol=1e-9, atol=0)
-    assert np.allclose(r.radiative[0], [rad_perp, rad_par], rtol=1e-12, atol=0)
-    nonrad = np.array([total_perp - rad_perp, total_par - rad_par])
-    assert np.allclose(r.nonradiative[0], nonrad, rtol=1e-9, atol=0)
+    assert_rows(emitters.decay_rates_against_mie(radius, gap))
 
 
-@pytest.mark.parametrize(
-    "radii, n, wavelength, rd, orders, dps",
-    [
-        ([50.0, 55.0], [1.45, AU, 1.33], LAM, 49.0, 1250, 110),  # SiO2@Au nanoshell, 1 nm inside the core
-        ([50.0, 55.0], [1.45, AU, 1.33], LAM, 56.0, 1400, 115),  # ... and 1 nm outside
-        ([50.0, 52.0], [1.45, AU, 1.33], LAM, 49.5, 2400, 100),  # 2-nm shell, 0.5 nm inside
-        ([10.0, 13.0, 36.0, 48.0], [1.45, 0.2 + 3.8j, 1.45, 0.25 + 3.5j, 1.33], 690.0, 14.0, 450, 240),  # matryoshka
-    ],
-)
-def test_layered_decay_rates_against_transfer_matrices(radii, n, wavelength, rd, orders, dps):
-    """Emitters inside and outside metal shells, against high-precision transfer matrices."""
-    total, radiative = layered_decay_rates(radii, n, wavelength, rd, orders, dps)
-    r = ps.decay_rates(radii, n, wavelength, [rd], normalization="shell", tol=1e-10)
-    assert r.converged.all()
-    assert np.allclose(r.total[0], total, rtol=2e-10, atol=0)
-    assert np.allclose(r.radiative[0], radiative, rtol=1e-12, atol=0)
-    assert np.allclose(r.nonradiative[0], np.subtract(total, radiative), rtol=2e-10, atol=0)
+@pytest.mark.parametrize("case", emitters.LAYERED_RATE_CASES)
+def test_layered_decay_rates_against_transfer_matrices(case):
+    assert_rows(emitters.layered_rates_against_transfer_matrices(*case))
 
 
-@pytest.mark.parametrize(
-    "radii, n, mu, wavelength, rd, orders, dps",
-    [
-        ([50.0], [0.093 + 4j, 1.0], [1, 1], 633.0, 51.0, 1250, 60),  # 1 nm from silver
-        ([50.0, 55.0], [1.45, AU, 1.33], [1, 1, 1], LAM, 49.5, 2400, 150),  # inside a nanoshell's core
-        ([50.0, 60.0], [AU, 1.45, 1.33], [1, 1, 1], LAM, 55.0, 400, 100),  # in the shell over a metal core
-        ([40.0, 45.0, 60.0], [1.45, AU, 2.0, 1.33], [1, 1, 2.0, 1], LAM, 50.0, 400, 120),  # mu = 2 spacer
-        ([100.0], [3.7 + 0.005j, 1.0], [1, 1], 800.0, 110.0, 350, 60),  # silicon, magnetic Mie mode
-    ],
-)
-def test_magnetic_dipole_rates_against_transfer_matrices(radii, n, mu, wavelength, rd, orders, dps):
-    total, radiative = layered_decay_rates(radii, n, wavelength, rd, orders, dps, mu=mu, dipole="magnetic")
-    r = ps.decay_rates(radii, n, wavelength, [rd], mu, dipole="magnetic", normalization="shell", tol=1e-10)
-    assert r.converged.all()
-    assert np.allclose(r.total[0], total, rtol=1e-11, atol=0)
-    assert np.allclose(r.radiative[0], radiative, rtol=1e-12, atol=0)
-    assert np.allclose(r.nonradiative[0], np.subtract(total, radiative), rtol=1e-10, atol=0)
+@pytest.mark.parametrize("case", emitters.MAGNETIC_RATE_CASES)
+def test_magnetic_dipole_rates_against_transfer_matrices(case):
+    assert_rows(emitters.magnetic_rates_against_transfer_matrices(*case))
 
 
 @pytest.mark.parametrize("dipole", ["electric", "magnetic"])
@@ -464,14 +388,9 @@ def test_decay_rejects_bad_input():
 # ------------------------------------------------------------ conservation
 
 
-@pytest.mark.parametrize("size", [0.5, 20.0, 300.0])
+@pytest.mark.parametrize("size", spheres.LOSSLESS_SIZES)
 def test_lossless_multilayers_absorb_nothing(size):
-    """Energy conservation of the scattering solution: Q_abs = 0 to rounding."""
-    rng = np.random.default_rng(int(size * 10))
-    radii = np.sort(rng.uniform(0.05, 1.0, 8)) * size * LAM / (2 * np.pi)
-    n = np.r_[rng.uniform(1.2, 3.5, 8), 1.33]
-    cs = ps.cross_sections(ps.solve(radii, n, LAM))
-    assert abs(cs.q_abs[0]) < 1e-12 * cs.q_ext[0]
+    assert_rows(spheres.lossless_multilayers_absorb_nothing(size))
 
 
 def test_absorbing_shells_absorb_and_gain_shells_emit():
@@ -486,7 +405,4 @@ def test_absorbing_shells_absorb_and_gain_shells_emit():
 
 
 def test_rayleigh_limit():
-    m, x = 1.5 + 0.2j, 1e-4
-    radius = x * LAM / (2 * np.pi)
-    a1 = ps.solve([radius], [m, 1.0], LAM, l_max=3).a[0, 0]
-    assert a1 == pytest.approx(-2j * x**3 / 3 * (m**2 - 1) / (m**2 + 2), rel=1e-7)
+    assert_rows(spheres.rayleigh_limit())

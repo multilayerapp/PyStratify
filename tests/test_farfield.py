@@ -8,20 +8,23 @@ reciprocity against the plane-wave near field (which fixes every phase),
 radiated power against the Green's-function decay rates, and quadrature.
 """
 
+import sys
+from pathlib import Path
 import numpy as np
 import pytest
 
 import pystratify as ps
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
+import sphere_emitter_checks as emitters  # noqa: E402
+import sphere_checks as spheres  # noqa: E402
+from checks import assert_rows  # noqa: E402
+from sphere_emitter_checks import _basis  # noqa: E402
+
 LAM = 614.0
 AU = 0.27 + 2.93j
 NANOSHELL = ([50.0, 55.0], [1.45, AU, 1.33])
 
-
-def _basis(theta, phi):
-    ct, st, cp, sp = np.cos(theta), np.sin(theta), np.cos(phi), np.sin(phi)
-    n = np.stack([st * cp, st * sp, ct], -1)
-    return n, np.stack([ct * cp, ct * sp, -st], -1), np.stack([-sp, cp, 0 * sp], -1)
 
 
 def _sphere_grid(nodes=80):
@@ -35,37 +38,11 @@ def _sphere_grid(nodes=80):
 
 
 def test_amplitude_matrix_against_textbook_mie():
-    """S1, S2 from BH a_n, b_n with pi_n = P_n' and tau_n from Legendre-series derivatives."""
-    from .test_physics import _mie_ab
-
-    m, x, nh = 1.5 + 0.1j, 4.0, 1.33
-    r = x * LAM / (2 * np.pi * nh)
-    L = ps.truncation_order(r, nh, LAM) + 5
-    sol = ps.solve([r], [m * nh, nh], LAM, l_max=L)
-    a, b = _mie_ab(m, x, L)
-    theta = np.linspace(0, np.pi, 13)
-    mu = np.cos(theta)
-    s1, s2 = np.zeros(theta.size, complex), np.zeros(theta.size, complex)
-    for order in range(1, L + 1):
-        p = np.polynomial.legendre.Legendre.basis(order)
-        pi = p.deriv()(mu)
-        tau = mu * pi - (1 - mu**2) * p.deriv(2)(mu)
-        w = (2 * order + 1) / (order * (order + 1))
-        s1 += w * (a[order - 1] * pi + b[order - 1] * tau)
-        s2 += w * (a[order - 1] * tau + b[order - 1] * pi)
-    got = ps.amplitude_matrix(sol, theta)
-    assert np.allclose(got[0][0], s1, rtol=1e-10) and np.allclose(got[1][0], s2, rtol=1e-10)
-    assert np.all(got[2] == 0) and np.all(got[3] == 0)
-    par, per = ps.scattering_amplitudes(sol, theta)
-    assert np.allclose(par, -got[1], rtol=1e-14) and np.allclose(per, -got[0], rtol=1e-14)
+    assert_rows(spheres.amplitude_matrix_against_textbook_mie())
 
 
 def test_bohren_huffman_backscattering_from_the_pattern():
-    x = 2 * np.pi * 0.525 / 0.6328
-    r = x * LAM / (2 * np.pi)
-    sol = ps.solve([r], [1.55, 1.0], LAM, l_max=20)
-    back = ps.scattering_pattern(sol, np.pi)
-    assert 4 * np.pi * back.differential_cross_section[0] / (np.pi * r**2) == pytest.approx(2.92534, abs=1e-5)
+    assert_rows([r for r in spheres.bohren_huffman_reference_values() if 'pattern' in r.quantity])
 
 
 @pytest.mark.parametrize("theta, phi", [(1.1, 0.7), (2.9, -2.0), (0.2, 3.0)])
@@ -149,59 +126,21 @@ def test_mueller_matrix():
 # -------------------------------------------------------------------- dipoles
 
 
-@pytest.mark.parametrize("dipole", ["electric", "magnetic"])
-@pytest.mark.parametrize(
-    "position", [[10.0, -5.0, 20.0], [0.0, 40.0, -10.0], [70.0, 20.0, 30.0], [900.0, -400.0, 200.0]]
-)
+@pytest.mark.parametrize("dipole", emitters.DIPOLES)
+@pytest.mark.parametrize("position", emitters.FREE_POSITIONS)
 def test_dipole_in_homogeneous_medium_is_the_closed_form(position, dipole):
-    rng = np.random.default_rng(1)
-    theta, phi = rng.uniform(0, np.pi, 9), rng.uniform(-np.pi, np.pi, 9)
-    moment = rng.normal(size=3) + 1j * rng.normal(size=3)
-    f = ps.dipole_far_field([30.0, 60.0], [1.33] * 3, LAM, position, moment, theta, phi, dipole=dipole)
-    n, e_theta, e_phi = _basis(theta, phi)
-    phase = np.exp(-1j * 2 * np.pi * 1.33 / LAM * (n @ np.array(position)))[:, None]
-    exact = (moment - (n @ moment)[:, None] * n) * phase if dipole == "electric" else -np.cross(n, moment) * phase
-    assert np.allclose(f.e_theta, np.sum(exact * e_theta, -1), atol=1e-13 * np.abs(moment).max())
-    assert np.allclose(f.e_phi, np.sum(exact * e_phi, -1), atol=1e-13 * np.abs(moment).max())
-    assert f.power == pytest.approx(1, rel=1e-13) and f.converged
-    assert f.orders_used < 30  # the direct field is exact, whatever the distance
+    assert_rows(emitters.dipole_in_homogeneous_medium(position, dipole))
 
 
-@pytest.mark.parametrize("dipole", ["electric", "magnetic"])
-@pytest.mark.parametrize(
-    "position",
-    [[5.0, 10.0, -20.0], [20.0, -35.0, 30.0], [30.0, 40.0, 30.0], [60.0, 50.0, -40.0]],
-    ids=["core", "lossy-shell", "magnetic-shell", "host"],
-)
-def test_dipole_emission_is_reciprocal_to_plane_wave_near_field(position, dipole):
-    """F(n) . e = p . E(r0) for the plane wave of polarisation e incident from n
-    (E -> -(mu_h/n_h) H for a magnetic dipole), with the incidence rotated onto +z."""
-    radii, n, mu = [40.0, 55.0, 70.0], [1.45, AU, 2.0, 1.33], [1.0, 1.0, 1.3, 1.0]
-    sol = ps.solve(radii, n, LAM, mu, l_max=45)
-    rng = np.random.default_rng(2)
-    theta, phi = rng.uniform(0, np.pi, 5), rng.uniform(-np.pi, np.pi, 5)
-    moment = rng.normal(size=3) + 1j * rng.normal(size=3)
-    f = ps.dipole_far_field(radii, n, LAM, position, moment, theta, phi, mu, dipole=dipole, l_max=45)
-    directions, e_theta, e_phi = _basis(theta, phi)
-    for i in range(theta.size):
-        for pol, got in ((e_theta[i], f.e_theta[i]), (e_phi[i], f.e_phi[i])):
-            rotation = np.array([pol, np.cross(-directions[i], pol), -directions[i]])
-            near = ps.near_field(sol, *(rotation @ np.array(position)))
-            if dipole == "electric":
-                expected = (rotation @ moment) @ np.array([near.e[c] for c in "xyz"])
-            else:
-                expected = -(mu[-1] / n[-1]) * (rotation @ moment) @ np.array([near.h[c] for c in "xyz"])
-            assert got == pytest.approx(expected, rel=1e-12)
+@pytest.mark.parametrize("dipole", emitters.DIPOLES)
+@pytest.mark.parametrize("where", emitters.RECIPROCITY_POSITIONS)
+def test_dipole_emission_is_reciprocal_to_plane_wave_near_field(where, dipole):
+    assert_rows(emitters.reciprocity_with_near_field(where, dipole))
 
 
-@pytest.mark.parametrize("dipole", ["electric", "magnetic"])
+@pytest.mark.parametrize("dipole", emitters.DIPOLES)
 def test_radiated_power_equals_decay_rates(dipole):
-    radii, n, mu = [50.0, 70.0, 90.0], [1.45, AU, 1.6, 1.33], [1.3, 1.0, 1.7, 1.1]
-    for r0 in (40.0, 80.0, 95.0, 300.0):
-        rates = ps.decay_rates(radii, n, LAM, [r0], mu, dipole=dipole, tol=1e-10)
-        for column, moment in enumerate(([0.0, 0.0, 1.0], [1.0, 0.0, 0.0])):
-            f = ps.dipole_far_field(radii, n, LAM, [0.0, 0.0, r0], moment, 0.0, 0.0, mu, dipole=dipole)
-            assert f.power == pytest.approx(rates.radiative[0, column], rel=1e-12)
+    assert_rows(emitters.radiated_power_equals_decay_rates(dipole))
 
 
 def test_power_directivity_and_quadrature():

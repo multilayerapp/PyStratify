@@ -1,6 +1,7 @@
 """Two-point Green's dyadic: free-field series, reciprocity, the coinciding limit and extended precision."""
 
-import mpmath as mp
+import sys
+from pathlib import Path
 import numpy as np
 import pytest
 
@@ -9,7 +10,11 @@ from pystratify import TE, TM
 from pystratify.emission import _local_frame
 from pystratify.normalized import _Sweep
 from pystratify.pairs import _free_dyadic, _pair_terms
-from pystratify.references import _psi_all, _xi_all
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
+import sphere_emitter_checks as emitters  # noqa: E402
+from checks import assert_rows  # noqa: E402
+from sphere_emitter_checks import _mp_two_point  # noqa: E402
 
 AU = 0.1412 + 3.1518j  # Etchegoin, Le Ru & Meyer gold at 614 nm
 SHELL = ([50.0, 55.0], [1.45, AU, 1.33], 614.0)
@@ -73,69 +78,10 @@ def test_coinciding_limit_gives_the_rates_and_the_shift():
     assert np.isclose(s[2, 2].imag / 2, rates.shift[0], rtol=1e-9)
 
 
-def _mp_two_point(radii, n, lam, a, b, orders, dps=80):
-    """u_in(x<) u_out(x>) / W per order, [TM, TE], from mpmath transfer matrices, minus psi(x<) xi(x>)
-    for points in one shell; a < b for points in different shells."""
-    out = np.zeros((2, orders), complex)
-    with mp.workdps(dps):
-        R = [mp.mpf(v) for v in radii]
-        nn = [mp.mpc(complex(v)) for v in n]
-        k = [2 * mp.pi * v / mp.mpf(lam) for v in nn]
-        top = orders + 1
 
-        def funcs(z):
-            p, x = _psi_all(z, top), _xi_all(z, top)
-            dp = [None] + [p[m - 1] - m * p[m] / z for m in range(1, top + 1)]
-            dx = [None] + [x[m - 1] - m * x[m] / z for m in range(1, top + 1)]
-            return p, dp, x, dx
-
-        N = len(radii)
-        iface = [(funcs(k[j] * R[j]), funcs(k[j + 1] * R[j])) for j in range(N)]
-        d, d2 = sum(1 for v in radii if a >= v), sum(1 for v in radii if b >= v)
-        lo, hi = funcs(k[d] * mp.mpf(min(a, b))), funcs(k[d2] * mp.mpf(max(a, b)))
-        for l in range(1, orders + 1):
-            for pol, te in ((0, False), (1, True)):
-                mats = []
-                for j in range(N):
-                    (p, dp, x, dx), (pt, dpt, xt, dxt) = iface[j]
-                    eta = nn[j] / nn[j + 1]
-                    c1, c2 = (eta, 1) if te else (1, eta)
-                    m = [[dx[l] * pt[l] * c1 - x[l] * dpt[l] * c2, dx[l] * xt[l] * c1 - x[l] * dxt[l] * c2],
-                         [-dp[l] * pt[l] * c1 + p[l] * dpt[l] * c2, -dp[l] * xt[l] * c1 + p[l] * dxt[l] * c2]]  # fmt: skip
-                    mats.append([[v / mp.mpc(0, 1) for v in row] for row in m])  # / W(psi, xi) = i
-                A, B = mp.mpf(1), mp.mpf(0)
-                for j in range(d):
-                    m = mats[j]
-                    det = m[0][0] * m[1][1] - m[0][1] * m[1][0]
-                    A, B = (m[1][1] * A - m[0][1] * B) / det, (-m[1][0] * A + m[0][0] * B) / det
-                co = {N: (mp.mpf(0), mp.mpf(1))}
-                for j in range(N - 1, d - 1, -1):
-                    m, (Ao, Bo) = mats[j], co[j + 1]
-                    co[j] = (m[0][0] * Ao + m[0][1] * Bo, m[1][0] * Ao + m[1][1] * Bo)
-                W = A * co[d][1] - B * co[d][0]
-                u = A * lo[0][l] + B * lo[2][l]
-                v = co[d2][0] * hi[0][l] + co[d2][1] * hi[2][l]
-                out[pol, l - 1] = complex(u * v / W - (lo[0][l] * hi[2][l] if d == d2 else 0))
-    return out
-
-
-@pytest.mark.parametrize("a, b", [(56.0, 60.0), (60.0, 56.0), (40.0, 49.0)])
+@pytest.mark.parametrize("a, b", emitters.TWO_POINT_CASES)
 def test_two_point_radial_form_against_extended_precision(a, b):
-    """psi_1 xi_2 [sigma_2 + rho_1 sigma_2 + rho_1 + R S]/(1 - R S) (value-value) per order against mpmath."""
-    radii, n, lam = SHELL
-    L = 120
-    k = 2 * np.pi * np.asarray(n, complex) / lam
-    t = _Sweep(np.asarray(radii), np.asarray(n, complex), np.ones(3, complex), k, L).at(np.array([a, b]))
-    l = np.arange(1, L + 1)
-    i1, i2 = (0, 1) if a <= b else (1, 0)  # inner, outer point
-    x1, x2 = t["x"][i1], t["x"][i2]
-    ref = _mp_two_point(radii, n, lam, a, b, L)
-    for p in (TM, TE):
-        rho1, sig2, rs = t["rho"][p, i1], t["sigma"][p, i2], t["rho"][p, i1] * t["sigma"][p, i1]
-        pref = t["P"][p, i2] * np.exp((l + 1) * np.log(x1 / x2) + t["lj"][p, i1] - t["lj"][p, i2])
-        form = pref * (sig2 + rho1 * sig2 + rho1 + rs) / (1 - rs)
-        w = 2 * l + 1
-        assert np.sum(w * np.abs(form - ref[p])) <= 1e-13 * np.sum(w * np.abs(ref[p])), p
+    assert_rows(emitters.two_point_radial_form(a, b))
 
 
 @pytest.mark.parametrize(

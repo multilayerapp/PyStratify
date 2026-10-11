@@ -10,8 +10,12 @@ see the numbers for themselves; `tests/` only imports that script and asserts th
 far this way: `planar_codes.py` → `PLANAR_CODES.md`, `emitter_references.py` →
 `EMITTER_REFERENCES.md`, `mnpbem_spheres.py` → `MNPBEM_SPHERES.md`, `mie_codes.py` → `MIE_CODES.md`,
 `gdm_spheres.py` → `GDM_SPHERES.md`, `fdtd_meep.py` → `FDTD_MEEP.md`, `fem_ngsolve.py` → `FEM_NGSOLVE.md`,
-`smuthi_spheres.py` → `SMUTHI_SPHERES.md`, `convergence.py` → `RESULTS.md`. Rows whose check exists only inside
-`tests/` still owe a `benchmarks/` script; WP1.5 is not done until they have one.
+`smuthi_spheres.py` → `SMUTHI_SPHERES.md`, `convergence.py` → `RESULTS.md`, and the check scripts —
+`planar_checks.py`, `unified_checks.py`, `focused_checks.py`, `sphere_checks.py`, `sphere_emitter_checks.py` →
+`*_CHECKS.md` — whose rows print each observed value beside the tolerance its test asserts (`checks.py`; the
+60- and 80-digit references are `mp_reference.py`). Since 2026-10-11 every row naming a PyStratify test names
+its script; the rows left without one are another repository's (the backend's RCWA, the web's JavaScript
+lineage), the unmerged `non-local` branch, and WP1.4's anisotropy, still to build.
 
 ## Kinds of reference
 
@@ -20,7 +24,7 @@ An agreement only counts as independent when the reference does not share the co
 | kind | what agreement proves |
 |---|---|
 | **analytic** | a closed form, limit or conservation law: independent of any code |
-| **precision** | the same mathematics in mpmath at 60–80 digits, written separately in `src/pystratify/references.py` and `tests/mp_reference.py`: proves the numerics, not the formulation |
+| **precision** | the same mathematics in mpmath at 60–80 digits, written separately in `src/pystratify/references.py` and `benchmarks/mp_reference.py`: proves the numerics, not the formulation |
 | **method** | an independent formulation inside this repo (a scattering matrix, a plane-wave superposition, a quadrature): proves the formulation |
 | **code** | another group's code |
 | **paper** | a published number or figure |
@@ -84,12 +88,12 @@ blank = the reference cannot compute it.
 | reference | kind | quantity | script | tolerance | status |
 |---|---|---|---|---|---|
 | Fresnel, single interface, incl. opaque | analytic | r, t, R, T | `benchmarks/unified_checks.py` → `UNIFIED_CHECKS.md`; `tests/test_unified.py::test_planar_fresnel_and_opaque` | 1e-14 | suite |
-| Fresnel at oblique incidence; Brewster zero; s = p at normal | analytic | R, T | `multilayer/tests/test_analytic_invariants.py` (`test_single_interface_oblique_against_fresnel`, `test_brewster_angle_p_zero`, `test_s_equals_p_at_normal_incidence`) | 1e-13 abs | backend |
+| Fresnel at oblique incidence; Brewster zero; s = p at normal | analytic | R, T | `benchmarks/planar_checks.py` → `PLANAR_CHECKS.md`; `multilayer/tests/test_analytic_invariants.py` (`test_single_interface_oblique_against_fresnel`, `test_brewster_angle_p_zero`, `test_s_equals_p_at_normal_incidence`) | 1e-13 abs | backend |
 | Airy slab; quarter-wave Bragg mirror | analytic | R, T | `test_analytic_invariants.py::test_airy_slab_formulas`, `::test_quarter_wave_mirror_closed_form` | 1e-12 / 1e-10 abs | backend |
 | R + T = 1 for lossless stacks, below and beyond the critical angle; reciprocity under reversal | analytic | R, T | `test_analytic_invariants.py::test_lossless_stack_conserves_energy`, `::test_energy_conservation_beyond_critical_angle`, `::test_transmittance_reciprocity_under_reversal` | 1e-12 abs | backend |
 | bare-substrate Fresnel ratio | analytic | Ψ, Δ | `test_analytic_invariants.py::test_bare_substrate_matches_fresnel_ratio` | 1e-12 | backend |
 | scattering matrix (Redheffer star product) | method | R, T on lossy, oblique and opaque stacks | `test_analytic_invariants.py::test_absorbing_metal_stack_agrees`, `::test_beyond_critical_agrees`, `::test_opaque_layer_agrees_where_m_matrix_is_clamped` | 1e-10 abs | backend |
-| explicit phase average of coherent solves | method | incoherent R, T, per-layer A | `multilayer/tests/test_layer_absorption.py::test_pim_tmm_matches_gtmm_and_explicit_phase_average` | 1e-9 | backend |
+| explicit phase average of coherent solves | method | incoherent R, T, per-layer A | `benchmarks/planar_checks.py` → `PLANAR_CHECKS.md`; `multilayer/tests/test_layer_absorption.py::test_pim_tmm_matches_gtmm_and_explicit_phase_average` | 1e-9 | backend |
 | RCWA with zero patterning | method | R | `multilayer/tests/test_rcwa.py::test_rcwa_reduces_to_tmm_on_an_unpatterned_stack` | 1e-9 abs | backend |
 | position-resolved field against Parseval | method | E(z), absorption density | `benchmarks/focused_checks.py` → `FOCUSED_CHECKS.md`; `tests/test_focused.py::test_film_near_field_against_position_resolved_and_parseval` (normal-incidence slice) | 1e-10 | suite |
 | `inc_tmm` ("GTMM" in the backend tests) | lineage | incoherent R, T, A | `test_layer_absorption.py::test_pim_tmm_matches_gtmm_*` | 1e-8 | backend |
@@ -99,7 +103,7 @@ blank = the reference cannot compute it.
 | **pyElli** 4×4, uniaxial film | code | the **anisotropy reference for WP1.4** | to build with WP1.4: `tests/test_anisotropic.py` | 1e-10 | to build |
 | **PyMoosh** (independent S-matrix code) | code | R, T, r, t, per-layer A on the same stacks plus a magnetic layer (μ = 2) | `tests/test_planar_codes.py`; `benchmarks/planar_codes.py` → `PLANAR_CODES.md` | 1e-12; observed ≤ 1.2e-14 | suite (`benchmarks` extra) |
 | **PyMoosh** `field` (one Fourier order: a single plane wave) | code | E_y (s) and H_y (p) every 5 nm through the stacks above | `tests/test_planar_codes.py`; `benchmarks/planar_codes.py` | 1e-12; observed ≤ 1.6e-14 | suite (`benchmarks` extra) |
-| **PyMoosh** `incoherent.py` | code | incoherent R, T of coherent films on a thick incoherent substrate: the **first independent incoherent reference** | `tests/test_planar_codes.py` | 1e-12; observed ≤ 5e-15 | suite (`benchmarks` extra) |
+| **PyMoosh** `incoherent.py` | code | incoherent R, T of coherent films on a thick incoherent substrate: the **first independent incoherent reference** | `benchmarks/planar_codes.py` → `PLANAR_CODES.md`; `tests/test_planar_codes.py` | 1e-12; observed ≤ 5e-15 | suite (`benchmarks` extra) |
 | **PyMoosh** `anisotropic.py` | code | a second anisotropy reference for WP1.4 | to build with WP1.4 | 1e-10 | to build |
 | **PyMoosh** `non_local.py` | code | planar hydrodynamic films, against the `non-local` branch | to build with the `non-local` merge | 1e-8 | to build |
 | **tmmax** (JAX transfer matrix) | code | R, T | to build: `benchmarks/planar_codes.py` | 1e-10 | to build |
@@ -174,18 +178,18 @@ blank = the reference cannot compute it.
 
 | reference | kind | quantity | script | tolerance | status |
 |---|---|---|---|---|---|
-| 60-digit transfer matrices | precision | Mie coefficients of every shell (six multilayers incl. `mie_codes.py`'s 10-layer graded sphere) | `tests/test_solver.py::test_coefficients_against_60_digit_transfer_matrices` | 1e-10 (1e-7 nearly index-matched) | suite |
+| 60-digit transfer matrices | precision | Mie coefficients of every shell (six multilayers incl. `mie_codes.py`'s 10-layer graded sphere) | `benchmarks/sphere_checks.py` → `SPHERE_CHECKS.md`; `tests/test_solver.py::test_coefficients_against_60_digit_transfer_matrices` | 1e-10 (1e-7 nearly index-matched) | suite |
 | Bohren & Huffman d₁, c₁ (only l = 1 survives at r = 0) | analytic | E(0), H(0) of four homogeneous spheres, incl. ±0.0 inputs | `benchmarks/mie_codes.py` → `MIE_CODES.md` "Near fields"; `tests/test_mie_codes.py::test_field_at_the_centre_is_bohren_huffman_d1_and_c1` | 1e-13; observed ≤ 1.1e-14 | suite |
-| textbook Mie (homogeneous); identical shells = one sphere | analytic | Q_ext, Q_sca, S1, S2 | `tests/test_physics.py::test_homogeneous_sphere_equals_mie`, `tests/test_solver.py::test_fifty_shells_of_one_material_are_one_sphere`, `tests/test_farfield.py::test_amplitude_matrix_against_textbook_mie` | 1e-10 / 1e-11 / 1e-10 | suite |
-| Bohren & Huffman reference values | paper | Q, backscattering | `tests/test_physics.py::test_bohren_huffman_reference_values`, `tests/test_farfield.py::test_bohren_huffman_backscattering_from_the_pattern` | 1e-5 (printed digits) | suite |
-| optical theorem; Rayleigh limit; lossless absorbs nothing | analytic | Q_ext, Q_abs | `tests/test_physics.py::test_optical_theorem_and_backscattering`, `::test_rayleigh_limit`, `::test_lossless_multilayers_absorb_nothing` | 1e-12 / 1e-7 | suite |
+| textbook Mie (homogeneous); identical shells = one sphere | analytic | Q_ext, Q_sca, S1, S2 | `benchmarks/sphere_checks.py` → `SPHERE_CHECKS.md`; `tests/test_physics.py::test_homogeneous_sphere_equals_mie`, `tests/test_solver.py::test_fifty_shells_of_one_material_are_one_sphere`, `tests/test_farfield.py::test_amplitude_matrix_against_textbook_mie` | 1e-10 / 1e-11 / 1e-10 | suite |
+| Bohren & Huffman reference values | paper | Q, backscattering | `benchmarks/sphere_checks.py` → `SPHERE_CHECKS.md`; `tests/test_physics.py::test_bohren_huffman_reference_values`, `tests/test_farfield.py::test_bohren_huffman_backscattering_from_the_pattern` | 1e-5 (printed digits) | suite |
+| optical theorem; Rayleigh limit; lossless absorbs nothing | analytic | Q_ext, Q_abs | `benchmarks/sphere_checks.py` → `SPHERE_CHECKS.md`; `tests/test_physics.py::test_optical_theorem_and_backscattering`, `::test_rayleigh_limit`, `::test_lossless_multilayers_absorb_nothing` | 1e-12 / 1e-7 | suite |
 | **BHMIE** | code | Q_ext, Q_sca to x = 20000 | `tests/test_solver.py::test_very_large_absorbing_spheres_against_bhmie`; `benchmarks/RESULTS.md` "Large homogeneous spheres" | 1e-10 / report | suite, report |
 | many layers, graded profiles, rainbow, Luneburg lens [W97, WW91, Y24] | paper / analytic | Q, S(θ) | `benchmarks/convergence.py` → `RESULTS.md` "Many layers" | report | report |
 | **treams**, chiral shells | code | helicity T-matrix of three chiral multilayers (gold, magnetic and gain-in-κ shells) | `benchmarks/mie_codes.py` → `MIE_CODES.md`; `tests/test_chiral.py::test_against_treams` | 1e-11; observed ≤ 6.1e-14 | suite |
-| 80-digit chiral transfer matrices | precision | chiral T-matrix, layer solutions | `tests/test_chiral.py::test_t_matrix_against_80_digit_transfer_matrices`, `::test_layer_solutions_against_80_digit_transfer_matrices` | 1e-11 | suite |
-| published small chiral sphere polarisabilities | paper | α_ee, α_em, α_mm | `tests/test_chiral.py::test_small_chiral_sphere_matches_published_polarisabilities` | 1e-4 (quasi-static) | suite |
-| Gonçalves et al. 2020 (Feibelman d-parameters) | paper | Mie coefficients with d⊥, d∥ | `tests/test_feibelman.py::test_sphere_against_goncalves` | 1e-13 | suite |
-| graphene-coated sphere plasmons; thin-film limit of a sheet | analytic | resonance position; second-order limit | `tests/test_sheets.py::test_graphene_sphere_plasmons`, `::test_thin_film_limit_is_second_order` | retardation shift; 2e-3 | suite |
+| 80-digit chiral transfer matrices | precision | chiral T-matrix, layer solutions | `benchmarks/sphere_checks.py` → `SPHERE_CHECKS.md`; `tests/test_chiral.py::test_t_matrix_against_80_digit_transfer_matrices`, `::test_layer_solutions_against_80_digit_transfer_matrices` | 1e-11 | suite |
+| published small chiral sphere polarisabilities | paper | α_ee, α_em, α_mm | `benchmarks/sphere_checks.py` → `SPHERE_CHECKS.md`; `tests/test_chiral.py::test_small_chiral_sphere_matches_published_polarisabilities` | 1e-4 (quasi-static) | suite |
+| Gonçalves et al. 2020 (Feibelman d-parameters) | paper | Mie coefficients with d⊥, d∥ | `benchmarks/sphere_emitter_checks.py` → `SPHERE_EMITTER_CHECKS.md`; `tests/test_feibelman.py::test_sphere_against_goncalves` | 1e-13 | suite |
+| graphene-coated sphere plasmons; thin-film limit of a sheet | analytic | resonance position; second-order limit | `benchmarks/sphere_checks.py` → `SPHERE_CHECKS.md`; `tests/test_sheets.py::test_graphene_sphere_plasmons`, `::test_thin_film_limit_is_second_order` | retardation shift; 2e-3 | suite |
 | near-field truncation against 120 orders | precision | \|E\|², energy density | `benchmarks/RESULTS.md` "Near field and energy density" | report | report |
 | **treams**, achiral spheres and multilayers (x ≤ 15) | code | Q_ext, Q_sca, Q_abs of 8 cases incl. nanoshells, a matryoshka and a 10-layer graded sphere | `benchmarks/mie_codes.py`; `tests/test_mie_codes.py` | 1e-10 with 20 orders beyond Wiscombe; observed ≤ 1.1e-14 | suite (`benchmarks` extra) |
 | **treams**, near fields | code | scattered E and H in the host (1.05–3 radii, five polar angles) of six spheres and multilayers where its dense T-matrix fits (l_max ≤ 40) | `benchmarks/mie_codes.py` → `MIE_CODES.md` "Near fields"; `tests/test_mie_codes.py::test_near_fields_agree_with_scattnlay_and_treams` | 1e-10; observed ≤ 6.6e-14 | suite (`benchmarks` extra) |
@@ -202,15 +206,15 @@ blank = the reference cannot compute it.
 
 | reference | kind | quantity | script | tolerance | status |
 |---|---|---|---|---|---|
-| textbook Mie decay rates [MLR Eqs. 34–37, mpmath] | precision / paper | total, radiative, nonradiative | `tests/test_physics.py::test_decay_rates_against_mie_reference`; `RESULTS.md` "Decay rates near a sphere" | 1e-9; report to 1e-11 | suite, report |
-| layered-sphere transfer matrices (electric and magnetic dipoles) | precision | rates inside and outside shells | `tests/test_physics.py::test_layered_decay_rates_against_transfer_matrices`, `::test_magnetic_dipole_rates_against_transfer_matrices` | 2e-10 / 1e-10 | suite |
-| normalized route against extended precision and classical formulas | precision | rates, Lamb shift | `tests/test_normalized.py::test_normalized_against_extended_precision_and_classical`, `tests/test_shift.py::test_shift_against_extended_precision` | 1e-10 | suite |
-| dipole in a homogeneous medium; reciprocity with the plane-wave near field; radiated power = radiative rate | analytic / method | far field, rates | `tests/test_farfield.py::test_dipole_in_homogeneous_medium_is_the_closed_form`, `::test_dipole_emission_is_reciprocal_to_plane_wave_near_field`, `::test_radiated_power_equals_decay_rates` | 1e-13 | suite |
+| textbook Mie decay rates [MLR Eqs. 34–37, mpmath] | precision / paper | total, radiative, nonradiative | `benchmarks/sphere_emitter_checks.py` → `SPHERE_EMITTER_CHECKS.md`; `tests/test_physics.py::test_decay_rates_against_mie_reference`; `RESULTS.md` "Decay rates near a sphere" | 1e-9; report to 1e-11 | suite, report |
+| layered-sphere transfer matrices (electric and magnetic dipoles) | precision | rates inside and outside shells | `benchmarks/sphere_emitter_checks.py` → `SPHERE_EMITTER_CHECKS.md`; `tests/test_physics.py::test_layered_decay_rates_against_transfer_matrices`, `::test_magnetic_dipole_rates_against_transfer_matrices` | 2e-10 / 1e-10 | suite |
+| normalized route against extended precision and classical formulas | precision | rates, Lamb shift | `benchmarks/sphere_emitter_checks.py` → `SPHERE_EMITTER_CHECKS.md`; `tests/test_normalized.py::test_normalized_against_extended_precision_and_classical`, `tests/test_shift.py::test_shift_against_extended_precision` | 1e-10 | suite |
+| dipole in a homogeneous medium; reciprocity with the plane-wave near field; radiated power = radiative rate | analytic / method | far field, rates | `benchmarks/sphere_emitter_checks.py` → `SPHERE_EMITTER_CHECKS.md`; `tests/test_farfield.py::test_dipole_in_homogeneous_medium_is_the_closed_form`, `::test_dipole_emission_is_reciprocal_to_plane_wave_near_field`, `::test_radiated_power_equals_decay_rates` | 1e-13 | suite |
 | layered magnetic sphere, Yuan, Zhu & Zhu 2024 Table 1 | paper | total rate (lossless: balance) | `RESULTS.md` "Dipole in a layered magnetic sphere" | report | report |
-| Guzatov & Klimov 2012, Eq. 46 and Figs. 3–6 | paper | radiative rate of a chiral molecule beside a chiral sphere | `tests/test_rates.py::test_chiral_molecule_near_small_chiral_sphere_guzatov_klimov`; `crosscheck/guzatov_klimov_2012.py` | 3e-4 at k₀a = 0.01 (O((k₀a)²)); figures by eye | suite, crosscheck |
-| two-point Green's dyadic against extended precision | precision | G(r, r′) | `tests/test_pairs.py::test_two_point_radial_form_against_extended_precision` | 1e-13 | suite |
-| quadrupole coupling against finite differences | method | rates, pattern | `tests/test_quadrupoles.py::test_quadrupole_coupling_against_finite_differences` | — | suite |
-| Casimir–Polder non-retarded limit | analytic | potential | `tests/test_casimir.py::test_non_retarded_limit_near_a_large_sphere` | 1e-12 | suite |
+| Guzatov & Klimov 2012, Eq. 46 and Figs. 3–6 | paper | radiative rate of a chiral molecule beside a chiral sphere | `benchmarks/sphere_emitter_checks.py` → `SPHERE_EMITTER_CHECKS.md`; `tests/test_rates.py::test_chiral_molecule_near_small_chiral_sphere_guzatov_klimov`; `crosscheck/guzatov_klimov_2012.py` | 3e-4 at k₀a = 0.01 (O((k₀a)²)); figures by eye | suite, crosscheck |
+| two-point Green's dyadic against extended precision | precision | G(r, r′) | `benchmarks/sphere_emitter_checks.py` → `SPHERE_EMITTER_CHECKS.md`; `tests/test_pairs.py::test_two_point_radial_form_against_extended_precision` | 1e-13 | suite |
+| quadrupole coupling against finite differences | method | rates, pattern | `benchmarks/sphere_emitter_checks.py` → `SPHERE_EMITTER_CHECKS.md`; `tests/test_quadrupoles.py::test_quadrupole_coupling_against_finite_differences` | — | suite |
+| Casimir–Polder non-retarded limit | analytic | potential | `benchmarks/sphere_emitter_checks.py` → `SPHERE_EMITTER_CHECKS.md`; `tests/test_casimir.py::test_non_retarded_limit_near_a_large_sphere` | 1e-12 | suite |
 | **treams** (the dipole as an l = 1 singular wave, translated through the layered sphere's T-matrix and back) | code | total rate, radial and tangential, ED and MD, beside a nanoshell 5 nm away, a matryoshka in water and a dielectric core–shell | `benchmarks/mie_codes.py` → `MIE_CODES.md` "Emitters beside layered spheres"; `tests/test_mie_codes.py::test_emitters_beside_layered_spheres_agree_with_treams` | converges geometrically in treams' l_max: 3e-8 (nanoshell, 50), 1.2e-11 (matryoshka, 50), ≤ 2.9e-15 (dielectric, ED and MD); asserted 1e-5, 1e-8 (l_max 40), 1e-13 | suite (`benchmarks` extra) |
 | Anger, Bharadwaj & Novotny 2006 | paper | quenching against distance from Au | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
 | **MNPBEM** `dipoleret` | code | total and radiative decay rates 5 nm from a 40 nm sphere (ε = −10 + i), radial and tangential | `benchmarks/mnpbem_spheres.py`; `tests/test_mnpbem_spheres.py` | converges toward PyStratify; finest mesh 1.4% (radial total), 0.04% (tangential) | suite where Octave is installed |

@@ -1,6 +1,7 @@
 """The overflow-free solver against exact references and the interface conditions."""
 
-import mpmath as mp
+import sys
+from pathlib import Path
 import numpy as np
 import pytest
 
@@ -8,43 +9,21 @@ import pystratify as ps
 from pystratify import TE, TM
 from pystratify.riccati import log_riccati
 
-from .mp_reference import coefficients
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
 from pystratify.references import bhmie
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
+import sphere_checks as spheres  # noqa: E402
+from checks import assert_rows  # noqa: E402
 
 WAVELENGTH = 690.0
 MATRYOSHKA = ([10.0, 13.0, 36.0, 48.0], [1.45, 0.2 + 3.8j, 1.45, 0.25 + 3.5j, 1.33])  # 3-nm Au shell
 
 
-def log_error(log_value, exact):
-    if exact == 0:
-        return 0.0
-    d = complex(mp.log(exact)) - log_value
-    return abs(d.real) + abs(np.exp(1j * d.imag) - 1)
 
-
-@pytest.mark.parametrize(
-    "radii, n, tol",
-    [
-        ([50, 70, 90], [1.45 + 0.2j, 2.0, 1.6 + 0.05j, 1.0], 1e-10),
-        (*MATRYOSHKA, 1e-10),
-        ([30, 31, 60], [2.5 + 0.01j, 0.05 + 4.0j, 1.5, 1.33], 1e-10),  # 1-nm Ag-like film
-        # nearly index-matched: B is set by a contrast of 1e-6, so it is known to ~ l eps / contrast
-        ([40, 60], [1.5, 1.5 + 1e-6, 1.5 + 2e-6], 1e-7),
-        ([40, 60], [1.5, 1.6 - 0.02j, 1.33], 1e-10),  # gain shell
-        # benchmarks/mie_codes.py's graded sphere, where scattnlay's internal fields fail in the inner layers
-        (list(np.linspace(114.6, 1146.0, 10)), list(np.linspace(1.6, 1.35, 10)) + [1.0], 1e-10),
-    ],
-)
+@pytest.mark.parametrize("radii, n, tol", spheres.PRECISION_CASES)
 def test_coefficients_against_60_digit_transfer_matrices(radii, n, tol):
-    mu = [1.0] * len(n)
-    sol = ps.solve(radii, n, WAVELENGTH, mu, l_max=160)
-    for pol in (TM, TE):
-        for order in (1, 7, 40, 100, 160):
-            regular, outgoing = coefficients(radii, n, mu, WAVELENGTH, order, te=pol == TE)
-            for s in range(len(n)):
-                assert log_error(sol.log_a[pol, s, 0, order - 1], regular[s][0]) < tol, (pol, order, s)
-                assert log_error(sol.log_b[pol, s, 0, order - 1], regular[s][1]) < tol, (pol, order, s)
-                assert log_error(sol.log_b_out[pol, s, 0, order - 1], outgoing[s][1]) < tol, (pol, order, s)
+    assert_rows(spheres.coefficients_against_60_digits(radii, n, tol))
 
 
 def _interface_mismatch(sol, radii, n, mu, j, pol):
@@ -97,10 +76,7 @@ def test_batch_equals_single():
 
 
 def test_fifty_shells_of_one_material_are_one_sphere():
-    radii = np.linspace(2.0, 100.0, 50)
-    layered = ps.solve(radii, [2.0 + 0.1j] * 50 + [1.33], 600.0, l_max=30)
-    single = ps.solve([100.0], [2.0 + 0.1j, 1.33], 600.0, l_max=30)
-    assert np.allclose(layered.a, single.a, rtol=1e-11) and np.allclose(layered.b, single.b, rtol=1e-11)
+    assert_rows(spheres.fifty_shells_are_one_sphere())
 
 
 def test_large_size_parameter_and_extreme_absorption():

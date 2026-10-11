@@ -1,11 +1,14 @@
 """Log-form Riccati-Bessel functions against extended-precision mpmath."""
 
+import sys
+from pathlib import Path
 import numpy as np
 import pytest
 
 from pystratify.riccati import ANCHOR_MARGIN, log_derivatives, log_riccati
 
-from .mp_reference import log_psi_xi
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
+from mp_reference import log_psi_xi  # noqa: E402
 
 
 def relative_error(reference, got):

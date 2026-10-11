@@ -11,16 +11,22 @@ particles; the Green's-function far field against the reciprocity far field
 for dipoles; exact orientation averages.
 """
 
+import sys
+from pathlib import Path
 import itertools
 
-import mpmath as mp
 import warnings
 
 import numpy as np
 import pytest
 
 import pystratify as ps
-from pystratify.rates import _functionals, _icosahedral_rotations
+from pystratify.rates import _icosahedral_rotations
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
+import sphere_emitter_checks as emitters  # noqa: E402
+from checks import assert_rows  # noqa: E402
+from sphere_emitter_checks import _random_quadrupole  # noqa: E402
 
 LAM = 614.0
 AU = 0.27 + 2.93j
@@ -28,86 +34,10 @@ RADII = [40.0, 55.0, 70.0]
 CHIRAL = ([1.45, AU, 1.6, 1.33], [0.03, 0.0, 0.08, 0.0], [1.0, 1.0, 1.2, 1.0])
 
 
-def _random_quadrupole(seed=2, scale=20.0):
-    rng = np.random.default_rng(seed)
-    q = rng.normal(size=(3, 3)) + 1j * rng.normal(size=(3, 3))
-    q = q + q.T
-    return scale * (q - np.trace(q) / 3 * np.eye(3))
 
-
-def _bh_mode(l, m, parity, kind, k, point):
-    """Cartesian M and N of Bohren & Huffman at a point, 40 digits."""
-    x, y, z = point
-    r = mp.sqrt(x * x + y * y + z * z)
-    th, ph = mp.acos(z / r), mp.atan2(y, x)
-    rho = k * r
-
-    def zf(order, t):
-        j = mp.besselj(order + 0.5, t)
-        return mp.sqrt(mp.pi / (2 * t)) * (j if kind == "psi" else j + 1j * mp.bessely(order + 0.5, t))
-
-    zl = zf(l, rho)
-    dz = zf(l - 1, rho) - l * zl / rho  # (1/rho) d(rho z_l)/drho
-
-    def legendre(order, t):
-        return mp.legenp(order, m, t, type=2) * (-1) ** m if order >= m else 0  # no Condon-Shortley phase
-
-    mu_ = mp.cos(th)
-    p_lm = legendre(l, mu_)
-    dp = (l * mu_ * p_lm - (l + m) * legendre(l - 1, mu_)) / mp.sin(th)  # d P_l^m / d theta
-    cm, sm, st = mp.cos(m * ph), mp.sin(m * ph), mp.sin(th)
-    even = parity == "e"
-    a, b = (-sm, cm) if even else (cm, sm)  # angular factors of the P/sin and dP/dtheta terms
-    m_th, m_ph = m * a * p_lm / st * zl, -b * dp * zl
-    n_r = zl / rho * b * l * (l + 1) * p_lm
-    n_th, n_ph = b * dp * dz, m * a * p_lm / st * dz
-    r_hat = [st * mp.cos(ph), st * mp.sin(ph), mp.cos(th)]
-    th_hat = [mp.cos(th) * mp.cos(ph), mp.cos(th) * mp.sin(ph), -st]
-    ph_hat = [-mp.sin(ph), mp.cos(ph), 0]
-    return (
-        [m_th * th_hat[i] + m_ph * ph_hat[i] for i in range(3)],
-        [n_r * r_hat[i] + n_th * th_hat[i] + n_ph * ph_hat[i] for i in range(3)],
-    )
-
-
-@pytest.mark.parametrize("l", [2, 5])
+@pytest.mark.parametrize("l", emitters.QUADRUPOLE_ORDERS)
 def test_quadrupole_coupling_against_finite_differences(l):
-    """(1/6) sum Q_ij d_j W_i of W_s = M + s N at (0, 0, r0), all axial families, both radial kinds."""
-    mp.mp.dps = 40
-    q = _random_quadrupole(scale=1.0)
-    k, r0, h = 0.013, 47.0, mp.mpf("1e-9")
-    x = k * r0
-    from pystratify.riccati import log_riccati
-
-    log_psi, log_xi = log_riccati(np.array([x + 0j]), l + 1)
-    families = [(0, "e"), (1, "e"), (1, "o"), (2, "e"), (2, "o")]
-    for kind, logs in (("psi", log_psi[0]), ("xi", log_xi[0])):
-        dlog = np.exp(logs[l - 1] - logs[l]) - l / x
-        values = (
-            _functionals(
-                np.full((1, 1, 2), dlog),
-                np.full((1, 2), x),
-                np.full(2, k),
-                np.zeros((1, 1, 2, 3)),
-                q[None, None],
-                np.array([l * (l + 1.0)]),
-            )[0, 0, 0]
-            * np.exp(logs[l])
-            / x
-        )  # undo the division by f/x
-        for f, (m, parity) in enumerate(families):
-            for c, sign in enumerate((1, -1)):
-                base = [mp.mpf("1e-14"), mp.mpf("2e-14"), mp.mpf(r0)]
-                total = 0
-                for j in range(3):
-                    plus, minus = list(base), list(base)
-                    plus[j] += h
-                    minus[j] -= h
-                    (mp_, np_), (mm_, nm_) = (_bh_mode(l, m, parity, kind, mp.mpf(k), pt) for pt in (plus, minus))
-                    for i in range(3):
-                        total += complex(q[i, j]) * ((mp_[i] + sign * np_[i]) - (mm_[i] + sign * nm_[i])) / (2 * h)
-                reference = complex(total / 6)
-                assert abs(values[f, c] - reference) < 1e-9 * max(abs(reference), 1e-300), (kind, m, parity, sign)
+    assert_rows(emitters.quadrupole_coupling(l))
 
 
 @pytest.mark.parametrize("position", [[0, 0, 30.0], [10.0, -20.0, 25.0], [0, 0, 120.0]])

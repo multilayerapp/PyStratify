@@ -1,12 +1,18 @@
 """The normalized formulation (paper equations) against the solver and extended precision."""
 
+import sys
+from pathlib import Path
 import mpmath as mp
 import numpy as np
 import pytest
 
 import pystratify as ps
 from pystratify.normalized import auxiliary
-from pystratify.references import classical_decay_rates, layered_decay_rates
+from pystratify.references import layered_decay_rates
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
+import sphere_emitter_checks as emitters  # noqa: E402
+from checks import assert_rows  # noqa: E402
 
 AU = 0.27 + 2.93j
 CASES = [  # radii, n, mu, wavelength, r
@@ -46,15 +52,9 @@ def test_normalized_equals_solver(radii, n, mu, wavelength, r, dipole):
     assert np.allclose(norm.nonradiative, main.nonradiative[0], rtol=1e-9, atol=0)
 
 
-@pytest.mark.parametrize("dipole", ["electric", "magnetic"])
+@pytest.mark.parametrize("dipole", emitters.DIPOLES)
 def test_normalized_against_extended_precision_and_classical(dipole):
-    radii, n, mu, lam, r = CASES[1]
-    total, radiative = layered_decay_rates(radii, n, lam, r, 2400, 150, mu=mu, dipole=dipole)
-    norm = ps.normalized_decay_rates(radii, n, lam, r, 2400, mu, dipole)
-    assert np.allclose(norm.total, total, rtol=1e-10, atol=0)
-    assert np.allclose(norm.radiative, radiative, rtol=1e-12, atol=0)
-    tc, rc, last = classical_decay_rates(radii, n, lam, r, 2400, mu, dipole)
-    assert last < 100 and np.max(np.abs(tc / total - 1)) > 0.01  # the unnormalized form overflows
+    assert_rows(emitters.normalized_against_extended_precision(dipole))
 
 
 def test_terms_and_free_space_limit():

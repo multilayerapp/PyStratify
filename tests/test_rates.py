@@ -10,6 +10,8 @@ averages over finite rotation groups; the closed-form free power in a chiral
 medium.
 """
 
+import sys
+from pathlib import Path
 import itertools
 
 import warnings
@@ -18,6 +20,10 @@ import numpy as np
 import pytest
 
 import pystratify as ps
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
+import sphere_emitter_checks as emitters  # noqa: E402
+from checks import assert_rows  # noqa: E402
 
 LAM = 614.0
 AU = 0.27 + 2.93j
@@ -223,37 +229,6 @@ def test_rates_input_validation():
     assert any("not passive" in note for note in out.notes)
 
 
-@pytest.mark.parametrize(
-    "eps, mu, chi",
-    [
-        (6.0, 1.0, 0.1),
-        (4.0 + 0.1j, 1.0, 0.2),
-        (-4.0 + 0.3j, 1.0, 0.1),
-        (-4.0 + 0.1j, -1.11 + 0.05j, 0.2),
-        (-2.5 + 0.1j, -1.6, 0.2),
-    ],
-)
+@pytest.mark.parametrize("eps, mu, chi", emitters.GUZATOV_CASES)
 def test_chiral_molecule_near_small_chiral_sphere_guzatov_klimov(eps, mu, chi):
-    """Guzatov & Klimov, New J. Phys. 14, 123009 (2012), Eq. 46: orientation-averaged radiative rate of a
-    molecule (d0, m = -i xi d0), xi = +-0.1 (the two enantiomers), at r0 = 2a from a small Drude-Born-Fedorov
-    sphere (their Eq. 48 polarisabilities; Pasteur form as in test_chiral).  Agreement to O((k0 a)^2)."""
-    wavelength = 600.0
-    k = 2 * np.pi / wavelength
-    n2 = eps * mu
-    s = 1 - n2 * chi**2
-    n_p = np.sqrt(n2 + 0j) / s
-    n_p = -n_p if n_p.imag < 0 else n_p
-    den = (eps + 2) * (mu + 2) - 4 * chi**2 * eps * mu
-    for ka, tol in ((0.01, 3e-4), (0.005, 8e-5)):
-        a = ka / k
-        r0 = 2 * a
-        a_ee = a**3 * ((eps - 1) * (mu + 2) + 2 * chi**2 * eps * mu) / den
-        a_hh = a**3 * ((mu - 1) * (eps + 2) + 2 * chi**2 * eps * mu) / den
-        a_eh = a**3 * 3j * chi * eps * mu / den
-        for xi in (0.1, -0.1):
-            eq46 = 1 + xi**2 + 2 / r0**6 * (abs(a_ee - 1j * xi * a_eh) ** 2 + abs(-a_eh - 1j * xi * a_hh) ** 2)
-            out = ps.emission_rates(
-                [a], [n_p, 1.0], wavelength, [0, 0, r0], [0, 0, 1.0], magnetic_moment=[0, 0, -1j * xi],
-                mu=[mu / s, 1.0], kappa=[n2 * chi / s, 0], orientation="isotropic", tol=1e-10,
-            )  # fmt: skip
-            assert out.radiative == pytest.approx(eq46 / (1 + xi**2), rel=tol)
+    assert_rows(emitters.chiral_molecule_guzatov_klimov(eps, mu, chi))

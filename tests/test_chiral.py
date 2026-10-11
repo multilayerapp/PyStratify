@@ -17,7 +17,11 @@ import pytest
 
 import pystratify as ps
 
-from .mp_reference import chiral_t_matrix
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
+import sphere_checks as spheres  # noqa: E402
+from checks import assert_rows  # noqa: E402
 
 LAM = 614.0
 AU = 0.27 + 2.93j
@@ -25,28 +29,10 @@ MATRYOSHKA = ([10.0, 13.0, 36.0, 48.0], [1.45, 0.2 + 3.8j, 1.45, 0.25 + 3.5j, 1.
 CHIRAL_SHELL = ([40.0, 55.0, 70.0], [1.45 + 0.01j, AU, 1.6 + 0.02j, 1.33], [0.03 + 0.002j, 0, 0.08 + 0.01j, 0])
 
 
-def _norm_error(log_got, log_ref):
-    """max |got - ref| / max |ref| for matrices given as complex logarithms."""
-    shift = np.max(np.real(log_ref))
-    return float(np.max(np.abs(np.exp(log_got - shift) - np.exp(log_ref - shift))))
 
-
-@pytest.mark.parametrize(
-    "radii, n, kappa, mu, tol",
-    [
-        ([40.0, 55.0], [1.45 + 0.01j, 1.6 + 0.02j, 1.33], [0, 0.05 + 0.01j, 0], [1, 1, 1], 1e-11),
-        ([30.0, 33.0, 60.0], [1.5, AU, 1.55 + 0.001j, 1.33], [0.02, 0, 0.1 + 0.003j, 0], [1, 1, 1.2, 1], 1e-11),
-        (MATRYOSHKA[0], MATRYOSHKA[1], [0.01, 0, 0.2 + 0.01j, 0, 0], [1] * 5, 1e-11),
-        ([40.0, 60.0], [1.5, 1.6 - 0.02j, 1.33], [0.03, 0.05, 0], [1, 1, 1], 1e-11),  # gain shell
-        # a chirality contrast of 1e-6 alone: T is known to ~ eps / contrast
-        ([40.0, 60.0], [1.5, 1.5, 1.5], [0, 1e-6, 0], [1, 1, 1], 1e-9),
-    ],
-)
+@pytest.mark.parametrize("radii, n, kappa, mu, tol", spheres.CHIRAL_T_CASES)
 def test_t_matrix_against_80_digit_transfer_matrices(radii, n, kappa, mu, tol):
-    sol = ps.solve_chiral(radii, n, kappa, 690.0, mu, l_max=160)
-    for order in (1, 7, 40, 100, 160):
-        reference = np.array(chiral_t_matrix(radii, n, kappa, mu, 690.0, order))
-        assert _norm_error(sol.log_t_helicity[0, order - 1], reference) < tol, order
+    assert_rows(spheres.chiral_t_matrix_against_80_digits(radii, n, kappa, mu, tol))
 
 
 @pytest.mark.parametrize(
@@ -196,31 +182,9 @@ def test_achiral_functions_refuse_chiral_solutions():
         ps.scattering_amplitudes(sol, [0.1])
 
 
-@pytest.mark.parametrize(
-    "eps, mu, chi",
-    [(4.0, 1.0, 0.1), (-4.0 + 0.3j, 1.0, 0.05), (6.0, 1.2, 0.15), (2.25 + 0.1j, 0.9, -0.08), (-2.2 + 0.1j, 1.0, 0.1)],
-)
+@pytest.mark.parametrize("eps, mu, chi", spheres.CHIRAL_SMALL_CASES)
 def test_small_chiral_sphere_matches_published_polarisabilities(eps, mu, chi):
-    """Quasi-static polarisabilities of Guzatov & Klimov, New J. Phys. 14, 123009 (2012), Eq. 48
-    (arXiv:1203.5393), for the Drude-Born-Fedorov medium D = eps (E + eta curl E), B = mu (H + eta curl H), chi = k0 eta.  In Pasteur
-    form eps_P = eps/s, mu_P = mu/s, kappa = n^2 chi/s with s = 1 - n^2 chi^2 (same impedance, n +- kappa =
-    n/(1 -+ n chi) = their k_L, k_R), and the dipole block is T = (2i/3) k^3 [[a_EE, -i a_EH], [-i a_EH, a_HH]]."""
-    k = 2 * np.pi / 600.0
-    a = 1e-3 / k
-    den = (eps + 2) * (mu + 2) - 4 * chi**2 * eps * mu
-    a_ee = a**3 * ((eps - 1) * (mu + 2) + 2 * chi**2 * eps * mu) / den
-    a_hh = a**3 * ((mu - 1) * (eps + 2) + 2 * chi**2 * eps * mu) / den
-    a_eh = a**3 * 3j * chi * eps * mu / den
-    n2 = eps * mu
-    s = 1 - n2 * chi**2
-    n_p = np.sqrt(n2) / s
-    n_p = -n_p if n_p.imag < 0 else n_p
-    t = ps.solve_chiral([a], [n_p, 1.0], [n2 * chi / s, 0], 600.0, [mu / s, 1.0], l_max=3).t_matrix[0, 0]
-    c = 2j * k**3 / 3
-    # (k a)^2 = 1e-6 dynamic corrections, resonantly enhanced near (eps + 2)(mu + 2) = 4 chi^2 eps mu
-    assert t[0, 0] == pytest.approx(c * a_ee, rel=1e-4)
-    assert t[1, 1] == pytest.approx(c * a_hh, rel=1e-4)
-    assert t[0, 1] == pytest.approx(-1j * c * a_eh, rel=1e-4) and t[1, 0] == pytest.approx(t[0, 1], rel=1e-12)
+    assert_rows(spheres.small_chiral_sphere_polarisabilities(eps, mu, chi))
 
 
 def test_chiral_metal_with_negative_real_part_of_n_minus_kappa():
@@ -230,32 +194,6 @@ def test_chiral_metal_with_negative_real_part_of_n_minus_kappa():
     assert np.all(np.isfinite(hc.ext)) and np.all(hc.abs > 0) and abs(hc.g_ext[0]) > 1e-4
 
 
-@pytest.mark.parametrize(
-    "radii, n, kappa, mu",
-    [
-        ([30.0, 33.0, 60.0], [1.5, AU, 1.55 + 0.001j, 1.33], [0.02, 0, 0.1 + 0.003j, 0], [1, 1, 1.2, 1]),
-        (MATRYOSHKA[0], MATRYOSHKA[1], [0.01, 0, 0.2 + 0.01j, 0, 0], [1] * 5),
-        ([40.0, 60.0], [1.5, 1.6 - 0.02j, 1.33], [0.03, 0.05, 0], [1, 1, 1]),
-    ],
-)
+@pytest.mark.parametrize("radii, n, kappa, mu", spheres.CHIRAL_LAYER_CASES)
 def test_layer_solutions_against_80_digit_transfer_matrices(radii, n, kappa, mu):
-    """Regular (unit incident wave) and outgoing (unit outgoing wave, nothing incoming) solutions in every layer."""
-    from pystratify.chiral import log_matmul
-
-    sol = ps.solve_chiral(radii, n, kappa, 690.0, mu, l_max=160)
-    for order in (1, 2, 7, 40, 100, 160):
-        regular = chiral_t_matrix(radii, n, kappa, mu, 690.0, order, amplitudes_only=True)
-        outgoing = chiral_t_matrix(radii, n, kappa, mu, 690.0, order, outgoing=True)
-        for j in range(len(radii) + 1):
-            alpha = sol.log_alpha[0, j, order - 1]
-            beta_out = sol.log_beta_out[0, j, order - 1]
-            pairs = [(alpha, regular[j][0]), (beta_out, outgoing[j][1])]
-            if j:
-                pairs.append((log_matmul(sol.log_r[0, j, order - 1], alpha), regular[j][1]))
-            if j < len(radii):
-                pairs.append((log_matmul(sol.log_s[0, j, order - 1], beta_out), outgoing[j][0]))
-                # interface maps, applied to the reference amplitudes of the neighbouring layer
-                pairs.append((log_matmul(sol.log_in[0, j, order - 1], regular[j + 1][0]), regular[j][0]))
-                pairs.append((log_matmul(sol.log_out[0, j, order - 1], outgoing[j][1]), outgoing[j + 1][1]))
-            for got, reference in pairs:
-                assert _norm_error(got, reference) < 1e-11, (order, j)
+    assert_rows(spheres.chiral_layer_solutions_against_80_digits(radii, n, kappa, mu))

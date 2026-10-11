@@ -6,6 +6,8 @@ seen from the emitter's shell; reciprocity (symmetric matrices); the logarithmic
 conserves energy; energy conservation; the mirror image (kappa -> -kappa with the enantiomer).
 """
 
+import sys
+from pathlib import Path
 import numpy as np
 import pytest
 
@@ -13,7 +15,8 @@ import pystratify as ps
 from pystratify import TE, TM
 from pystratify.normalized import _HEL_TO_TT, _TT_TO_HEL, _ChiralSweep, _Sweep
 
-from .mp_reference import chiral_t_matrix, log_psi_xi
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
+from mp_reference import chiral_t_matrix, log_psi_xi  # noqa: E402
 
 AU = 0.1412 + 3.1518j
 LAM = 614.0

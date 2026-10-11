@@ -1,5 +1,7 @@
 """The normalized core (``normalized_terms``) and the frequency shift against extended precision."""
 
+import sys
+from pathlib import Path
 import mpmath as mp
 import numpy as np
 import pytest
@@ -7,7 +9,11 @@ import pytest
 import pystratify as ps
 from pystratify import TE, TM
 from pystratify.normalized import _SCALAR_ARGUMENTS, _auxiliary_real, auxiliary
-from pystratify.references import layered_green_forms, layered_green_sums
+from pystratify.references import layered_green_forms
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
+import sphere_emitter_checks as emitters  # noqa: E402
+from checks import assert_rows  # noqa: E402
 
 AU = 0.1412 + 3.1518j  # Etchegoin, Le Ru & Meyer gold at 614 nm
 AU690 = 0.0992 + 3.9183j  # the same at 690 nm
@@ -43,16 +49,10 @@ def test_terms_at_many_radii_equal_single_radius():
             assert np.array_equal(getattr(many, name)[:, i], getattr(one, name)[:, 0], equal_nan=True), name
 
 
-@pytest.mark.parametrize("dipole", ["electric", "magnetic"])
-@pytest.mark.parametrize("case", CASES.values(), ids=CASES.keys())
+@pytest.mark.parametrize("dipole", emitters.DIPOLES)
+@pytest.mark.parametrize("case", emitters.SHIFT_CASES)
 def test_shift_against_extended_precision(case, dipole):
-    """Rate and shift with the automatic truncation against the complex sums of mpmath transfer matrices."""
-    radii, n, mu, lam, r, dps = case
-    res = ps.normalized_decay_rates(radii, n, lam, r, None, mu, dipole)
-    assert res.converged and res.route == "normalized"
-    ref = np.array(layered_green_sums(radii, n, lam, r, res.orders, dps, mu=mu, dipole=dipole))
-    assert np.all(np.abs(res.total - (1 + ref.real)) <= 1e-13 * res.total)
-    assert np.all(np.abs(res.shift - ref.imag / 2) <= 1e-13 * np.abs(1 + ref))
+    assert_rows(emitters.shift_against_extended_precision(case, dipole))
 
 
 @pytest.mark.parametrize("case", [CASES[k] for k in list(CASES)[:3]], ids=list(CASES)[:3])

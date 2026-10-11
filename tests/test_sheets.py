@@ -8,41 +8,28 @@ the sheet-loss formula and extinction minus scattering for plane waves, total
 = radiative + absorbed for emitters; the far field by reciprocity.
 """
 
+import sys
+from pathlib import Path
 import numpy as np
 import pytest
-from scipy.optimize import brentq, minimize_scalar
 
 import pystratify as ps
 from pystratify.chiral import _log_add
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
+import sphere_checks as spheres  # noqa: E402
+from checks import assert_rows  # noqa: E402
+from sphere_checks import _t_error  # noqa: E402
 
 LAM = 620.0
 AU = 0.27 + 2.93j
 EPS_FILM = 15.0 + 5.0j  # a TMD-like monolayer near its exciton
 
 
-def _t_error(sheet_solution, film_solution, orders=8):
-    """Largest error of each T-matrix block element over the first orders, relative to its size."""
-    t, t0 = sheet_solution.t_matrix[0, :orders], film_solution.t_matrix[0, :orders]
-    with np.errstate(invalid="ignore"):
-        return np.nan_to_num(np.abs(t - t0).max(axis=0) / np.abs(t0).max(axis=0))
 
-
-@pytest.mark.parametrize("radius, core", [(50.0, AU), (200.0, 3.5)])
+@pytest.mark.parametrize("radius, core", spheres.THIN_FILM_CASES)
 def test_thin_film_limit_is_second_order(radius, core):
-    """Sheet.from_film vs the explicit film: O(d^2) with the normal term, O(d) (TM) without it."""
-    errors, in_plane = [], []
-    for d in (1.0, 0.5, 0.25):
-        film = ps.solve([radius, radius + d], [core, np.sqrt(EPS_FILM), 1.33], LAM, l_max=30)
-        sheet = ps.Sheet.from_film(EPS_FILM, d, LAM, 1.33**2)
-        full = ps.solve([radius], [core, 1.33], LAM, l_max=30, sheets={0: sheet})
-        planar = ps.solve([radius], [core, 1.33], LAM, l_max=30, sheets={0: sheet.conductivity})
-        errors.append(np.diag(_t_error(full, film)))
-        in_plane.append(np.diag(_t_error(planar, film)))
-    errors, in_plane = np.array(errors), np.array(in_plane)  # (d, [TM, TE])
-    assert np.all(errors[1:] / errors[:-1] < 0.3)  # ~1/4 per halving
-    assert np.all(in_plane[1:, 0] / in_plane[:-1, 0] > 0.45)  # TM: ~1/2 per halving
-    assert np.allclose(in_plane[:, 1], errors[:, 1])  # TE does not see the normal term
-    assert errors[-1].max() < 2e-3
+    assert_rows(spheres.thin_film_limit(radius, core))
 
 
 def test_film_between_chiral_layers():
@@ -82,25 +69,9 @@ def test_zero_sheet_changes_nothing():
     assert not empty.has_sheets and ps.solve(radii, n, LAM, sheets={0: 0.1}).has_sheets
 
 
-@pytest.mark.parametrize("order", [1, 2, 3, 5])
+@pytest.mark.parametrize("order", spheres.GRAPHENE_ORDERS)
 def test_graphene_sphere_plasmons(order):
-    """Resonances of a graphene-coated sphere vs eps_1 l + eps_2 (l + 1) + i sigma l (l + 1)/(k0 R) = 0."""
-    radius, e1, e2 = 10.0, 2.1, 1.77
-
-    def quasi_static(lam):
-        s = ps.graphene_conductivity(lam, 0.5, 1e-5, 1.0)
-        return (e1 * order + e2 * (order + 1) + 1j * s * order * (order + 1) * lam / (2 * np.pi * radius)).real
-
-    lam_qs = brentq(quasi_static, 800, 200000)
-
-    def minus_t(lam):
-        sheet = {0: ps.graphene_conductivity(lam, 0.5, 1e-5, 1.0)}
-        sol = ps.solve([radius], [np.sqrt(e1), np.sqrt(e2)], lam, l_max=order, sheets=sheet)
-        return -abs(np.exp(sol.log_t[0, 0, order - 1]))
-
-    peak = minimize_scalar(minus_t, bracket=(0.98 * lam_qs, lam_qs, 1.02 * lam_qs), tol=1e-12).x
-    retardation = (2 * np.pi * radius * np.sqrt(e2) / lam_qs) ** 2
-    assert abs(peak / lam_qs - 1) < retardation
+    assert_rows(spheres.graphene_sphere_plasmons(order))
 
 
 def test_graphene_conductivity_limits():

@@ -26,9 +26,10 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import pystratify as ps  # noqa: E402
-from tests.mp_reference import coefficients  # noqa: E402
+from mp_reference import coefficients  # noqa: E402
 from pystratify.references import bhmie, layered_decay_rates, sphere_decay_rates, sphere_extinction  # noqa: E402
 
 AG, SI = 0.093 + 4j, 3.87 + 0.016j  # [MLR] at 633 nm

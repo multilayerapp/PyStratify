@@ -1,24 +1,22 @@
 """Casimir-Polder potential: the normalized series at imaginary frequency, and the non-retarded limit."""
 
+import sys
+from pathlib import Path
 import numpy as np
 import pytest
-from scipy.integrate import quad
 
 import pystratify as ps
-from pystratify.casimir import HBAR
 from pystratify.normalized import _dipole_series, _Sweep
 from pystratify.references import layered_green_sums
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
+import sphere_emitter_checks as emitters  # noqa: E402
+from checks import assert_rows  # noqa: E402
+from sphere_emitter_checks import _alpha as alpha, _eps as eps  # noqa: E402
 
 WP, GAMMA = 1.37e16, 1e14  # a Drude metal (gold-like), rad/s
 A0, W0 = 0.05, 2.4e15  # alpha/(4 pi eps_0) = 0.05 nm^3 (an alkali atom), resonance 785 nm
 
-
-def eps(xi):
-    return np.array([1 + WP**2 / (xi * (xi + GAMMA)), 1.0])
-
-
-def alpha(xi):
-    return A0 / (1 + (xi / W0) ** 2)
 
 
 @pytest.mark.parametrize("kappa0", [1e-4, 0.01, 0.2])
@@ -38,14 +36,7 @@ def test_series_at_imaginary_frequency(radii, n, r, kappa0):
 
 
 def test_non_retarded_limit_near_a_large_sphere():
-    """Within a nanometre of a Drude sphere U -> -C3/d^3, C3 = (hbar/4 pi) int alpha (eps - 1)/(eps + 1) dxi."""
-    f = lambda u: (lambda x: x * alpha(x) * (eps(x)[0] - 1) / (eps(x)[0] + 1))(np.exp(u))  # noqa: E731
-    c3 = HBAR / (4 * np.pi) * quad(f, np.log(1e6), np.log(1e21), limit=500, epsabs=0, epsrel=1e-12)[0]
-    R = 200.0
-    out = ps.casimir_polder([R], eps, R + np.array([0.5, 1.0]), alpha, nodes=64)
-    ratio = -out.energy * (out.r - R) ** 3 / c3
-    assert out.converged.all() and np.all(np.abs(ratio - 1) < 0.015)
-    assert np.all(out.energy < 0)  # attraction
+    assert_rows(emitters.casimir_non_retarded_limit())
 
 
 def test_quadrature_converges():

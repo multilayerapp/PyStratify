@@ -1,4 +1,4 @@
-"""Extended-precision references (mpmath), used only in tests.
+"""Extended-precision references (mpmath): the precision kind of benchmarks/MATRIX.md.
 
 Precision grows with |Im z| and the order, so the cancellation in
 H^(1) = J + iY and the size of high-order values are absorbed.
