@@ -10,7 +10,7 @@ see the numbers for themselves; `tests/` only imports that script and asserts th
 far this way: `planar_codes.py` → `PLANAR_CODES.md`, `emitter_references.py` →
 `EMITTER_REFERENCES.md`, `mnpbem_spheres.py` → `MNPBEM_SPHERES.md`, `mie_codes.py` → `MIE_CODES.md`,
 `gdm_spheres.py` → `GDM_SPHERES.md`, `fdtd_meep.py` → `FDTD_MEEP.md`, `fem_ngsolve.py` → `FEM_NGSOLVE.md`,
-`convergence.py` → `RESULTS.md`. Rows whose check exists only inside
+`smuthi_spheres.py` → `SMUTHI_SPHERES.md`, `convergence.py` → `RESULTS.md`. Rows whose check exists only inside
 `tests/` still owe a `benchmarks/` script; WP1.5 is not done until they have one.
 
 ## Kinds of reference
@@ -64,7 +64,7 @@ blank = the reference cannot compute it.
 | scattnlay | code | | | | | | | ● | | |
 | pyGDM2 (volume Green dyadic) | code | | | | | | | ● | ● | |
 | MNPBEM (boundary elements, under GNU Octave) | code | | | | | | | ● | ● | |
-| smuthi (T-matrix + Sommerfeld, dipole sources) | code | | ● | | | | | ○ | ○ | |
+| smuthi (T-matrix + Sommerfeld, dipole sources) | code | | ● | | | | | ○ | ● | |
 | Meep (FDTD; cylindrical coordinates where the source is on axis) | code | | ● | | ○ | ● | | ○ | ● | |
 | NGSolve (finite elements) | code | | | | | ● | | | ○ | |
 | OpenSANS (CPC 2023, nonlocal) | code | | | | ○ | | | ○ | | |
@@ -216,7 +216,7 @@ blank = the reference cannot compute it.
 | **MNPBEM** `dipoleret` | code | total and radiative decay rates 5 nm from a 40 nm sphere (ε = −10 + i), radial and tangential | `benchmarks/mnpbem_spheres.py`; `tests/test_mnpbem_spheres.py` | converges toward PyStratify; finest mesh 1.4% (radial total), 0.04% (tangential) | suite where Octave is installed |
 | **pyGDM2** `decay_rate` | code | total decay rates 20 and 40 nm from the n = 2 and n = 2 + 0.1i spheres, radial and tangential | `benchmarks/gdm_spheres.py`; `tests/test_gdm_spheres.py` | 0.5% at 40 nm (observed ≤ 0.14%), 10% at 20 nm (observed ≤ 7.2%) | suite (`benchmarks` extra) |
 | **Meep**, cylindrical coordinates (dipole on the axis through the sphere) | code | total rate, radial and tangential, 100 nm from an n = 2, 150 nm sphere, 0.61–1.18 µm | `benchmarks/fdtd_meep.py` → `FDTD_MEEP.md` "Dipoles on an axis"; `tests/test_fdtd_meep.py::test_meep_on_an_axis_converges_to_pystratify_for_a_sphere_and_a_film` | worst 5.5% → 1.6% → **1.7%** at 25–100 px/µm (a curved surface converges in an oscillating way); asserted: < 3% at 100 and closer than 25. A Drude sphere and Q_ext still to build | suite where Meep is installed |
-| **smuthi** (dipole source and a sphere, by Mie T-matrix) | code | total rate | to build: extend `benchmarks/emitter_references.py` or a sphere script | 1e-6 | to build |
+| **smuthi** (dipole source and a sphere, by Mie T-matrix and its own translation of the dipole field) | code | total rate, radial and tangential ED, of four spheres: dielectric, a metal-like 40 nm sphere 5 nm away, in water, a 1 µm n = 3.5 sphere | `benchmarks/smuthi_spheres.py` → `SMUTHI_SPHERES.md` (~7 min); `tests/test_smuthi_spheres.py` (three cases, ~35 s) | converges geometrically in smuthi's l_max: 2.2e-16 (dielectric, water), 5.1e-10 (metal, l_max 60), 1.1e-6 (large, l_max 60); asserted 1e-12, 1e-12, 1e-5 (l_max 40) | suite where smuthi is installed |
 
 ### Focused beam
 
@@ -264,7 +264,10 @@ blank = the reference cannot compute it.
   (2026-10-10): E and H inside every layer and outside agree with scattnlay to ≤ 8.2e-13 and the
   scattered field with treams to ≤ 6.6e-14; the centre is exact (Bohren & Huffman's d₁, c₁ to
   1e-14), where scattnlay loses up to 5e-3, and scattnlay's internal field fails toward the core of a
-  10-layer sphere whose PyStratify coefficients agree with 60-digit transfer matrices.
+  10-layer sphere whose PyStratify coefficients agree with 60-digit transfer matrices. **Emitters**
+  beside a sphere agree with smuthi to machine precision (2.2e-16) for dielectric spheres and to
+  5e-10 for a metal-like sphere 5 nm away, converging with smuthi's truncation; Meep (cylindrical
+  coordinates) agrees to 1.7%.
 - **Focused beams are verified only against their own plane-wave engines.** The FT-IR papers are
   the outside check.
 - **The incoherent film path** has only the explicit phase average as an independent check. The
