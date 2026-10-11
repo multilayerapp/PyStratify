@@ -10,7 +10,7 @@ see the numbers for themselves; `tests/` only imports that script and asserts th
 far this way: `planar_codes.py` → `PLANAR_CODES.md`, `emitter_references.py` →
 `EMITTER_REFERENCES.md`, `mnpbem_spheres.py` → `MNPBEM_SPHERES.md`, `mie_codes.py` → `MIE_CODES.md`,
 `gdm_spheres.py` → `GDM_SPHERES.md`, `fdtd_meep.py` → `FDTD_MEEP.md`, `fem_ngsolve.py` → `FEM_NGSOLVE.md`,
-`smuthi_spheres.py` → `SMUTHI_SPHERES.md`, `convergence.py` → `RESULTS.md`, and the check scripts —
+`smuthi_spheres.py` → `SMUTHI_SPHERES.md`, `tmmax_films.py` → `TMMAX_FILMS.md`, `convergence.py` → `RESULTS.md`, and the check scripts —
 `planar_checks.py`, `unified_checks.py`, `focused_checks.py`, `sphere_checks.py`, `sphere_emitter_checks.py` →
 `*_CHECKS.md` — whose rows print each observed value beside the tolerance its test asserts (`checks.py`; the
 60- and 80-digit references are `mp_reference.py`). Since 2026-10-11 every row naming a PyStratify test names
@@ -64,7 +64,7 @@ blank = the reference cannot compute it.
 | treams | code | | | | ● | ○ | | ● | ● | |
 | pyElli (2×2 and Berreman 4×4) | code | ● | | | | | | | | |
 | PyMoosh | code | ● | ● | | | | | | | |
-| tmmax | code | ○ | | | | | | | | |
+| tmmax | code | ● | | | | | | | | |
 | scattnlay | code | | | | | | | ● | | |
 | pyGDM2 (volume Green dyadic) | code | | | | | | | ● | ● | |
 | MNPBEM (boundary elements, under GNU Octave) | code | | | | | | | ● | ● | |
@@ -106,7 +106,7 @@ blank = the reference cannot compute it.
 | **PyMoosh** `incoherent.py` | code | incoherent R, T of coherent films on a thick incoherent substrate: the **first independent incoherent reference** | `benchmarks/planar_codes.py` → `PLANAR_CODES.md`; `tests/test_planar_codes.py` | 1e-12; observed ≤ 5e-15 | suite (`benchmarks` extra) |
 | **PyMoosh** `anisotropic.py` | code | a second anisotropy reference for WP1.4 | to build with WP1.4 | 1e-10 | to build |
 | **PyMoosh** `non_local.py` | code | planar hydrodynamic films, against the `non-local` branch | to build with the `non-local` merge | 1e-8 | to build |
-| **tmmax** (JAX transfer matrix) | code | R, T | to build: `benchmarks/planar_codes.py` | 1e-10 | to build |
+| **tmmax** (JAX transfer matrix, float32) | code | R, T of five stacks (single layers, two layers, a 5-pair mirror, metal-dielectric) × 3 wavelengths × 3 angles × s, p | `benchmarks/tmmax_films.py` → `TMMAX_FILMS.md`; `tests/test_tmmax_films.py` | 2e-6 (float32; observed ≤ 4.2e-7). **tmmax 1.1.4 is wrong for two or more coherent layers** (up to 0.79 in R): its scan step builds a (2, 2, 1) array that `matmul` broadcasts; with the step fixed it agrees, shipped multilayers are shown, not asserted | suite where tmmax is installed |
 | isotropic limit of the 4×4 solver | precision | R, T, Ψ, Δ | to build with WP1.4: `tests/test_anisotropic.py` | 1e-12 | to build |
 
 ### Point dipole
