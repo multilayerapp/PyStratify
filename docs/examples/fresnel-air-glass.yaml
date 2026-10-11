@@ -1,0 +1,54 @@
+id: fresnel-air-glass
+geometry: films
+source: plane_wave
+axis: angle
+title: Light from air onto glass
+caption: >-
+  Reflectance of a single interface against the angle of incidence at 600 nm, for s and p polarization. Change the
+  substrate index and follow the Brewster angle, where the p reflectance vanishes.
+plot:
+  x_label: θ [°]
+  y_label: R
+  series:
+  - key: R_s
+    label: R_s
+  - key: R_p
+    label: R_p
+params:
+- id: index
+  label: Substrate n
+  unit: ''
+  target: film.substrate.n
+  scale: 1
+  min: 1.2
+  max: 4
+  step: 0.05
+  value: 1.5
+checks:
+- check: Brewster angle, arctan(n₂/n₁) (°)
+  reference: 56.31
+  tolerance: 0.5
+  source: closed form
+  measure:
+    minimum: R_p
+- check: normal-incidence reflectance, ((n₂ − n₁)/(n₂ + n₁))²
+  reference: 0.04
+  tolerance: 1.0e-6
+  source: closed form
+  measure:
+    at: [R_s, 0]
+calculator:
+  film:
+    incident: {label: Air, n: 1.0, k: 0.0}
+    layers: []
+    substrate: {label: Glass, n: 1.5, k: 0.0}
+    controls:
+      wavelength-start: 600
+      wavelength-end: 600
+      angle-start: 0
+      angle-end: 89
+      angle-step: 0.5
+      sweepMode: angle
+    view:
+      polarization: p
+      angleMetric: reflectance

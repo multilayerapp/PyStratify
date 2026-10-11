@@ -18,8 +18,12 @@ CLASSIC_FIELDS = ("id", "kind", "position", "geometry", "title", "cite", "doi", 
                   "perturb", "script", "results", "calculator")
 LEARN_FIELDS = ("id", "title", "geometry", "summary", "references")
 EXAMPLE_FIELDS = ("id", "geometry", "source", "title", "caption", "plot", "calculator")
-# What a sphere plane-wave example can plot, and how the API's /spheres/calculate response names it.
-SPHERE_SERIES = ("q_ext", "q_sca", "q_abs", "md_sca", "ed_sca")
+AXES = ("wavelength", "angle")
+# What an example can plot, per geometry and source (the website maps each onto the API's response).
+SERIES = {
+    ("spheres", "plane_wave"): ("q_ext", "q_sca", "q_abs", "md_sca", "ed_sca", "mq_sca", "eq_sca"),
+    ("films", "plane_wave"): ("R", "T", "A", "R_s", "R_p", "T_s", "T_p"),
+}
 MAX_L = 1500  # the API's ceiling on the multipole order (multilayer backend/spheres.py)
 
 
@@ -222,8 +226,64 @@ def _sphere_plane_wave(example, materials):
         "q_abs": (cs.ext_by_order - cs.sca_by_order).sum(axis=(1, 2)) / g,
         "md_sca": cs.sca_by_order[:, ps.TE, 0] / g,
         "ed_sca": cs.sca_by_order[:, ps.TM, 0] / g,
+        "mq_sca": cs.sca_by_order[:, ps.TE, 1] / g if L > 1 else np.zeros_like(lam),
+        "eq_sca": cs.sca_by_order[:, ps.TM, 1] / g if L > 1 else np.zeros_like(lam),
     }
     return lam * 1000, curves
+
+
+def _expand(layers):
+    out = []
+    for layer in layers:
+        out.extend(_expand(layer["layers"]) * layer["repeat"] if "repeat" in layer else [layer])
+    return out
+
+
+def _film_axes(example):
+    """(wavelengths µm, angles deg) of a film example, from its calculator controls (nm)."""
+    film = example["calculator"]["film"]
+    if film.get("units", {}).get("wavelength", "nm") != "nm":
+        raise ContentError(f"example {example['id']}: only nm spectral axes are computed so far")
+    c = film.get("controls", {})
+    if example.get("axis", "wavelength") == "angle":
+        lam = np.array([c["wavelength-start"] / 1000])
+        count = int(np.floor((c["angle-end"] - c["angle-start"]) / c["angle-step"] + 1e-9))
+        return lam, c["angle-start"] + np.arange(count + 1) * c["angle-step"]
+    start, end, step = c["wavelength-start"] / 1000, c["wavelength-end"] / 1000, c["wavelength-step"] / 1000
+    count = int(np.floor((end - start) / step + 1e-9))
+    return start + np.arange(count + 1) * step, np.array([float(c.get("angle-deg", 0))])
+
+
+def _film_plane_wave(example, materials):
+    """R and T of a film stack, computed with the planar engine the API's /calculate runs (pystratify.planar)."""
+    from .. import planar
+
+    film = example["calculator"]["film"]
+    lam, angles = _film_axes(example)
+    layers = _expand(film["layers"])
+    media = [film["incident"]] + layers + [film["substrate"]]
+    n = np.column_stack([materials.index(m, lam) for m in media])
+    d = [np.inf] + [float(layer["thickness"]) for layer in layers] + [np.inf]
+    c = ["i"] + [layer.get("coherency", "c") for layer in layers] + ["i"]
+    incoherent = "i" in c[1:-1]
+    out = {}
+    for pol in ("s", "p"):
+        R = np.empty((angles.size, lam.size))
+        T = np.empty_like(R)
+        for a, angle in enumerate(np.radians(angles)):
+            for w, wavelength in enumerate(lam):
+                if incoherent:
+                    r = planar.inc_tmm(pol, list(n[w]), d, c, angle, wavelength)
+                else:
+                    r = planar.coh_tmm(pol, list(n[w]), d, angle, wavelength)
+                R[a, w], T[a, w] = r["R"], r["T"]
+        out[pol] = (R.ravel(), T.ravel())
+    curves = {"R_s": out["s"][0], "R_p": out["p"][0], "T_s": out["s"][1], "T_p": out["p"][1]}
+    curves["R"] = 0.5 * (curves["R_s"] + curves["R_p"])
+    curves["T"] = 0.5 * (curves["T_s"] + curves["T_p"])
+    curves["A"] = np.clip(1 - curves["R"] - curves["T"], 0, None)
+    x = angles if example.get("axis", "wavelength") == "angle" else lam * 1000
+    return np.asarray(x, dtype=float), curves
 
 
 def _medium_code(medium, where):
@@ -255,22 +315,85 @@ def _sphere_plane_wave_code(example):
     return "\n".join(lines) + "\n"
 
 
-COMPUTE = {("spheres", "plane_wave"): _sphere_plane_wave}
-CODE = {("spheres", "plane_wave"): _sphere_plane_wave_code}
+def _film_plane_wave_code(example):
+    """The example as a PyStratify script, run from the repository root (database pages are paths in it)."""
+    film = example["calculator"]["film"]
+    c = film.get("controls", {})
+    layers = _expand(film["layers"])
+    media = [film["incident"]] + layers + [film["substrate"]]
+    if any("table" in m for m in media):
+        raise ContentError(f"example {example['id']}: examples with uploaded n,k tables have no script form yet")
+
+    def index(m):
+        if "rii" in m:
+            return f"material({m['rii']['file']!r}, wl)"
+        return repr(complex(m["n"], m["k"])) if m["k"] else repr(m["n"])
+
+    n = "[" + ", ".join(index(m) for m in media) + "]"
+    d = "[" + ", ".join(["np.inf"] + [repr(layer["thickness"]) for layer in layers] + ["np.inf"]) + "]"
+    coherent = all(layer.get("coherency", "c") == "c" for layer in layers)
+    coherency = ["i"] + [layer.get("coherency", "c") for layer in layers] + ["i"]
+    tmm = "planar.coh_tmm(pol, n(wl), d, th, wl)" if coherent else f"planar.inc_tmm(pol, n(wl), d, {coherency!r}, th, wl)"
+    lam, angles = _film_axes(example)
+    lines = ["import numpy as np", "from pystratify import planar"]
+    if any("rii" in m for m in media):
+        lines.append("from pystratify.docs import material  # n + ik of a refractiveindex.info page")
+    lines += ["", f"n = lambda wl: {n}  # incident medium, layers, substrate", f"d = {d}  # thicknesses, µm"]
+    if example.get("axis", "wavelength") == "angle":
+        lines += [f"wl = {c['wavelength-start']} * 1e-3  # wavelength, µm",
+                  f"angles = {c['angle-start']} + {c['angle-step']} * np.arange({angles.size})  # degrees",
+                  "R = {pol: np.array([" + tmm.replace(", th,", ", np.radians(a),") + "['R'] for a in angles]) for pol in ('s', 'p')}"]
+    else:
+        lines += [f"lam = ({c['wavelength-start']} + {c['wavelength-step']} * np.arange({lam.size})) * 1e-3  # wavelength, µm",
+                  f"th = np.radians({c.get('angle-deg', 0)})",
+                  "R, T = {}, {}",
+                  "for pol in ('s', 'p'):",
+                  f"    rows = [{tmm} for wl in lam]",
+                  "    R[pol], T[pol] = np.array([r['R'] for r in rows]), np.array([r['T'] for r in rows])",
+                  "R_avg, T_avg = (R['s'] + R['p']) / 2, (T['s'] + T['p']) / 2  # unpolarized"]
+    return "\n".join(lines) + "\n"
+
+
+COMPUTE = {("spheres", "plane_wave"): _sphere_plane_wave, ("films", "plane_wave"): _film_plane_wave}
+CODE = {("spheres", "plane_wave"): _sphere_plane_wave_code, ("films", "plane_wave"): _film_plane_wave_code}
 
 
 def _measure(measure, x, curves, where):
-    if "peak" in measure:
-        y = curves[measure["peak"]]
-        m = np.ones_like(x, dtype=bool)
-        lo, hi = measure.get("within", (None, None))
-        if lo is not None:
-            m &= x >= lo
-        if hi is not None:
-            m &= x <= hi
-        i = np.flatnonzero(m)[np.argmax(y[m])]
-        return float(x[i])
-    raise ContentError(f"{where}: unknown measure {measure!r}")
+    """peak / minimum: x of the series' extremum (optionally within [lo, hi]); at: the series' value at x;
+    crosses: the first x where the series reaches a level."""
+    if "crosses" in measure:
+        series, level = measure["crosses"]
+        hits = np.flatnonzero(np.asarray(curves[series]) >= level)
+        if not hits.size:
+            raise ContentError(f"{where}: {series} never reaches {level}")
+        return float(x[hits[0]])
+    if "at" in measure:
+        series, at = measure["at"]
+        i = int(np.argmin(np.abs(x - at)))
+        if abs(x[i] - at) > 1e-9 * max(1.0, abs(at)):
+            raise ContentError(f"{where}: {at} is not on the example's grid")
+        return float(curves[series][i])
+    kind = "peak" if "peak" in measure else "minimum" if "minimum" in measure else None
+    if kind is None:
+        raise ContentError(f"{where}: unknown measure {measure!r}")
+    y = curves[measure[kind]]
+    m = np.ones_like(x, dtype=bool)
+    lo, hi = measure.get("within", (None, None))
+    if lo is not None:
+        m &= x >= lo
+    if hi is not None:
+        m &= x <= hi
+    pick = np.argmax if kind == "peak" else np.argmin
+    return float(x[np.flatnonzero(m)[pick(y[m])]])
+
+
+def _get(block, path, where):
+    node = block
+    for key in path.split("."):
+        node = node[int(key)] if isinstance(node, list) else node.get(key) if isinstance(node, dict) else None
+        if node is None:
+            raise ContentError(f"{where}: no {path!r} in the calculator block")
+    return node
 
 
 def build_example(example, materials):
@@ -284,22 +407,28 @@ def build_example(example, materials):
     out = dict(example)
     out["calculator"] = resolve_calculator(example["calculator"], materials, where)
     keys = [s["key"] for s in example["plot"]["series"]]
-    unknown = [k for k in keys if k not in SPHERE_SERIES]
+    known = SERIES[(example["geometry"], example["source"])]
+    unknown = [k for k in keys if k not in known]
     if unknown:
-        raise ContentError(f"{where}: unknown series {unknown}; known: {SPHERE_SERIES}")
+        raise ContentError(f"{where}: unknown series {unknown}; known: {known}")
+    for p in example.get("params", []):
+        _require(p, ("id", "label", "unit", "target", "scale", "min", "max", "step", "value"), f"{where} param")
+        current = _get(out["calculator"], p["target"], where)
+        if abs(current - p["value"] * p["scale"]) > 1e-9 * max(1.0, abs(current)):
+            raise ContentError(f"{where}: param {p['id']} = {p['value']} × {p['scale']} but the setup holds {current}")
+        if p["target"].endswith((".n", ".k")) and {"rii", "table"} & set(_get(out["calculator"], p["target"].rsplit(".", 1)[0], where)):
+            raise ContentError(f"{where}: param {p['id']} sets an index the medium takes from a database or table")
     x, curves = compute(out, materials)
     out["data"] = {"x": [_sig(v) for v in x], "series": {k: [_sig(v) for v in curves[k]] for k in keys}}
     checks = []
     for c in example.get("checks", []):
         _require(c, ("check", "reference", "tolerance", "source", "measure"), f"{where} check")
         computed = _measure(c["measure"], x, curves, where)
-        checks.append({"check": c["check"], "reference": c["reference"], "computed": round(computed, 4),
+        checks.append({"check": c["check"], "reference": c["reference"], "computed": _sig(computed),
                        "tolerance": c["tolerance"], "pass": bool(abs(computed - c["reference"]) <= c["tolerance"]),
                        "source": c["source"]})
     out["checks"] = checks
     out["code"] = CODE[(example["geometry"], example["source"])](out)
-    for p in example.get("params", []):
-        _require(p, ("id", "label", "unit", "target", "scale", "min", "max", "step", "value"), f"{where} param")
     return out
 
 

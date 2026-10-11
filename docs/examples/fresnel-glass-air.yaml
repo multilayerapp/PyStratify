@@ -1,0 +1,54 @@
+id: fresnel-glass-air
+geometry: films
+source: plane_wave
+axis: angle
+title: Light from glass into air
+caption: >-
+  The same interface seen from the dense side. Beyond the critical angle no wave propagates in air and the light is
+  totally reflected, for both polarizations.
+plot:
+  x_label: θ [°]
+  y_label: R
+  series:
+  - key: R_s
+    label: R_s
+  - key: R_p
+    label: R_p
+params:
+- id: index
+  label: Incident n
+  unit: ''
+  target: film.incident.n
+  scale: 1
+  min: 1.2
+  max: 4
+  step: 0.05
+  value: 1.5
+checks:
+- check: onset of total reflection, arcsin(n₂/n₁) (°)
+  reference: 41.81
+  tolerance: 0.5
+  source: closed form
+  measure:
+    crosses: [R_s, 0.999999]
+- check: internal Brewster angle, arctan(n₂/n₁) (°)
+  reference: 33.69
+  tolerance: 0.5
+  source: closed form
+  measure:
+    minimum: R_p
+calculator:
+  film:
+    incident: {label: Glass, n: 1.5, k: 0.0}
+    layers: []
+    substrate: {label: Air, n: 1.0, k: 0.0}
+    controls:
+      wavelength-start: 600
+      wavelength-end: 600
+      angle-start: 0
+      angle-end: 89
+      angle-step: 0.5
+      sweepMode: angle
+    view:
+      polarization: p
+      angleMetric: reflectance

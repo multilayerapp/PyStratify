@@ -1,0 +1,46 @@
+id: film-on-thick-glass
+geometry: films
+source: plane_wave
+title: A coated glass plate, 1 mm thick
+caption: >-
+  A high-index film (n = 2.3) on a 1 mm glass plate in air. The film is coherent and draws fringes; the plate is
+  incoherent, so its two faces add in power and add no fringes of their own. At the film's half-wave wavelength the
+  film is absent and the plate reflects as if bare.
+plot:
+  x_label: λ [nm]
+  y_label: R, T
+  series:
+  - key: R
+    label: R
+  - key: T
+    label: T
+params:
+- id: thickness
+  label: Film thickness
+  unit: nm
+  target: film.layers.0.thickness
+  scale: 0.001
+  min: 50
+  max: 250
+  step: 1
+  value: 130
+checks:
+- check: reflectance at the half-wave wavelength 2nd = 598 nm, bare plate 2R₀/(1 + R₀)
+  reference: 0.081682
+  tolerance: 2.0e-5
+  source: closed form (incoherent plate, R₀ = ((n − 1)/(n + 1))²)
+  measure:
+    at: [R, 598]
+calculator:
+  film:
+    incident: {label: Air, n: 1.0, k: 0.0}
+    layers:
+    - {label: High-index film, n: 2.3, k: 0.0, thickness: 0.13}
+    - {label: Glass plate, n: 1.52, k: 0.0, thickness: 1000.0, coherency: i}
+    substrate: {label: Air, n: 1.0, k: 0.0}
+    controls:
+      wavelength-start: 400
+      wavelength-end: 800
+      wavelength-step: 2
+    view:
+      polarization: average

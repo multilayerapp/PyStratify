@@ -3,7 +3,6 @@ id: mie-scattering
 title: "Mie theory: light scattered by a sphere"
 geometry: spheres
 chapter: Mie theory
-status: draft
 topic: mie
 sources: [plane_wave]
 summary: >-

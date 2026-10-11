@@ -1,0 +1,61 @@
+id: si-sphere-multipoles
+geometry: spheres
+source: plane_wave
+title: The multipoles of a silicon sphere
+caption: >-
+  Scattering of a 182 nm silicon sphere in free space, split into its electric and magnetic dipoles and quadrupoles.
+  The magnetic dipole sits at the longest wavelength; the electric dipole and the magnetic quadrupole overlap below it.
+plot:
+  x_label: λ [nm]
+  y_label: Q_sca
+  series:
+  - key: q_sca
+    label: Q_sca
+  - key: md_sca
+    label: magnetic dipole b_1
+  - key: ed_sca
+    label: electric dipole a_1
+  - key: mq_sca
+    label: magnetic quadrupole b_2
+  - key: eq_sca
+    label: electric quadrupole a_2
+params:
+- id: radius
+  label: Radius
+  unit: nm
+  target: sphere.shells.0.thickness
+  scale: 0.001
+  min: 50
+  max: 135
+  step: 1
+  value: 91
+checks:
+- check: electric-dipole peak, diameter 182 nm (nm)
+  reference: 568
+  tolerance: 15
+  source: Kuznetsov et al., Sci. Rep. 2, 492 (2012), Fig. 3d(iv), read
+  measure:
+    peak: ed_sca
+    within: [500, 650]
+- check: magnetic-quadrupole peak, diameter 182 nm (nm)
+  reference: 538
+  tolerance: 15
+  source: Kuznetsov et al., Sci. Rep. 2, 492 (2012), Fig. 3d(iv), read
+  measure:
+    peak: mq_sca
+    within: [480, 600]
+calculator:
+  sphere:
+    shells:
+    - {label: Si, n: 3.9, k: 0.02, rii: Si_Green-2008, thickness: 0.091}
+    host: {label: Vacuum, n: 1.0, k: 0.0}
+    start: 430
+    end: 800
+    step: 2
+    changes:
+      multipoles: {kind: all, orders: {from: 1, to: 2}}
+  envelope:
+    start: 430
+    end: 800
+    step: 2
+    multipoles: {kind: all, orders: {from: 1, to: 2}}

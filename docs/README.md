@@ -54,8 +54,19 @@ step, value}` where `target` is a path into the calculator setup (e.g. `shells.0
 `scale: 0.001` for a slider in nm); `checks`, each `{check, reference, tolerance, source, measure}` with
 `measure: {peak: <series>}`; and `calculator`, the setup (below). The build adds `data` (the curves at the
 sliders' values, six significant digits), `code` (the example as a PyStratify script) and the checks'
-`computed` and `pass`. Computed so far: spheres under a plane wave, series `q_ext`, `q_sca`, `q_abs`, `md_sca`,
-`ed_sca` (the magnetic and electric dipole parts of `q_sca`).
+`computed` and `pass`. A slider's `target` is a path into the `calculator` block (`film.layers.0.thickness`,
+`film.layers.0.layers.1.n` for a layer inside a `repeat`, `film.substrate.n`, `sphere.shells.0.thickness`); its value
+times `scale` must equal what the block holds, and it may not set the index of a medium taken from a database or
+table. Measures: `peak: <series>` and `minimum: <series>` (the x of the extremum, optionally `within: [lo, hi]`),
+`at: [<series>, x]` (the value at a grid point) and `crosses: [<series>, level]` (the first x reaching the level).
+
+Computed so far, under a plane wave:
+
+- spheres: `q_ext`, `q_sca`, `q_abs` and the multipole parts of `q_sca`, `md_sca`/`ed_sca` (dipoles) and
+  `mq_sca`/`eq_sca` (quadrupoles), against wavelength;
+- films: `R`, `T`, `A` (unpolarized) and `R_s`, `R_p`, `T_s`, `T_p`, against wavelength (`axis: wavelength`, the
+  default, at `controls.angle-deg`) or angle (`axis: angle`, at `controls.wavelength-start`), with
+  `pystratify.planar`, the engine the API's film `/calculate` runs.
 
 **Classic** (`classics/<id>.yaml`): `id`, `position` (order on the page), `geometry`, `title`, `cite`, `doi`,
 `figure`, `shows`, `inputs`, `agreement`, `perturb`, `script` and `results` (under `crosscheck/classics/`),

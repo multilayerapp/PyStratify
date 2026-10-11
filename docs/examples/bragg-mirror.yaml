@@ -1,0 +1,53 @@
+id: bragg-mirror
+geometry: films
+source: plane_wave
+title: An eight-period quarter-wave mirror
+caption: >-
+  Eight pairs of quarter-wave layers (n_H = 2.3, n_L = 1.45, designed for 600 nm) on glass, at normal incidence. Raise
+  the high index: the stop band widens and the peak climbs toward 1. The layer thicknesses stay fixed, so the band also
+  drifts to longer wavelengths as the high-index layers grow optically thicker.
+plot:
+  x_label: λ [nm]
+  y_label: R
+  series:
+  - key: R
+    label: R
+params:
+- id: high
+  label: High index n_H
+  unit: ''
+  target: film.layers.0.layers.0.n
+  scale: 1
+  min: 1.6
+  max: 2.8
+  step: 0.05
+  value: 2.3
+checks:
+- check: peak reflectance ((1 − Y)/(1 + Y))², Y = (n_H/n_L)^16 n_s
+  reference: 0.998363
+  tolerance: 1.0e-5
+  source: closed form
+  measure:
+    at: [R, 600]
+- check: centre of the stop band (nm)
+  reference: 600
+  tolerance: 2
+  source: design wavelength
+  measure:
+    peak: R
+    within: [550, 650]
+calculator:
+  film:
+    incident: {label: Air, n: 1.0, k: 0.0}
+    layers:
+    - repeat: 8
+      layers:
+      - {label: H, n: 2.3, k: 0.0, thickness: 0.065217}
+      - {label: L, n: 1.45, k: 0.0, thickness: 0.103448}
+    substrate: {label: Glass, n: 1.52, k: 0.0}
+    controls:
+      wavelength-start: 400
+      wavelength-end: 900
+      wavelength-step: 1
+    view:
+      polarization: average

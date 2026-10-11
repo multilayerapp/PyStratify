@@ -1,0 +1,49 @@
+id: quarter-wave-ar
+geometry: films
+source: plane_wave
+title: A single-layer antireflection coating
+caption: >-
+  Reflectance of glass (n = 1.52) under a MgF₂-like layer (n = 1.38) at normal incidence. At the quarter-wave
+  wavelength 4nd the two reflected waves cancel as far as the indices allow; change the thickness and the minimum moves
+  with it.
+plot:
+  x_label: λ [nm]
+  y_label: R
+  series:
+  - key: R
+    label: R
+params:
+- id: thickness
+  label: Layer thickness
+  unit: nm
+  target: film.layers.0.thickness
+  scale: 0.001
+  min: 60
+  max: 200
+  step: 1
+  value: 109
+checks:
+- check: reflectance minimum at the quarter-wave wavelength 4nd = 601.7 nm (nm)
+  reference: 601.68
+  tolerance: 2
+  source: closed form
+  measure:
+    minimum: R
+- check: minimum reflectance ((n_s − n²)/(n_s + n²))²
+  reference: 0.012601
+  tolerance: 2.0e-5
+  source: closed form
+  measure:
+    at: [R, 602]
+calculator:
+  film:
+    incident: {label: Air, n: 1.0, k: 0.0}
+    layers:
+    - {label: MgF2-like, n: 1.38, k: 0.0, thickness: 0.109}
+    substrate: {label: Glass, n: 1.52, k: 0.0}
+    controls:
+      wavelength-start: 400
+      wavelength-end: 800
+      wavelength-step: 2
+    view:
+      polarization: average
