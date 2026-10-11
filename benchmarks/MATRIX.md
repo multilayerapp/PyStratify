@@ -83,7 +83,7 @@ blank = the reference cannot compute it.
 
 | reference | kind | quantity | script | tolerance | status |
 |---|---|---|---|---|---|
-| Fresnel, single interface, incl. opaque | analytic | r, t, R, T | `tests/test_unified.py::test_planar_fresnel_and_opaque` | 1e-14 | suite |
+| Fresnel, single interface, incl. opaque | analytic | r, t, R, T | `benchmarks/unified_checks.py` → `UNIFIED_CHECKS.md`; `tests/test_unified.py::test_planar_fresnel_and_opaque` | 1e-14 | suite |
 | Fresnel at oblique incidence; Brewster zero; s = p at normal | analytic | R, T | `multilayer/tests/test_analytic_invariants.py` (`test_single_interface_oblique_against_fresnel`, `test_brewster_angle_p_zero`, `test_s_equals_p_at_normal_incidence`) | 1e-13 abs | backend |
 | Airy slab; quarter-wave Bragg mirror | analytic | R, T | `test_analytic_invariants.py::test_airy_slab_formulas`, `::test_quarter_wave_mirror_closed_form` | 1e-12 / 1e-10 abs | backend |
 | R + T = 1 for lossless stacks, below and beyond the critical angle; reciprocity under reversal | analytic | R, T | `test_analytic_invariants.py::test_lossless_stack_conserves_energy`, `::test_energy_conservation_beyond_critical_angle`, `::test_transmittance_reciprocity_under_reversal` | 1e-12 abs | backend |
@@ -109,10 +109,10 @@ blank = the reference cannot compute it.
 
 | reference | kind | quantity | script | tolerance | status |
 |---|---|---|---|---|---|
-| dipole in a homogeneous film = free space | analytic | total rate | `tests/test_unified.py::test_homogeneous_point_source` | 1e-8 | suite |
-| independent flux budget (escape + guided + absorbed = total) | method | rate channels | `tests/test_unified.py::test_absorbing_coating_independent_power_budget` | 1e-5 | suite |
-| guided-pole uncertainty within tolerance; 3D sources are not line sources | method | guided rate | `tests/test_unified.py::test_planar_guided_pole_uncertainty_meets_tolerance`, `::test_guided_point_sources_not_line_sources` | 1e-6 | suite |
-| emission pattern normalization; grazing limit | analytic | pattern | `tests/test_unified.py::test_pattern_normalization_and_film_grazing_limit` | — | suite |
+| dipole in a homogeneous film = free space | analytic | total rate | `benchmarks/unified_checks.py` → `UNIFIED_CHECKS.md`; `tests/test_unified.py::test_homogeneous_point_source` | 1e-8 | suite |
+| independent flux budget (escape + guided + absorbed = total) | method | rate channels | `benchmarks/unified_checks.py` → `UNIFIED_CHECKS.md`; `tests/test_unified.py::test_absorbing_coating_independent_power_budget` | 1e-5 | suite |
+| guided-pole uncertainty within tolerance; 3D sources are not line sources | method | guided rate | `benchmarks/unified_checks.py` → `UNIFIED_CHECKS.md`; `tests/test_unified.py::test_planar_guided_pole_uncertainty_meets_tolerance`, `::test_guided_point_sources_not_line_sources` | 1e-6 | suite |
+| emission pattern normalization; grazing limit | analytic | pattern | `benchmarks/unified_checks.py` → `UNIFIED_CHECKS.md`; `tests/test_unified.py::test_pattern_normalization_and_film_grazing_limit` | — | suite |
 | image dipole at a perfect mirror (Drexhage; Chance, Prock & Silbey) | analytic | perpendicular and parallel rates, electric and magnetic; validates the Sommerfeld reference below | `benchmarks/emitter_references.py` → `EMITTER_REFERENCES.md`; `tests/test_planar_emission_references.py` | 1e-10; observed 1e-15 | suite |
 | Sommerfeld integrals over s = k_ρ/k₁ with Parratt-recursion r_s, r_p, written without `pystratify` | method | perpendicular and parallel total rates, ED and MD, 10–300 nm above glass, silver, absorbing films; a TIR case | `benchmarks/emitter_references.py`; `tests/test_planar_emission_references.py` | 1e-10; observed ≤ 5e-12 | suite |
 | the same reference on a weakly absorbing guide (k = 1e-3), quasi-poles as breakpoints | method | rates 30–100 nm above two guides | `benchmarks/emitter_references.py`; `tests/test_planar_emission_references.py::test_weakly_absorbing_guide_against_the_sommerfeld_reference` | 1e-8; observed ≤ 1.9e-13 | suite |
@@ -139,10 +139,10 @@ blank = the reference cannot compute it.
 
 | reference | kind | quantity | script | tolerance | status |
 |---|---|---|---|---|---|
-| Bessel boundary equations solved directly | analytic | coefficients, cross widths | `tests/test_unified.py::test_cylinder_against_bessel_boundary_equations` | 1e-12 | suite |
-| homogeneous cylinder fields; index-matched limit | analytic | E, H | `tests/test_unified.py::test_cylinder_homogeneous_fields` | 1e-10 | suite |
-| **treams**, oblique incidence | code | cross widths, coefficients | `tests/test_unified.py::test_oblique_cylinder_against_treams` | 1e-12 | suite |
-| grazing light-line caps, bounded error | method | cross widths | `tests/test_unified.py::test_metal_cylinder_grazing_caps_have_a_bounded_error` | per tolerance | suite |
+| Bessel boundary equations solved directly | analytic | coefficients, cross widths | `benchmarks/unified_checks.py` → `UNIFIED_CHECKS.md`; `tests/test_unified.py::test_cylinder_against_bessel_boundary_equations` | 1e-12 | suite |
+| homogeneous cylinder fields; index-matched limit | analytic | E, H | `benchmarks/unified_checks.py` → `UNIFIED_CHECKS.md`; `tests/test_unified.py::test_cylinder_homogeneous_fields` | 1e-10 | suite |
+| **treams**, oblique incidence | code | cross widths, coefficients | `benchmarks/unified_checks.py` → `UNIFIED_CHECKS.md`; `tests/test_unified.py::test_oblique_cylinder_against_treams` | 1e-12 | suite |
+| grazing light-line caps, bounded error | method | cross widths | `benchmarks/unified_checks.py` → `UNIFIED_CHECKS.md`; `tests/test_unified.py::test_metal_cylinder_grazing_caps_have_a_bounded_error` | per tolerance | suite |
 | **OpenSANS** (*Comput. Phys. Commun.* 2023) | code | local limit of oblique multilayer cylinders; nonlocal (with the `non-local` merge) | to build: `benchmarks/cylinder_codes.py`; obtain the CPC program | 1e-8 | to build |
 | canonical cylinder papers (Bohren & Huffman's infinite cylinder; coated fibres) | paper | Q_ext, Q_sca | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
 
@@ -150,10 +150,10 @@ blank = the reference cannot compute it.
 
 | reference | kind | quantity | script | tolerance | status |
 |---|---|---|---|---|---|
-| homogeneous medium; independent flux budget; guided channels | analytic / method | rate channels | `tests/test_unified.py::test_homogeneous_point_source`, `::test_absorbing_coating_independent_power_budget`, `::test_guided_point_sources_not_line_sources` | 1e-8 / 1e-5 / 1e-6 | suite |
-| grazing endpoint continuation within the error budget | method | rates of lossy cylinders | `tests/test_unified.py::test_cylinder_grazing_uncertainty_cannot_pass_a_tighter_tolerance` | per tolerance | suite |
+| homogeneous medium; independent flux budget; guided channels | analytic / method | rate channels | `benchmarks/unified_checks.py` → `UNIFIED_CHECKS.md`; `tests/test_unified.py::test_homogeneous_point_source`, `::test_absorbing_coating_independent_power_budget`, `::test_guided_point_sources_not_line_sources` | 1e-8 / 1e-5 / 1e-6 | suite |
+| grazing endpoint continuation within the error budget | method | rates of lossy cylinders | `benchmarks/unified_checks.py` → `UNIFIED_CHECKS.md`; `tests/test_unified.py::test_cylinder_grazing_uncertainty_cannot_pass_a_tighter_tolerance` | per tolerance | suite |
 | **treams** (cylindrical-wave expansion of a point source) | code | total rate beside a cylinder | to build: check that treams expands a 3D point source in cylindrical waves; else out of scope | 1e-6 | to build |
-| step-index fibre dispersion relations (TE₀₁, TM₀₁; Snyder & Love) | analytic | guided poles behind the guided channel; rates smooth through a mode's cutoff | `tests/test_unified.py::test_cylinder_finds_every_guided_mode_near_cutoff`, `::test_cylinder_rates_are_smooth_through_a_mode_cutoff` | 1e-10 in n_eff; curvature < 2e-3 | suite |
+| step-index fibre dispersion relations (TE₀₁, TM₀₁; Snyder & Love) | analytic | guided poles behind the guided channel; rates smooth through a mode's cutoff | `benchmarks/unified_checks.py` → `UNIFIED_CHECKS.md`; `tests/test_unified.py::test_cylinder_finds_every_guided_mode_near_cutoff`, `::test_cylinder_rates_are_smooth_through_a_mode_cutoff` | 1e-10 in n_eff; curvature < 2e-3 | suite |
 | **Meep**, 3D FDTD (the cylinder through the PML) | code | total rate, radial / azimuthal / axial, beside an n = 2, 150 nm fibre, 0.61–1.18 µm across the TE₀₁/TM₀₁ cutoff | `benchmarks/fdtd_meep.py` → `FDTD_MEEP.md` (20–60 px/µm, ~30 min); `tests/test_fdtd_meep.py` (20 and 30 px/µm, ~2 min) | converges toward PyStratify: worst 6.9% → 3.2% → 1.7% → **0.74%**; asserted: 30 px/µm < 5% and closer than 20 | suite where Meep is installed (conda-forge `pymeep`) |
 | **NGSolve** (3D finite elements; total field of a point dipole, Im(p·E) over the same mesh without the fibre) | code | total rate, radial / azimuthal / axial, beside the same fibre at 0.8 µm (and 0.645 µm, shown only: modes just above cutoff reach the PML) | `benchmarks/fem_ngsolve.py` → `FEM_NGSOLVE.md` (~3 min, ~3.2 GB); `tests/test_fem_ngsolve.py` (coarsest mesh, 0.8 µm) | converges toward PyStratify: worst 3.3% → **1.5%** at 97k → 126k unknowns (1.4% at 196k, ~4.1 GB); the floor is the cell's size; asserted: coarsest < 5% | suite where NGSolve is installed (`pip install ngsolve`) |
 | a published dipole-beside-a-nanowire paper | paper | Purcell factor against distance | to build: `crosscheck/` (WP1.6) | plotting precision | to build |

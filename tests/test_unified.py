@@ -1,94 +1,51 @@
-"""Independent identities and channel closure for the six common families."""
+"""Independent identities and channel closure for the six common families.
+
+The checks cited in benchmarks/MATRIX.md live in benchmarks/unified_checks.py, which prints every observed
+value (UNIFIED_CHECKS.md); these tests assert its rows. The rest are implementation tests.
+"""
+import sys
+from pathlib import Path
+
 import numpy as np
 import pytest
-from scipy.special import jv, jvp, hankel1, h1vp
 import pystratify as ps
-from pystratify.cylindrical import solve_cylinder, cross_widths, cylinder_pattern
-from pystratify.planar import coh_tmm, position_resolved
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
+import unified_checks as unified  # noqa: E402
+from checks import assert_rows  # noqa: E402
 
 
 def test_planar_fresnel_and_opaque():
-    for pol in ('s','p'):
-        s=coh_tmm(pol,[1,1.5],[np.inf,np.inf],0,.6)
-        assert s['R']==pytest.approx(.04,abs=1e-14)
-        assert s['T']==pytest.approx(.96,abs=1e-14)
-        opaque=coh_tmm(pol,[1,.2+3j,1],[np.inf,20,np.inf],0,.6)
-        assert np.isfinite(opaque['R']) and opaque['T']==0
-        assert all(np.isfinite(position_resolved(1,z,opaque)['poyn']) for z in (0,10,20))
-        assert opaque['R']==pytest.approx(abs((1-(.2+3j))/(1+(.2+3j)))**2,abs=1e-14)
+    assert_rows(unified.fresnel_and_opaque())
 
 
 def test_cylinder_against_bessel_boundary_equations():
-    radius,lam,n=.1,.6,1.5
-    s=solve_cylinder([radius],[n,1],lam,m_max=12)
-    x=2*np.pi*radius/lam
-    for index,m in enumerate(s.orders):
-        for pol,eta in [(0,n),(1,1/n)]:
-            want=-(jvp(m,x)*jv(m,n*x)-eta*jv(m,x)*jvp(m,n*x))/(h1vp(m,x)*jv(m,n*x)-eta*hankel1(m,x)*jvp(m,n*x))
-            assert s.t[index,pol,pol]==pytest.approx(want,abs=2e-14)
-    result=cross_widths(s)
-    assert result['extinction']==pytest.approx(.129405795136107,abs=2e-14)
-    assert result['extinction']==pytest.approx(result['scattering'],abs=2e-14)
-    phi=np.linspace(0,2*np.pi,2001)
-    assert np.trapezoid(cylinder_pattern(s,phi),phi)==pytest.approx(result['scattering'],abs=1e-12)
+    assert_rows(unified.cylinder_bessel_boundary())
 
 
-@pytest.mark.parametrize('geometry',['films','cylinders','spheres'])
-@pytest.mark.parametrize('dipole',['electric','magnetic'])
+@pytest.mark.parametrize('geometry',unified.GEOMETRIES)
+@pytest.mark.parametrize('dipole',unified.DIPOLES)
 def test_homogeneous_point_source(geometry,dipole):
-    dimensions=[np.inf,.2,np.inf] if geometry=='films' else [.1]
-    n=[1.5]*len(dimensions) if geometry=='films' else [1.5,1.5]
-    source=ps.PointDipole(.1 if geometry=='films' else 0,dipole,1 if geometry=='films' else 0,.4)
-    result=ps.solve_problem(ps.Problem(geometry,dimensions,n,.6,source,1e-6,15 if geometry=='cylinders' else None))
-    assert result['diagnostics']['converged']
-    np.testing.assert_allclose(result['total'],1,atol=1e-8)
-    np.testing.assert_allclose(result['escape'],1,atol=1e-8)
-    np.testing.assert_allclose(result['eta_escape'],.4,atol=1e-8)
-    np.testing.assert_allclose(result['guided'],0,atol=1e-8)
-    np.testing.assert_allclose(result['absorbed'],0,atol=1e-8)
+    assert_rows(unified.homogeneous_point_source(geometry,dipole))
 
 
-@pytest.mark.parametrize('geometry',['films','cylinders','spheres'])
-@pytest.mark.parametrize('dipole',['electric','magnetic'])
+@pytest.mark.parametrize('geometry',unified.GEOMETRIES)
+@pytest.mark.parametrize('dipole',unified.DIPOLES)
 def test_absorbing_coating_independent_power_budget(geometry,dipole):
-    dims=[np.inf,.1,np.inf] if geometry=='films' else [.05,.1]
-    n=[1,.2+3j,1] if geometry=='films' else [1.5,.2+3j,1]
-    source=ps.PointDipole(-.1 if geometry=='films' else .2,dipole,0 if geometry=='films' else 2)
-    result=ps.solve_problem(ps.Problem(geometry,dims,n,.6,source,1e-5,30 if geometry=='cylinders' else None))
-    assert result['diagnostics']['converged']
-    assert np.min(result['absorbed'])>=-1e-8
-    np.testing.assert_allclose(result['total'],result['escape']+result['guided']+result['absorbed'],rtol=1e-5,atol=1e-6)
+    assert_rows(unified.absorbing_coating_power_budget(geometry,dipole))
 
 
 def test_guided_point_sources_not_line_sources():
-    for g,d,n,pos,layer in [('films',[np.inf,.2,np.inf],[1,1.5,1],.1,1),('cylinders',[.1],[1.5,1],.03,0)]:
-        r=ps.solve_problem(ps.Problem(g,d,n,.6,ps.PointDipole(pos,'electric',layer),1e-5,20 if g=='cylinders' else None))
-        assert r['diagnostics']['converged']
-        assert np.max(r['guided'])>.1
-        assert len(r['diagnostics']['poles'])>0
-        np.testing.assert_allclose(r['total'],r['escape']+r['guided'],atol=1e-6)
+    assert_rows(unified.guided_point_sources())
 
 
 @pytest.mark.parametrize('tolerance',[1e-6,1e-8])
 def test_planar_guided_pole_uncertainty_meets_tolerance(tolerance):
-    from pystratify.planar_emission import FilmSource
-    source=FilmSource([1,3.5,1],[np.inf,.8,np.inf],.6,1,.4)
-    rates=source.rates(tolerance)
-    assert len(rates.poles)==18
-    if tolerance==1e-6:assert rates.converged
-    assert not rates.converged or rates.error <= tolerance*max(1,np.max(abs(rates.total)))
-    np.testing.assert_allclose(rates.total,rates.escape+rates.guided,atol=tolerance)
+    assert_rows(unified.planar_guided_pole_uncertainty(tolerance))
 
 
 def test_pattern_normalization_and_film_grazing_limit():
-    x,w=np.polynomial.legendre.leggauss(48)
-    theta=np.arccos(x)[:,None]; phi=np.linspace(0,2*np.pi,64,endpoint=False)[None,:]
-    for g,d,n,pos,layer in [('films',[np.inf,.2,np.inf],[1,1,1],.1,1),('cylinders',[.1],[1,1],.03,0),('spheres',[.1],[1,1],0,0)]:
-        r=ps.solve_problem(ps.Problem(g,d,n,.6,ps.PointDipole(pos,'electric',layer),1e-6,15 if g=='cylinders' else None),('rates','pattern'),theta=theta,phi=phi)
-        power=np.sum(r['pattern']*w[:,None,None],axis=(0,1))*2*np.pi/phi.size
-        np.testing.assert_allclose(power,r['escape'],atol=1e-7)
-    r=ps.solve_problem(ps.Problem('films',[np.inf,.2,np.inf],[1,1,1],.6,ps.PointDipole(.1,'electric',1)),('rates','pattern'),theta=np.array([np.pi/2]),phi=0)
-    assert r['pattern'][0,0]==pytest.approx(3/(8*np.pi),rel=1e-3)
+    assert_rows(unified.pattern_normalization())
 
 
 def test_small_order_reports_failure():
@@ -96,29 +53,15 @@ def test_small_order_reports_failure():
     assert not r['diagnostics']['converged']
 
 
-@pytest.mark.parametrize('radii,n,beta',[([.1],[1.5,1],0),([.05,.1],[1.5,.2+3j,1],2),([.05,.1],[1.5,2,1],8)])
+@pytest.mark.parametrize('radii,n,beta',unified.TREAMS_CYLINDERS)
 def test_oblique_cylinder_against_treams(radii,n,beta):
-    treams=pytest.importorskip('treams')
-    tm=treams.TMatrixC.cylinder([beta],12,2*np.pi/.6,radii,[treams.Material(v*v) for v in n])
-    sol=solve_cylinder(radii,n,.6,beta=beta,m_max=12)
-    own=cross_widths(sol)
-    assert own['extinction']==pytest.approx(tm.xw_ext_avg,abs=1e-12)
-    assert own['scattering']==pytest.approx(tm.xw_sca_avg,abs=1e-12)
-    phi=np.linspace(0,2*np.pi,2001)
-    assert np.trapezoid(cylinder_pattern(sol,phi),phi)==pytest.approx(own['scattering'],abs=1e-12)
+    pytest.importorskip('treams')
+    assert_rows(unified.oblique_cylinder_against_treams(radii,n,beta))
 
 
 @pytest.mark.parametrize('beta',[0,3])
 def test_cylinder_homogeneous_fields(beta):
-    n=1.5;lam=.6;k=2*np.pi*n/lam;q=np.sqrt(k*k-beta*beta)
-    s=solve_cylinder([.1],[n,n],lam,beta=beta,m_max=24)
-    points=np.array([[0,0,0],[.02,.03,.01],[.18,-.02,.04]])
-    phase=np.exp(1j*(q*points[:,0]+beta*points[:,2]))[:,None]
-    for pol,direction in [('axial-electric',[-beta/k,0,q/k]),('axial-magnetic',[0,1,0])]:
-        E,H=s.field(points,pol)
-        np.testing.assert_allclose(E,phase*np.array(direction),atol=1e-10)
-        np.testing.assert_allclose(np.sum(abs(E)**2,axis=-1),1,atol=1e-10)
-        np.testing.assert_allclose(np.sum(abs(H)**2,axis=-1),n*n,atol=1e-10)
+    assert_rows(unified.cylinder_homogeneous_fields(beta))
 
 
 @pytest.mark.parametrize('dipole',['electric','magnetic'])
@@ -131,83 +74,26 @@ def test_sphere_local_pattern_power(dipole,radius):
     np.testing.assert_allclose(power,r['escape'],atol=1e-10)
 
 
-@pytest.mark.parametrize('dipole',['electric','magnetic'])
+@pytest.mark.parametrize('dipole',unified.DIPOLES)
 def test_metal_cylinder_grazing_caps_have_a_bounded_error(dipole):
-    from pystratify.cylinder_emission import CylinderSource
-    source = CylinderSource([.01],[.97+1.87j,1],.5,.015,dipole)
-    rates = source.rates()
-    assert rates.converged
-    assert rates.evaluations < 2500
-    assert rates.grazing_error > 0
-    assert rates.error >= rates.grazing_error
-    assert rates.error <= 1e-6 * np.max(rates.total)
-    np.testing.assert_allclose(rates.total,rates.escape+rates.absorbed,rtol=1e-6)
-    # Moving the precision guard inward checks its charged error independently.
-    reference = CylinderSource([.01],[.97+1.87j,1],.5,.015,dipole,m_max=rates.orders)
-    original = reference.spectral
-    reference.spectral = lambda b, *args, **kwargs: original(1+np.copysign(3e-6,b-1) if abs(b-1)<3e-6 else b,*args,**kwargs)
-    from pystratify.integration import integrate
-    def sample(b):
-        green,escape,absorbed,tail = reference.spectral(b)
-        return np.r_[green.real,escape,absorbed,tail]
-    integral = integrate(sample,[0,.97,1,reference.maximum],1e-6)
-    assert integral.converged
-    for actual,expected in [(rates.total,1+integral.value[:3]),(rates.escape,integral.value[3:6]),(rates.absorbed,integral.value[6:9])]:
-        assert np.max(abs(actual-expected)) < rates.grazing_error
+    assert_rows(unified.metal_cylinder_grazing_caps(dipole))
 
 
 def test_cylinder_grazing_uncertainty_cannot_pass_a_tighter_tolerance():
-    from pystratify.cylinder_emission import CylinderSource
-    rates=CylinderSource([.01],[.97+1.87j,1],.5,.015,m_max=40).rates(tolerance=1e-9)
-    assert rates.error >= rates.grazing_error > 1e-9*np.max(rates.total)
-    assert not rates.converged
+    assert_rows(unified.cylinder_grazing_uncertainty_at_a_tighter_tolerance())
 
 
-@pytest.mark.parametrize('wavelength',[.62,.64,.645,.67,.677])
+@pytest.mark.parametrize('wavelength',unified.CUTOFF_WAVELENGTHS)
 def test_cylinder_finds_every_guided_mode_near_cutoff(wavelength):
-    """TE01 and TM01 of a step-index fibre against their closed-form dispersion relations
-    (Snyder & Love, Table 12-4): J1(u)/(u J0(u)) + c K1(w)/(w K0(w)) = 0, c = 1 (TE) or (n2/n1)^2
-    (TM). The pole search dropped one of them at most of these wavelengths while reporting
-    convergence, and the total rate jumped by 12%."""
-    from scipy.optimize import brentq
-    from scipy.special import j0, j1, k0, k1
-    from pystratify.cylinder_emission import CylinderSource
-    radius,n1,n2=.15,2.0,1.0
-    V=2*np.pi/wavelength*radius
-    def relation(b,c):
-        u,w=V*np.sqrt(n1**2-b**2),V*np.sqrt(b**2-n2**2)
-        return j1(u)/(u*j0(u))+c*(n2/n1)**2*k1(w)/(w*k0(w)) if c else j1(u)/(u*j0(u))+k1(w)/(w*k0(w))
-    upper=np.sqrt(n1**2-(2.404825557695773/V)**2)  # J0's first zero: the root lies below it
-    exact=sorted(brentq(relation,n2+1e-12,upper-1e-12,args=(c,),xtol=1e-15) for c in (0,1))
-    source=CylinderSource([radius],[n1,n2],wavelength,.25)
-    poles=source.guided_poles()
-    assert len(poles)==3 and poles[2]>1.4  # TE01, TM01 and HE11
-    np.testing.assert_allclose(poles[:2],exact,rtol=0,atol=1e-10)
-    rates=source.rates(tolerance=1e-7)
-    assert rates.converged and np.allclose(rates.total,rates.escape+rates.guided,rtol=1e-7)
+    assert_rows(unified.fibre_modes_near_cutoff(wavelength))
 
 
 def test_cylinder_rates_are_smooth_through_a_mode_cutoff():
-    lams=np.linspace(.66,.70,9)  # TE01 and TM01 cut off near 0.678 um
-    total=np.array([ps.solve_problem(ps.Problem('cylinders',[.15],[2.0,1],lam,ps.PointDipole(.25,'electric',1),1e-7))['total'][:3] for lam in lams])
-    curvature=np.abs(total[2:]-2*total[1:-1]+total[:-2])
-    assert np.max(curvature)<2e-3, curvature  # a dropped mode moved the radial rate by 0.15
+    assert_rows(unified.rates_smooth_through_cutoff())
 
 
 def test_cylinder_density_near_the_light_line_is_the_power_balance():
-    """A guided mode 1.7e-5 above the host light line: the reflected density's m = +-1 terms lose
-    ~1e-4 eps / (1 - b)^2 there, so the quadrature chased noise until the budget ran out. The real part
-    now comes from the per-beta power balance escape + absorbed - direct, which equals the reflected
-    density to ~1e-14 wherever that is accurate (checked here away from the line)."""
-    from pystratify.cylinder_emission import CylinderSource
-    source=CylinderSource([.024,.07],[1.898,2.168,1.0],.912,.113,'magnetic')
-    for b in (.3,.9,.99):
-        green,escape,absorbed,_=source.spectral(b)
-        direct=np.array([.75*(1+b*b),.75*(1+b*b),1.5*(1-b*b)])
-        np.testing.assert_allclose(green.real,escape+absorbed-direct,rtol=1e-12,atol=1e-14)
-    rates=source.rates(tolerance=1e-6)
-    assert rates.converged and np.isclose(rates.poles[0],1+1.66769e-5,rtol=0,atol=1e-9)
-    np.testing.assert_allclose(rates.total,rates.escape+rates.guided,rtol=1e-6)
+    assert_rows(unified.light_line_power_balance())
 
 
 def test_cylinder_pattern_reuses_modes_for_azimuthal_cuts(monkeypatch):
