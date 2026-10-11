@@ -24,6 +24,7 @@ SERIES = {
     ("spheres", "plane_wave"): ("q_ext", "q_sca", "q_abs", "md_sca", "ed_sca", "mq_sca", "eq_sca"),
     ("films", "plane_wave"): ("R", "T", "A", "R_s", "R_p", "T_s", "T_p"),
 }
+LAYER_SERIES = re.compile(r"^A_(\d+)$")  # films: the unpolarized absorptance of layer i (1-based, repeats expanded)
 MAX_L = 1500  # the API's ceiling on the multipole order (multilayer backend/spheres.py)
 
 
@@ -124,6 +125,11 @@ def _table(spec, where):
     """An n,k table as the calculator uploads one: {name, rows: [[λ µm, n, k], ...]} to six decimals."""
     if "rows" in spec:
         rows = spec["rows"]
+    elif "file" in spec:
+        kind, data = _rii_data(Path(spec["root"]) / spec["file"])
+        if kind != "tabulated nk":
+            raise ContentError(f"{where}: {spec['file']} is not a tabulated n,k page")
+        rows = [tuple(r) for r in data.tolist()]
     elif "drude" in spec:
         d = spec["drude"]
         rows = _drude_rows(d["from_um"], d["to_um"], d["count"], d["lambda_p_um"], d["gamma"])
@@ -132,7 +138,10 @@ def _table(spec, where):
         rows = _lorentz_rows(d["from_cm1"], d["to_cm1"], d["count"], d["eps_inf"], d["d_eps"], d["w_to_cm1"], d["gamma_cm1"])
     else:
         raise ContentError(f"{where}: a table needs rows, drude or lorentz")
-    return {"name": spec["name"], "rows": [[round(w, 6), round(n, 6), round(k, 6)] for w, n, k in rows]}
+    out = {"name": spec["name"], "rows": [[round(w, 6), round(n, 6), round(k, 6)] for w, n, k in rows]}
+    if "file" in spec:
+        out["file"] = spec["file"]
+    return out
 
 
 class Materials:
@@ -153,7 +162,7 @@ class Materials:
                 raise ContentError(f"{where}: {out['rii']!r} is not in docs/materials.yaml")
             out["rii"] = {"key": out["rii"], **self.rii[out["rii"]]}
         if "table" in out:
-            out["table"] = _table(out["table"], where)
+            out["table"] = _table(dict(out["table"], root=str(self.root)), where)
         return out
 
     def index(self, medium, wavelength_um):
@@ -163,6 +172,9 @@ class Materials:
             return material(self.root / medium["rii"]["file"], lam)
         if "table" in medium:
             rows = np.asarray(medium["table"]["rows"], dtype=float)
+            if lam.min() < rows[0, 0] - 1e-12 or lam.max() > rows[-1, 0] + 1e-12:
+                # np.interp would hold the end value flat; the API refuses, and so does the build
+                raise ContentError(f"{medium['table']['name']} covers {rows[0, 0]}-{rows[-1, 0]} µm only")
             return np.interp(lam, rows[:, 0], rows[:, 1]) + 1j * np.interp(lam, rows[:, 0], rows[:, 2])
         return np.full(lam.shape, complex(medium["n"], medium["k"]))
 
@@ -239,17 +251,29 @@ def _expand(layers):
     return out
 
 
+WAVELENGTH_UNIT = {"nm": 1e-3, "um": 1.0}  # the calculator's film units: controls in nm or µm
+API_MAX_ANGLE_POINTS = 181  # multilayer backend MAX_ANGLE_POINTS: an example the live page cannot recompute is refused
+
+
+def _film_unit(example):
+    unit = example["calculator"]["film"].get("units", {}).get("wavelength", "nm")
+    if unit not in WAVELENGTH_UNIT:
+        raise ContentError(f"example {example['id']}: wavelengths in {unit!r} are not computed (nm or um)")
+    return WAVELENGTH_UNIT[unit]
+
+
 def _film_axes(example):
-    """(wavelengths µm, angles deg) of a film example, from its calculator controls (nm)."""
+    """(wavelengths µm, angles deg) of a film example, from its calculator controls (nm or µm)."""
     film = example["calculator"]["film"]
-    if film.get("units", {}).get("wavelength", "nm") != "nm":
-        raise ContentError(f"example {example['id']}: only nm spectral axes are computed so far")
+    to_um = _film_unit(example)
     c = film.get("controls", {})
     if example.get("axis", "wavelength") == "angle":
-        lam = np.array([c["wavelength-start"] / 1000])
+        lam = np.array([c["wavelength-start"] * to_um])
         count = int(np.floor((c["angle-end"] - c["angle-start"]) / c["angle-step"] + 1e-9))
+        if count + 1 > API_MAX_ANGLE_POINTS:
+            raise ContentError(f"example {example['id']}: {count + 1} angles; the API computes at most {API_MAX_ANGLE_POINTS}")
         return lam, c["angle-start"] + np.arange(count + 1) * c["angle-step"]
-    start, end, step = c["wavelength-start"] / 1000, c["wavelength-end"] / 1000, c["wavelength-step"] / 1000
+    start, end, step = c["wavelength-start"] * to_um, c["wavelength-end"] * to_um, c["wavelength-step"] * to_um
     count = int(np.floor((end - start) / step + 1e-9))
     return start + np.arange(count + 1) * step, np.array([float(c.get("angle-deg", 0))])
 
@@ -270,19 +294,24 @@ def _film_plane_wave(example, materials):
     for pol in ("s", "p"):
         R = np.empty((angles.size, lam.size))
         T = np.empty_like(R)
+        layer_a = np.empty((len(layers), angles.size, lam.size))
         for a, angle in enumerate(np.radians(angles)):
             for w, wavelength in enumerate(lam):
                 if incoherent:
                     r = planar.inc_tmm(pol, list(n[w]), d, c, angle, wavelength)
+                    layer_a[:, a, w] = planar.inc_absorp_in_each_layer(r)[1:-1]
                 else:
                     r = planar.coh_tmm(pol, list(n[w]), d, angle, wavelength)
+                    layer_a[:, a, w] = planar.absorp_in_each_layer(r)[1:-1]
                 R[a, w], T[a, w] = r["R"], r["T"]
-        out[pol] = (R.ravel(), T.ravel())
+        out[pol] = (R.ravel(), T.ravel(), layer_a.reshape(len(layers), angles.size * lam.size))
     curves = {"R_s": out["s"][0], "R_p": out["p"][0], "T_s": out["s"][1], "T_p": out["p"][1]}
     curves["R"] = 0.5 * (curves["R_s"] + curves["R_p"])
     curves["T"] = 0.5 * (curves["T_s"] + curves["T_p"])
     curves["A"] = np.clip(1 - curves["R"] - curves["T"], 0, None)
-    x = angles if example.get("axis", "wavelength") == "angle" else lam * 1000
+    for i in range(len(layers)):
+        curves[f"A_{i + 1}"] = 0.5 * (out["s"][2][i] + out["p"][2][i])
+    x = angles if example.get("axis", "wavelength") == "angle" else lam / _film_unit(example)
     return np.asarray(x, dtype=float), curves
 
 
@@ -321,12 +350,14 @@ def _film_plane_wave_code(example):
     c = film.get("controls", {})
     layers = _expand(film["layers"])
     media = [film["incident"]] + layers + [film["substrate"]]
-    if any("table" in m for m in media):
-        raise ContentError(f"example {example['id']}: examples with uploaded n,k tables have no script form yet")
+    if any("table" in m and "file" not in m["table"] for m in media):
+        raise ContentError(f"example {example['id']}: examples with inline n,k tables have no script form yet")
 
     def index(m):
         if "rii" in m:
             return f"material({m['rii']['file']!r}, wl)"
+        if "table" in m:
+            return f"material({m['table']['file']!r}, wl)"
         return repr(complex(m["n"], m["k"])) if m["k"] else repr(m["n"])
 
     n = "[" + ", ".join(index(m) for m in media) + "]"
@@ -336,15 +367,17 @@ def _film_plane_wave_code(example):
     tmm = "planar.coh_tmm(pol, n(wl), d, th, wl)" if coherent else f"planar.inc_tmm(pol, n(wl), d, {coherency!r}, th, wl)"
     lam, angles = _film_axes(example)
     lines = ["import numpy as np", "from pystratify import planar"]
-    if any("rii" in m for m in media):
-        lines.append("from pystratify.docs import material  # n + ik of a refractiveindex.info page")
+    if any("rii" in m or "table" in m for m in media):
+        lines.append("from pystratify.docs import material  # n + ik of a tabulated page (refractiveindex.info format)")
     lines += ["", f"n = lambda wl: {n}  # incident medium, layers, substrate", f"d = {d}  # thicknesses, µm"]
     if example.get("axis", "wavelength") == "angle":
-        lines += [f"wl = {c['wavelength-start']} * 1e-3  # wavelength, µm",
+        scale = "" if _film_unit(example) == 1.0 else " * 1e-3"
+        lines += [f"wl = {c['wavelength-start']}{scale}  # wavelength, µm",
                   f"angles = {c['angle-start']} + {c['angle-step']} * np.arange({angles.size})  # degrees",
                   "R = {pol: np.array([" + tmm.replace(", th,", ", np.radians(a),") + "['R'] for a in angles]) for pol in ('s', 'p')}"]
     else:
-        lines += [f"lam = ({c['wavelength-start']} + {c['wavelength-step']} * np.arange({lam.size})) * 1e-3  # wavelength, µm",
+        scale = "" if _film_unit(example) == 1.0 else " * 1e-3"
+        lines += [f"lam = ({c['wavelength-start']} + {c['wavelength-step']} * np.arange({lam.size})){scale}  # wavelength, µm",
                   f"th = np.radians({c.get('angle-deg', 0)})",
                   "R, T = {}, {}",
                   "for pol in ('s', 'p'):",
@@ -367,6 +400,18 @@ def _measure(measure, x, curves, where):
         if not hits.size:
             raise ContentError(f"{where}: {series} never reaches {level}")
         return float(x[hits[0]])
+    if "max" in measure:
+        return float(np.max(curves[measure["max"]]))
+    if "product" in measure:
+        return float(np.prod([_measure({"at": pair}, x, curves, where) for pair in measure["product"]]))
+    if "mean" in measure:
+        series, (lo, hi) = measure["mean"]
+        m = (x >= lo - 1e-9) & (x <= hi + 1e-9)
+        return float(np.mean(np.asarray(curves[series])[m]))
+    if "balance" in measure:
+        layers = sorted((k for k in curves if LAYER_SERIES.match(k)), key=lambda k: int(k[2:]))
+        total = sum(np.asarray(curves[k]) for k in layers)
+        return float(np.max(np.abs(1 - np.asarray(curves["R"]) - np.asarray(curves["T"]) - total)))
     if "at" in measure:
         series, at = measure["at"]
         i = int(np.argmin(np.abs(x - at)))
@@ -408,18 +453,28 @@ def build_example(example, materials):
     out["calculator"] = resolve_calculator(example["calculator"], materials, where)
     keys = [s["key"] for s in example["plot"]["series"]]
     known = SERIES[(example["geometry"], example["source"])]
-    unknown = [k for k in keys if k not in known]
+    unknown = [k for k in keys if k not in known and not (example["geometry"] == "films" and LAYER_SERIES.match(k))]
     if unknown:
         raise ContentError(f"{where}: unknown series {unknown}; known: {known}")
     for p in example.get("params", []):
         _require(p, ("id", "label", "unit", "target", "scale", "min", "max", "step", "value"), f"{where} param")
-        current = _get(out["calculator"], p["target"], where)
-        if abs(current - p["value"] * p["scale"]) > 1e-9 * max(1.0, abs(current)):
-            raise ContentError(f"{where}: param {p['id']} = {p['value']} × {p['scale']} but the setup holds {current}")
-        if p["target"].endswith((".n", ".k")) and {"rii", "table"} & set(_get(out["calculator"], p["target"].rsplit(".", 1)[0], where)):
-            raise ContentError(f"{where}: param {p['id']} sets an index the medium takes from a database or table")
+        for target in ([p["target"]] if isinstance(p["target"], str) else p["target"]):
+            current = _get(out["calculator"], target, where)
+            if abs(current - p["value"] * p["scale"]) > 1e-9 * max(1.0, abs(current)):
+                raise ContentError(f"{where}: param {p['id']} = {p['value']} × {p['scale']} but {target} holds {current}")
+            if target.endswith((".n", ".k")) and {"rii", "table"} & set(_get(out["calculator"], target.rsplit(".", 1)[0], where)):
+                raise ContentError(f"{where}: param {p['id']} sets an index the medium takes from a database or table")
     x, curves = compute(out, materials)
     out["data"] = {"x": [_sig(v) for v in x], "series": {k: [_sig(v) for v in curves[k]] for k in keys}}
+    readouts = []
+    for r in example.get("readouts", []):
+        _require(r, ("label", "measure"), f"{where} readout")
+        values = r["measure"].values()
+        for key in [v for v in values if isinstance(v, str)] + [v[0] for v in values if isinstance(v, list) and isinstance(v[0], str)]:
+            if key not in keys:
+                raise ContentError(f"{where}: readout {r['label']!r} reads {key}, which the plot does not carry")
+        readouts.append(dict(r, value=_sig(_measure(r["measure"], x, curves, where))))
+    out["readouts"] = readouts
     checks = []
     for c in example.get("checks", []):
         _require(c, ("check", "reference", "tolerance", "source", "measure"), f"{where} check")

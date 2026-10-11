@@ -1,0 +1,33 @@
+id: radiative-cooler
+geometry: films
+source: plane_wave
+title: A silica emitter on a silver mirror
+caption: >-
+  1.5 µm of SiO₂ on opaque silver, in the thermal infrared. By Kirchhoff's law the emissivity is the absorptance,
+  1 − R here. The silica's phonon band absorbs, and so emits, inside the 8–13 µm atmospheric window. Change the
+  thickness and watch the band average.
+plot:
+  x_label: λ [µm]
+  y_label: ε = A, R
+  series:
+  - {key: A, label: ε = A}
+  - {key: R, label: R}
+params:
+- {id: thickness, label: Silica, unit: µm, target: film.layers.0.thickness, scale: 1, min: 0.4, max: 6, step: 0.1, value: 1.5}
+readouts:
+- {label: "mean emissivity, 8–13 µm", measure: {mean: [A, [8, 13]]}}
+checks:
+- check: R + T + the absorptance of every layer = 1 (largest departure)
+  reference: 0
+  tolerance: 1.0e-9
+  source: Poynting's theorem
+  measure: {balance: true}
+calculator:
+  film:
+    incident: {label: Air, n: 1.0, k: 0.0}
+    layers:
+    - {label: SiO2, n: 1.4, k: 0.0, thickness: 1.5, table: {name: "SiO2 (Kischkat et al. 2012), tutorials' table", file: docs/data/tutorials/SiO2_Kischkat.yml}}
+    substrate: {label: Ag, n: 10.0, k: 50.0, table: {name: "Ag (Ciesielski et al. 2017), tutorials' table", file: docs/data/tutorials/Ag_Ciesielski.yml}}
+    controls: {wavelength-start: 5, wavelength-end: 14, wavelength-step: 0.1}
+    units: {wavelength: um, length: um}
+    view: {polarization: average}

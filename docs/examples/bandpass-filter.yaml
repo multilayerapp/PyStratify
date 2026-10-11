@@ -1,0 +1,40 @@
+id: bandpass-filter
+geometry: films
+source: plane_wave
+title: An all-dielectric bandpass filter
+caption: >-
+  Two TiO₂/SiO₂ quarter-wave mirrors of three pairs each around a SiO₂ spacer, designed for 550 nm and lit from the
+  glass side. Only a narrow band near the design wavelength passes; the rest of the mirrors' stop band is blocked.
+  Change the spacer and the passband moves through the stop band.
+plot:
+  x_label: λ [nm]
+  y_label: T
+  series:
+  - {key: T, label: T}
+params:
+- {id: spacer, label: Spacer, unit: nm, target: film.layers.1.thickness, scale: 0.001, min: 120, max: 260, step: 1, value: 188}
+readouts:
+- {label: "passband centre", measure: {peak: T, within: [480, 620]}, unit: nm}
+- {label: "peak transmittance", measure: {max: T}}
+checks:
+- check: passband centre at the design wavelength (nm)
+  reference: 550
+  tolerance: 4
+  source: quarter-wave design, λ₀ = 4 n_H d_H = 4 n_L d_L
+  measure: {peak: T, within: [480, 620]}
+calculator:
+  film:
+    incident: {label: Glass, n: 1.52, k: 0.0}
+    layers:
+    - repeat: 3
+      layers:
+      - {label: TiO2, n: 2.16, k: 0.0, thickness: 0.063524, table: {name: "TiO2 (Sarkar et al. 2019), tutorials' table", file: docs/data/tutorials/TiO2_Sarkar.yml}}
+      - {label: SiO2, n: 1.46, k: 0.0, thickness: 0.094184, table: {name: "SiO2 (Malitson 1965), tutorials' table", file: docs/data/tutorials/SiO2_Malitson.yml}}
+    - {label: SiO2 spacer, n: 1.46, k: 0.0, thickness: 0.188, table: {name: "SiO2 (Malitson 1965), tutorials' table", file: docs/data/tutorials/SiO2_Malitson.yml}}
+    - repeat: 3
+      layers:
+      - {label: SiO2, n: 1.46, k: 0.0, thickness: 0.094184, table: {name: "SiO2 (Malitson 1965), tutorials' table", file: docs/data/tutorials/SiO2_Malitson.yml}}
+      - {label: TiO2, n: 2.16, k: 0.0, thickness: 0.063524, table: {name: "TiO2 (Sarkar et al. 2019), tutorials' table", file: docs/data/tutorials/TiO2_Sarkar.yml}}
+    substrate: {label: Air, n: 1.0, k: 0.0}
+    controls: {wavelength-start: 400, wavelength-end: 800, wavelength-step: 2}
+    view: {polarization: average}

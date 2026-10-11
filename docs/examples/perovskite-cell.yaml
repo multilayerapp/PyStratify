@@ -1,0 +1,40 @@
+id: perovskite-cell
+geometry: films
+source: plane_wave
+title: Where a perovskite cell absorbs
+caption: >-
+  ITO / TiO₂ / MAPbI₃ / hole-transport layer (n = 1.55) / gold, at normal incidence. Only the light absorbed in the
+  perovskite makes current; the ITO and the gold absorb parasitically. Thicken the perovskite and its absorption edge
+  fills in, until the red light is gone before it reaches the back.
+plot:
+  x_label: λ [nm]
+  y_label: A, R
+  series:
+  - {key: A_3, label: A perovskite}
+  - {key: A_1, label: A ITO}
+  - {key: A_5, label: A gold}
+  - {key: R, label: R}
+params:
+- {id: perovskite, label: Perovskite, unit: nm, target: film.layers.2.thickness, scale: 0.001, min: 100, max: 800, step: 10, value: 300}
+readouts:
+- {label: "mean perovskite absorptance, 400–750 nm", measure: {mean: [A_3, [400, 750]]}}
+- {label: "mean ITO absorptance, 400–750 nm", measure: {mean: [A_1, [400, 750]]}}
+checks:
+- check: R + T + the absorptance of every layer = 1 (largest departure)
+  reference: 0
+  tolerance: 1.0e-9
+  source: Poynting's theorem
+  measure: {balance: true}
+calculator:
+  film:
+    incident: {label: Air, n: 1.0, k: 0.0}
+    layers:
+    - {label: ITO, n: 1.9, k: 0.0, thickness: 0.1, table: {name: "ITO (König et al. 2014), tutorials' table", file: docs/data/tutorials/ITO_Konig.yml}}
+    - {label: TiO2, n: 2.16, k: 0.0, thickness: 0.05, table: {name: "TiO2 (Sarkar et al. 2019), tutorials' table", file: docs/data/tutorials/TiO2_Sarkar.yml}}
+    - {label: MAPbI3, n: 2.5, k: 0.1, thickness: 0.3, table: {name: "MAPbI3 (Phillips et al. 2015), tutorials' table", file: docs/data/tutorials/MAPbI3_Phillips.yml}}
+    - {label: HTL, n: 1.55, k: 0.0, thickness: 0.15}
+    - {label: Au, n: 0.18, k: 3.4, thickness: 0.1, table: {name: "Au (Johnson and Christy 1972), tutorials' table", file: docs/data/tutorials/Au_Johnson.yml}}
+    substrate: {label: Air, n: 1.0, k: 0.0}
+    controls: {wavelength-start: 380, wavelength-end: 850, wavelength-step: 5}
+    toggles: {layerAbsorption: true}
+    view: {polarization: average}

@@ -1,0 +1,52 @@
+# Si3N4 — Luke et al. 2015: n 0.310–5.504 µm
+# The n,k table multilayer.app's tutorials used (multilayer_web assets/scripts/tutorial-materials.js, 2026), resampled
+# from the refractiveindex.info page main/main/Si3N4/nk/Luke.yml (public domain, CC0). Learn examples send these rows to the
+# API as an uploaded table, so the page and the live recompute interpolate the same numbers.
+REFERENCES: "refractiveindex.info main/Si3N4/nk/Luke.yml; resampled for multilayer.app"
+DATA:
+  - type: tabulated nk
+    data: |
+        0.31 2.17594 0
+        0.36 2.12589 0
+        0.41 2.09533 0
+        0.46 2.07509 0
+        0.51 2.06088 0
+        0.56 2.05044 0
+        0.61 2.04249 0
+        0.66 2.03624 0
+        0.71 2.03119 0
+        0.76 2.02702 0
+        0.81 2.0235 0
+        0.86 2.02048 0
+        0.91 2.01782 0
+        0.96 2.01546 0
+        1.01 2.01332 0
+        1.06 2.01136 0
+        1.11 2.00954 0
+        1.16 2.00782 0
+        1.21 2.0062 0
+        1.26 2.00464 0
+        1.31 2.00313 0
+        1.36 2.00166 0
+        1.41 2.00022 0
+        1.46 1.9988 0
+        1.51 1.9974 0
+        1.56 1.996 0
+        1.61 1.9946 0
+        1.66 1.99321 0
+        1.71 1.9918 0
+        1.76 1.99039 0
+        1.81 1.98897 0
+        1.86 1.98753 0
+        1.91 1.98607 0
+        1.96 1.9846 0
+        2.01 1.98311 0
+        2.06 1.9816 0
+        2.11 1.98006 0
+        2.16 1.9785 0
+        2.21 1.97692 0
+        2.26 1.97531 0
+        2.31 1.97367 0
+        2.36 1.97201 0
+        2.41 1.97032 0
+        2.46 1.9686 0

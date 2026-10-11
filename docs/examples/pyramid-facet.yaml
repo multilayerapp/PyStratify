@@ -1,0 +1,31 @@
+id: pyramid-facet
+geometry: films
+source: plane_wave
+axis: angle
+title: The facet of a textured silicon cell
+caption: >-
+  Reflectance of silicon under a 75 nm Si₃N₄ antireflection layer at 600 nm, against the local angle of incidence. On
+  an upright pyramid a vertical ray meets the first facet at 54.7° and, once reflected, the opposite facet at 15.8°;
+  the light that finally escapes is the product of the two reflectances.
+plot:
+  x_label: θ [°]
+  y_label: R
+  series:
+  - {key: R, label: R}
+  - {key: R_s, label: R_s}
+  - {key: R_p, label: R_p}
+params:
+- {id: arc, label: Si₃N₄, unit: nm, target: film.layers.0.thickness, scale: 0.001, min: 10, max: 160, step: 1, value: 75}
+readouts:
+- {label: "R at the first facet, 54.75°", measure: {at: [R, 54.75]}}
+- {label: "R at the second facet, 15.75°", measure: {at: [R, 15.75]}}
+- {label: "double bounce, R₁ R₂", measure: {product: [[R, 54.75], [R, 15.75]]}}
+- {label: "planar cell, R at near-normal incidence (0.25°)", measure: {at: [R, 0.25]}}
+calculator:
+  film:
+    incident: {label: Air, n: 1.0, k: 0.0}
+    layers:
+    - {label: Si3N4, n: 2.04, k: 0.0, thickness: 0.075, table: {name: "Si3N4 (Luke et al. 2015), tutorials' table", file: docs/data/tutorials/Si3N4_Luke.yml}}
+    substrate: {label: Si, n: 3.94, k: 0.02, table: {name: "Si (Green 2008), tutorials' table", file: docs/data/tutorials/Si_Green-2008.yml}}
+    controls: {wavelength-start: 600, wavelength-end: 600, angle-start: 0.25, angle-end: 89.75, angle-step: 0.5, sweepMode: angle}
+    view: {polarization: average, angleMetric: reflectance}

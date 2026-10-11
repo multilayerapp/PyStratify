@@ -81,3 +81,14 @@ def test_every_matrix_row_is_one_benchmark_record(manifest):
     assert all(r["status"] and r["reference"] for r in rows)
     assert {r["reference_kind"] for r in rows} >= {"analytic", "precision", "method", "code", "paper", "lineage"}
     assert sum("example" in r for r in rows) == 3  # docs/verification.md's links, each to an existing example
+
+
+def test_an_example_outside_its_data_is_refused(tmp_path):
+    # The tutorials' silver table ends at 0.8 µm; their etalon plotted to 1.0 µm on silently extrapolated values.
+    for part in ("docs", "crosscheck/classics/data"):
+        shutil.copytree(ROOT / part, tmp_path / part, ignore=shutil.ignore_patterns("manifest.json", "results"))
+    (tmp_path / "src").mkdir()
+    example = tmp_path / "docs" / "examples" / "fabry-perot-etalon.yaml"
+    example.write_text(example.read_text().replace("wavelength-end: 800", "wavelength-end: 1000"))
+    with pytest.raises(ContentError, match="covers"):
+        build_manifest(tmp_path, previous=COMMITTED)

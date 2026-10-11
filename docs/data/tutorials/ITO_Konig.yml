@@ -1,0 +1,44 @@
+# In2O3-SnO2 — König et al. 2014: n,k 0.25–1.0 µm
+# The n,k table multilayer.app's tutorials used (multilayer_web assets/scripts/tutorial-materials.js, 2026), resampled
+# from the refractiveindex.info page other/other/mixed crystals/In2O3-SnO2/nk/Konig.yml (public domain, CC0). Learn examples send these rows to the
+# API as an uploaded table, so the page and the live recompute interpolate the same numbers.
+REFERENCES: "refractiveindex.info other/mixed crystals/In2O3-SnO2/nk/Konig.yml; resampled for multilayer.app"
+DATA:
+  - type: tabulated nk
+    data: |
+        0.3 2.34337 0.117374
+        0.32 2.24069 0.051695
+        0.34 2.16337 0.028066
+        0.36 2.10972 0.019844
+        0.38 2.06908 0.014497
+        0.4 2.03548 0.01086
+        0.42 2.00646 0.008358
+        0.44 1.98055 0.00662
+        0.46 1.95684 0.005405
+        0.48 1.93469 0.004557
+        0.5 1.91362 0.003968
+        0.52 1.89329 0.00357
+        0.54 1.87343 0.003314
+        0.56 1.85386 0.003167
+        0.58 1.83438 0.003105
+        0.6 1.81488 0.003113
+        0.62 1.79524 0.003179
+        0.64 1.77538 0.003296
+        0.66 1.7552 0.003457
+        0.68 1.73465 0.003659
+        0.7 1.71365 0.0039
+        0.72 1.69214 0.004179
+        0.74 1.67007 0.004494
+        0.76 1.64738 0.004847
+        0.78 1.62403 0.005239
+        0.8 1.59995 0.00567
+        0.82 1.5751 0.006143
+        0.84 1.54942 0.00666
+        0.86 1.52284 0.007226
+        0.88 1.49533 0.007842
+        0.9 1.4668 0.008514
+        0.92 1.43717 0.009247
+        0.94 1.40639 0.010048
+        0.96 1.37435 0.010924
+        0.98 1.34096 0.011884
+        1 1.30613 0.012939

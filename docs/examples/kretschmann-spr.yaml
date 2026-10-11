@@ -1,0 +1,34 @@
+id: kretschmann-spr
+geometry: films
+source: plane_wave
+axis: angle
+title: Surface plasmon resonance in the Kretschmann geometry
+caption: >-
+  48 nm of gold on a BK7-like prism (n = 1.515), water on the far side, at 633 nm. Past the critical angle the p
+  reflectance dips where the light couples to the surface plasmon at the gold/water boundary; s light shows no dip.
+  Change the analyte index and watch the dip move: that shift is the sensor's signal.
+plot:
+  x_label: θ [°]
+  y_label: R
+  series:
+  - {key: R_p, label: R_p}
+  - {key: R_s, label: R_s}
+params:
+- {id: analyte, label: Analyte n, unit: '', target: film.substrate.n, scale: 1, min: 1.3, max: 1.42, step: 0.005, value: 1.33}
+readouts:
+- {label: "resonance angle", measure: {minimum: R_p, within: [62, 80]}, unit: "°"}
+- {label: "R_p at the dip", measure: {at: [R_p, 72.5]}}
+checks:
+- check: dip angle against the semi-infinite surface-plasmon condition n_p sin θ = Re √(ε_m ε_d / (ε_m + ε_d)) (°)
+  reference: 72.06
+  tolerance: 1.0
+  source: closed form, gold ε from the same table at 633 nm
+  measure: {minimum: R_p, within: [62, 80]}
+calculator:
+  film:
+    incident: {label: Prism, n: 1.515, k: 0.0}
+    layers:
+    - {label: Au, n: 0.18, k: 3.4, thickness: 0.048, table: {name: "Au (Johnson and Christy 1972), tutorials' table", file: docs/data/tutorials/Au_Johnson.yml}}
+    substrate: {label: Water, n: 1.33, k: 0.0}
+    controls: {wavelength-start: 633, wavelength-end: 633, angle-start: 40, angle-end: 80, angle-step: 0.25, sweepMode: angle}
+    view: {polarization: p, angleMetric: reflectance}

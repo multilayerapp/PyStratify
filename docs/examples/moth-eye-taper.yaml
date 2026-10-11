@@ -1,0 +1,66 @@
+id: moth-eye-taper
+geometry: films
+source: plane_wave
+title: A moth-eye taper on glass
+caption: >-
+  A sub-wavelength glass taper 450 nm tall, sliced into 16 layers whose indices are the Bruggeman effective indices of
+  the local glass fraction (a quintic profile, period 150 nm). The index rises from air to glass without a step, and
+  the reflectance falls far below the 4.3 % of bare glass across the visible. Make the taper shorter than about a
+  third of a wavelength and the step comes back.
+plot:
+  x_label: λ [nm]
+  y_label: R
+  series:
+  - {key: R, label: R}
+params:
+- id: height
+  label: Height
+  unit: nm
+  target:
+  - film.layers.0.thickness
+  - film.layers.1.thickness
+  - film.layers.2.thickness
+  - film.layers.3.thickness
+  - film.layers.4.thickness
+  - film.layers.5.thickness
+  - film.layers.6.thickness
+  - film.layers.7.thickness
+  - film.layers.8.thickness
+  - film.layers.9.thickness
+  - film.layers.10.thickness
+  - film.layers.11.thickness
+  - film.layers.12.thickness
+  - film.layers.13.thickness
+  - film.layers.14.thickness
+  - film.layers.15.thickness
+  scale: 6.25e-05
+  min: 50
+  max: 1000
+  step: 10
+  value: 450
+readouts:
+- {label: "mean R, 400–700 nm", measure: {mean: [R, [400, 700]]}}
+- {label: "R at 550 nm", measure: {at: [R, 550]}}
+calculator:
+  film:
+    incident: {label: Air, n: 1.0, k: 0.0}
+    layers:
+    - {label: slice 1, n: 1.000133, k: 0.0, thickness: 0.028125}
+    - {label: slice 2, n: 1.003255, k: 0.0, thickness: 0.028125}
+    - {label: slice 3, n: 1.013678, k: 0.0, thickness: 0.028125}
+    - {label: slice 4, n: 1.034064, k: 0.0, thickness: 0.028125}
+    - {label: slice 5, n: 1.065651, k: 0.0, thickness: 0.028125}
+    - {label: slice 6, n: 1.108369, k: 0.0, thickness: 0.028125}
+    - {label: slice 7, n: 1.160789, k: 0.0, thickness: 0.028125}
+    - {label: slice 8, n: 1.220125, k: 0.0, thickness: 0.028125}
+    - {label: slice 9, n: 1.282499, k: 0.0, thickness: 0.028125}
+    - {label: slice 10, n: 1.343531, k: 0.0, thickness: 0.028125}
+    - {label: slice 11, n: 1.399027, k: 0.0, thickness: 0.028125}
+    - {label: slice 12, n: 1.445564, k: 0.0, thickness: 0.028125}
+    - {label: slice 13, n: 1.480884, k: 0.0, thickness: 0.028125}
+    - {label: slice 14, n: 1.504155, k: 0.0, thickness: 0.028125}
+    - {label: slice 15, n: 1.516212, k: 0.0, thickness: 0.028125}
+    - {label: slice 16, n: 1.519845, k: 0.0, thickness: 0.028125}
+    substrate: {label: Glass, n: 1.52, k: 0.0}
+    controls: {wavelength-start: 380, wavelength-end: 900, wavelength-step: 5}
+    view: {polarization: average}

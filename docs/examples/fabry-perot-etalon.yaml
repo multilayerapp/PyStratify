@@ -1,0 +1,35 @@
+id: fabry-perot-etalon
+geometry: films
+source: plane_wave
+title: A silver–silica–silver etalon
+caption: >-
+  Two 25 nm silver mirrors around a SiO₂ cavity on glass, at normal incidence. Transmission peaks where the round
+  trip in the cavity is a whole number of wavelengths; thicken the cavity and the comb shifts to longer wavelengths
+  while new orders enter from the blue.
+plot:
+  x_label: λ [nm]
+  y_label: T, R
+  series:
+  - {key: T, label: T}
+  - {key: R, label: R}
+params:
+- {id: cavity, label: Cavity, unit: nm, target: film.layers.1.thickness, scale: 0.001, min: 80, max: 400, step: 2, value: 200}
+readouts:
+- {label: "strongest transmission peak", measure: {peak: T}, unit: nm}
+- {label: "its transmittance", measure: {max: T}}
+checks:
+- check: R + T + the absorptance of every layer = 1 (largest departure)
+  reference: 0
+  tolerance: 1.0e-9
+  source: Poynting's theorem
+  measure: {balance: true}
+calculator:
+  film:
+    incident: {label: Air, n: 1.0, k: 0.0}
+    layers:
+    - {label: Ag, n: 0.05, k: 3.0, thickness: 0.025, table: {name: "Ag (Johnson and Christy 1972), tutorials' table", file: docs/data/tutorials/Ag_Johnson.yml}}
+    - {label: SiO2, n: 1.46, k: 0.0, thickness: 0.2, table: {name: "SiO2 (Malitson 1965), tutorials' table", file: docs/data/tutorials/SiO2_Malitson.yml}}
+    - {label: Ag, n: 0.05, k: 3.0, thickness: 0.025, table: {name: "Ag (Johnson and Christy 1972), tutorials' table", file: docs/data/tutorials/Ag_Johnson.yml}}
+    substrate: {label: Glass, n: 1.52, k: 0.0}
+    controls: {wavelength-start: 400, wavelength-end: 800, wavelength-step: 2}
+    view: {polarization: average}

@@ -1,0 +1,31 @@
+id: grating-effective-film
+geometry: films
+source: plane_wave
+title: A sub-wavelength grating as an effective film
+caption: >-
+  A TiO₂ line grating (fill 50 %, depth 120 nm) on glass, replaced by the film it acts as for light polarized along
+  the lines: n_TE = √(f n_TiO₂² + (1 − f)) = 1.686. Valid only beyond the cutoff wavelength; a 300 nm pitch diffracts
+  into the glass below 456 nm.
+plot:
+  x_label: λ [nm]
+  y_label: R
+  series:
+  - {key: R, label: R (TE)}
+params:
+- {id: depth, label: Depth, unit: nm, target: film.layers.0.thickness, scale: 0.001, min: 20, max: 600, step: 5, value: 120}
+readouts:
+- {label: "R at 550 nm", measure: {at: [R, 550]}}
+checks:
+- check: at the half-wave wavelength 2 n_TE d = 404.6 nm the film is absent, bare glass ((n − 1)/(n + 1))²
+  reference: 0.04258
+  tolerance: 3.0e-4
+  source: closed form
+  measure: {at: [R, 405]}
+calculator:
+  film:
+    incident: {label: Air, n: 1.0, k: 0.0}
+    layers:
+    - {label: Grating (TE effective index), n: 1.686013, k: 0.0, thickness: 0.12}
+    substrate: {label: Glass, n: 1.52, k: 0.0}
+    controls: {wavelength-start: 380, wavelength-end: 1000, wavelength-step: 5}
+    view: {polarization: s}

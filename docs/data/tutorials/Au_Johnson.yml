@@ -1,0 +1,35 @@
+# Au — Johnson and Christy 1972: n,k 0.188–1.94 µm
+# The n,k table multilayer.app's tutorials used (multilayer_web assets/scripts/tutorial-materials.js, 2026), resampled
+# from the refractiveindex.info page main/main/Au/nk/Johnson.yml (public domain, CC0). Learn examples send these rows to the
+# API as an uploaded table, so the page and the live recompute interpolate the same numbers.
+REFERENCES: "refractiveindex.info main/Au/nk/Johnson.yml; resampled for multilayer.app"
+DATA:
+  - type: tabulated nk
+    data: |
+        0.38 1.46221 1.92881
+        0.4 1.46836 1.95298
+        0.42 1.4561 1.9541
+        0.44 1.4174 1.93217
+        0.46 1.34893 1.88515
+        0.48 1.21522 1.84338
+        0.5 0.97112 1.87367
+        0.52 0.63512 2.07207
+        0.54 0.48899 2.33888
+        0.56 0.38236 2.59384
+        0.58 0.29878 2.83742
+        0.6 0.24873 3.07398
+        0.62 0.20475 3.30385
+        0.64 0.17197 3.50291
+        0.66 0.13989 3.70151
+        0.68 0.13544 3.88196
+        0.7 0.131 4.0624
+        0.72 0.13301 4.23513
+        0.74 0.13689 4.40561
+        0.76 0.14123 4.57524
+        0.78 0.14737 4.74145
+        0.8 0.15352 4.90765
+        0.82 0.15966 5.07386
+        0.84 0.16267 5.23761
+        0.86 0.16549 5.40122
+        0.88 0.16831 5.56483
+        0.9 0.17435 5.72274

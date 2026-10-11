@@ -12,6 +12,7 @@ docs/
   classics/<id>.yaml                               one classic paper's page record
   materials.yaml                                   the refractiveindex.info pages the records cite
   verification.md                                  the Verification page's introduction; rows that open an example
+  data/tutorials/<name>.yml                        n,k tables the former multilayer.app tutorials used (provenance in each)
   manifest.json                                    generated: everything above, computed (commit it)
 ```
 
@@ -58,16 +59,25 @@ sliders' values, six significant digits), `code` (the example as a PyStratify sc
 `computed` and `pass`. A slider's `target` is a path into the `calculator` block (`film.layers.0.thickness`,
 `film.layers.0.layers.1.n` for a layer inside a `repeat`, `film.substrate.n`, `sphere.shells.0.thickness`); its value
 times `scale` must equal what the block holds, and it may not set the index of a medium taken from a database or
-table. Measures: `peak: <series>` and `minimum: <series>` (the x of the extremum, optionally `within: [lo, hi]`),
-`at: [<series>, x]` (the value at a grid point) and `crosses: [<series>, level]` (the first x reaching the level).
+table. A `target` may also be a list of paths, all set to the same value (the slices of a graded layer).
+Measures: `peak: <series>` and `minimum: <series>` (the x of the extremum, optionally `within: [lo, hi]`),
+`max: <series>`, `at: [<series>, x]` (the value at a grid point), `product: [[<series>, x], ...]`,
+`mean: [<series>, [lo, hi]]` (over the grid points in the range), `crosses: [<series>, level]` (the first x reaching
+the level) and `balance: true` (films: the largest |1 − R − T − Σ A_j|, Poynting's theorem). `readouts` are
+`{label, measure, unit?}` shown under the figure; the page recomputes them from each live answer.
 
 Computed so far, under a plane wave:
 
 - spheres: `q_ext`, `q_sca`, `q_abs` and the multipole parts of `q_sca`, `md_sca`/`ed_sca` (dipoles) and
   `mq_sca`/`eq_sca` (quadrupoles), against wavelength;
-- films: `R`, `T`, `A` (unpolarized) and `R_s`, `R_p`, `T_s`, `T_p`, against wavelength (`axis: wavelength`, the
-  default, at `controls.angle-deg`) or angle (`axis: angle`, at `controls.wavelength-start`), with
-  `pystratify.planar`, the engine the API's film `/calculate` runs.
+- films: `R`, `T`, `A` (unpolarized), `R_s`, `R_p`, `T_s`, `T_p` and `A_<i>`, the absorptance of layer *i* (1-based,
+  repeats expanded), against wavelength (`axis: wavelength`, the default, at `controls.angle-deg`; `units:
+  {wavelength: um}` for µm controls) or angle (`axis: angle`, at `controls.wavelength-start`; at most 181 angles,
+  the API's limit), with `pystratify.planar`, the engine the API's film `/calculate` runs.
+
+A medium's `table` may name a file (`table: {name, file: docs/data/...}`) instead of listing rows; the build reads its
+rows and sends them to the calculator and the API as an uploaded table. No medium is ever extrapolated: a grid
+outside a database page or a table is refused, as the API refuses it.
 
 **Classic** (`classics/<id>.yaml`): `id`, `position` (order on the page), `geometry`, `title`, `cite`, `doi`,
 `figure`, `shows`, `inputs`, `agreement`, `perturb`, `script` and `results` (under `crosscheck/classics/`),
