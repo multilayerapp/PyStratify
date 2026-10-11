@@ -1,0 +1,48 @@
+id: anger-2006
+kind: classic
+position: 14
+geometry: spheres
+title: Enhancement and quenching of fluorescence
+cite: P. Anger, P. Bharadwaj and L. Novotny, Phys. Rev. Lett. 96, 113002 (2006)
+doi: 10.1103/PhysRevLett.96.113002
+figure: 'Fig. 1a: quantum yield of a molecule beside an 80 nm gold sphere, against distance'
+shows: >-
+  Decay rates and quantum yield of a radial dipole at 650 nm, 0.5–100 nm from an 80 nm gold sphere in free space: quenching
+  at contact, radiation enhanced beyond.
+inputs: >-
+  Gold ε = −12.99 + 1.09i at 650 nm (printed), i.e. n + ik = 0.1511 + 3.6073i; free space; intrinsic quantum yield 1.
+agreement: >-
+  Times the plane-wave intensity at the molecule (a second run, the near field along the polarization), the fluorescence peaks
+  at 3.5 near z = 12 nm, as in Fig. 1b; 5.3, 2.2 and 1.04 for 100, 60 and 20 nm spheres.
+perturb: >-
+  Shrink the sphere to 20 nm: the quantum yield collapses over a much longer range, and Fig. 1b's enhancement disappears.
+script: crosscheck/classics/anger_2006.py
+results: crosscheck/classics/results/anger_2006.json
+calculator:
+  sphere:
+    shells:
+    - label: Au (ε printed)
+      n: 0.1511
+      k: 3.6073
+      thickness: 0.04
+    host:
+      label: Vacuum
+      n: 1.0
+      k: 0.0
+    start: 650
+    end: 650
+    step: 1
+  envelope:
+    kind: dipole
+    region: core
+    offset: 40.5
+    sweep: true
+    position_start: 40.5
+    position_end: 140.5
+    position_step: 0.5
+    start: 650
+    end: 650
+    step: 1
+    emitter_outputs:
+    - decay
+    - efficiency

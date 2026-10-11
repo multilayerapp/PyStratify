@@ -1,0 +1,52 @@
+id: yeh-1977
+kind: classic
+position: 1
+geometry: films
+title: Bragg reflectors, band by band
+cite: P. Yeh, A. Yariv and C.-S. Hong, J. Opt. Soc. Am. 67, 423 (1977)
+doi: 10.1364/JOSA.67.000423
+figure: 'Figs. 7–8: reflectivity of a 15-period stack for TE and TM waves from 0 to 85°'
+shows: >-
+  Reflectance against wavelength and angle for TM light, in GaAs: the stop bands, the 14 zeros between bands, and the TM gap
+  closing at the Brewster angle (40.5° inside GaAs).
+inputs: >-
+  The paper's figures are dimensionless; the indices are the GaAs/AlGaAs pair of its Fig. 12 (3.38, 2.89), quarter-wave layers
+  at 1 µm.
+agreement: >-
+  14 zeros between bands, as the paper states for N = 15; TM reflectance vanishes at the Brewster angle.
+perturb: >-
+  Switch the view to TE: the gaps stay open at every angle. Then cut the stack to 8 periods and count the zeros again.
+script: crosscheck/classics/yeh_1977.py
+results: crosscheck/classics/results/yeh_1977.json
+calculator:
+  film:
+    incident:
+      label: GaAs
+      n: 3.38
+      k: 0.0
+    layers:
+    - repeat: 15
+      layers:
+      - label: AlGaAs
+        n: 2.89
+        k: 0.0
+        thickness: 0.086505
+      - label: GaAs
+        n: 3.38
+        k: 0.0
+        thickness: 0.073964
+    substrate:
+      label: AlGaAs
+      n: 2.89
+      k: 0.0
+    controls:
+      wavelength-start: 600
+      wavelength-end: 2500
+      wavelength-step: 5
+      angle-start: 0
+      angle-end: 85
+      angle-step: 5
+      sweepMode: angle
+    view:
+      polarization: p
+      angleMetric: reflectance

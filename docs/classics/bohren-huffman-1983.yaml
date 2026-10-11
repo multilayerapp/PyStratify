@@ -1,0 +1,47 @@
+id: bohren-huffman-1983
+kind: classic
+position: 6
+geometry: cylinders
+title: 'The infinite cylinder: two polarizations'
+cite: >-
+  C. F. Bohren and D. R. Huffman, Absorption and Scattering of Light by Small Particles (Wiley, 1983), section 8.4
+doi: 10.1002/9783527618156
+figure: >-
+  Fig. 8.7: scattering per unit volume of a glass-like cylinder against diameter, polarized parallel and perpendicular to
+  its axis
+shows: >-
+  Scattering efficiency of a non-absorbing cylinder (n = 1.55, in air, 632.8 nm) swept from 10 nm to 1.5 µm in radius, for
+  light polarized along the axis; switch to the perpendicular polarization to see the textbook difference.
+inputs: >-
+  n = 1.55, λ = 0.6328 µm, air, normal incidence (p. 207). The book plots C_sca/V = 4Q/(πd); the calculator shows the efficiency
+  Q.
+agreement: >-
+  The parallel maxima 7.28, 9.52, 9.97 and 8.85 (×10⁴ cm⁻¹) at 0.16–0.61 µm diameter, and the perpendicular 7.97 at 0.50 µm,
+  against ~7.3, 9.5, 10.0, 8.8 and 8.0 read off Fig. 8.7.
+perturb: >-
+  Make the cylinder absorbing (k = 0.05): the ripple dies and both polarizations fall toward the geometric limit Q = 2.
+script: crosscheck/classics/bohren_huffman_1983.py
+results: crosscheck/classics/results/bohren_huffman_1983.json
+calculator:
+  cylinder:
+    shells:
+    - label: n = 1.55
+      n: 1.55
+      k: 0.0
+      thickness: 0.01
+    host:
+      label: Air
+      n: 1.0
+      k: 0.0
+  envelope:
+    start: 632.8
+    end: 632.8
+    step: 1
+    angle: 90
+    spectra_polarization: axial-electric
+    wave_sweep: thickness:1
+    wave_ranges:
+      thickness:1:
+        start: 10
+        end: 1500
+        step: 7.5

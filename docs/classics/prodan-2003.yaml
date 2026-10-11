@@ -1,0 +1,55 @@
+id: prodan-2003
+kind: classic
+position: 10
+geometry: spheres
+title: Plasmon hybridization in a nanomatryushka
+cite: E. Prodan, C. Radloff, N. J. Halas and P. Nordlander, Science 302, 419 (2003)
+doi: 10.1126/science.1089171
+figure: 'Fig. 4A: extinction of a concentric gold nanoshell, 80/107/135/157 nm'
+shows: >-
+  Extinction from 500 to 1900 nm: the inner- and outer-shell plasmons mix into a bonding peak (red) and an antibonding peak
+  (blue).
+inputs: >-
+  Silica core 80 nm, gold 27 nm, silica 28 nm, gold 22 nm (Fig. 4 caption). The paper prints no optical constants or host:
+  Johnson & Christy gold, Malitson silica, host n = 1.45 (the best fit to the marked peaks).
+agreement: >-
+  Peaks at 920 and 1465 nm against the marked ~900 and ~1550 nm; the shells alone peak at 913 and 1270 nm (marked ~900 and
+  ~1280).
+perturb: >-
+  Thicken the silica spacer to 236 nm (Fig. 4C): the shells decouple and the hybridized pair merges back.
+script: crosscheck/classics/prodan_2003.py
+results: crosscheck/classics/results/prodan_2003.json
+calculator:
+  sphere:
+    shells:
+    - label: SiO2
+      n: 1.45
+      k: 0.0
+      rii: SiO2_Malitson
+      thickness: 0.08
+    - label: Au
+      n: 0.2
+      k: 3.0
+      rii: Au_Johnson
+      thickness: 0.027
+    - label: SiO2
+      n: 1.45
+      k: 0.0
+      rii: SiO2_Malitson
+      thickness: 0.028
+    - label: Au
+      n: 0.2
+      k: 3.0
+      rii: Au_Johnson
+      thickness: 0.022
+    host:
+      label: Host
+      n: 1.45
+      k: 0.0
+    start: 500
+    end: 1900
+    step: 5
+  envelope:
+    start: 500
+    end: 1900
+    step: 5

@@ -1,0 +1,41 @@
+id: mohlenhoff-2005
+kind: classic
+position: 15
+geometry: spheres
+title: The Mie wave under infrared spectra of cells
+cite: B. Mohlenhoff, M. Romeo, M. Diem and B. R. Wood, Biophys. J. 88, 3635 (2005)
+doi: 10.1529/biophysj.104.057950
+figure: 'Fig. 4: scattering efficiency of non-absorbing spheres of index 1.33, radius 4–10 µm'
+shows: >-
+  Scattering efficiency of a 4 µm sphere of n = 1.33 in air from 600 to 7000 cm⁻¹: the broad oscillation that distorts infrared
+  spectra of cells and nuclei.
+inputs: n = 1.33, k = 0, radius 4 µm, air (Fig. 4 caption and Eq. 8).
+agreement: >-
+  The paper plots van de Hulst's approximation (its Eq. 8, maximum 3.17 near 2470 cm⁻¹), which the script reproduces; the
+  calculator's exact Mie peaks higher, Q = 4.0 near 2590 cm⁻¹.
+perturb: 'Raise the radius to 10 µm: the first maximum moves to ~1000 cm⁻¹, right under the protein bands.'
+script: crosscheck/classics/mohlenhoff_2005.py
+results: crosscheck/classics/results/mohlenhoff_2005.json
+calculator:
+  sphere:
+    shells:
+    - label: Cell (n = 1.33)
+      n: 1.33
+      k: 0.0
+      thickness: 4.0
+    host:
+      label: Air
+      n: 1.0
+      k: 0.0
+    start: 600
+    end: 7000
+    step: 20
+    changes:
+      spectralUnit: cm-1
+      lengthUnit: um
+  envelope:
+    spectral_unit: cm-1
+    length_unit: um
+    start: 600
+    end: 7000
+    step: 20

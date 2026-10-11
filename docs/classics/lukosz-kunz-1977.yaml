@@ -1,0 +1,46 @@
+id: lukosz-kunz-1977
+kind: classic
+position: 2
+geometry: films
+title: A dipole near a plane interface
+cite: W. Lukosz and R. E. Kunz, J. Opt. Soc. Am. 67, 1607 (1977)
+doi: 10.1364/JOSA.67.001607
+figure: 'Fig. 4: total radiated power L/L∞ against distance z0/λ1, relative index n = 1.5'
+shows: >-
+  The decay rate of an electric dipole in air, 3 to 600 nm above glass (n = 1.5) at 600 nm, perpendicular and parallel, relative
+  to the same dipole in air.
+inputs: Medium 1 air, medium 2 n = 1.5 (the paper gives only the ratio); λ = 600 nm, so z0/λ1 = 1 at 600 nm.
+agreement: >-
+  2.25 (perpendicular) and 1.36 (parallel) at contact against the paper's ~2.3 and ~1.4; the oscillation about 1 matches Fig.
+  4.
+perturb: >-
+  Make the substrate n = 3: the near-contact rise grows and the parallel dipole oscillates more strongly.
+script: crosscheck/classics/lukosz_kunz_1977.py
+results: crosscheck/classics/results/lukosz_kunz_1977.json
+calculator:
+  film:
+    incident:
+      label: Air
+      n: 1.0
+      k: 0.0
+    layers: []
+    substrate:
+      label: Glass
+      n: 1.5
+      k: 0.0
+    controls:
+      wavelength-start: 600
+      wavelength-end: 600
+  envelope:
+    kind: dipole
+    region: origin
+    offset: -3
+    sweep: true
+    position_start: -600
+    position_end: -3
+    position_step: 3
+    start: 600
+    end: 600
+    step: 5
+    emitter_outputs:
+    - decay

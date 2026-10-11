@@ -1,0 +1,50 @@
+id: fu-2013
+kind: classic
+position: 12
+geometry: spheres
+title: 'Directional scattering: the Kerker condition'
+cite: Y. H. Fu et al., Nat. Commun. 4, 1527 (2013)
+doi: 10.1038/ncomms2538
+figure: 'Fig. 1a: forward and backward scattering of a silicon sphere of radius 75 nm'
+shows: >-
+  Scattering of a 150 nm silicon sphere from 380 to 780 nm with its multipoles, and its far-field scattering pattern: pick
+  660 nm, where forward scattering dominates.
+inputs: Radius 75 nm, free space (Fig. 1 caption); Green 2008 silicon (the paper names none).
+agreement: >-
+  Forward/backward ratio peaks at 7.5 near 659 nm (paper: ~8 at 660 nm); F = B at 499 and 604 nm (paper: 500 and 603 nm).
+perturb: Change the radius to 65 nm and find the new wavelength of zero backward scattering.
+script: crosscheck/classics/fu_2013.py
+results: crosscheck/classics/results/fu_2013.json
+calculator:
+  sphere:
+    shells:
+    - label: Si
+      n: 3.9
+      k: 0.02
+      rii: Si_Green-2008
+      thickness: 0.075
+    host:
+      label: Vacuum
+      n: 1.0
+      k: 0.0
+    start: 380
+    end: 780
+    step: 2
+    changes:
+      multipoles:
+        kind: all
+        orders:
+          from: 1
+          to: 2
+      outputs:
+        active:
+        - scattering
+  envelope:
+    start: 380
+    end: 780
+    step: 2
+    multipoles:
+      kind: all
+      orders:
+        from: 1
+        to: 2

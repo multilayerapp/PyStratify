@@ -1,0 +1,40 @@
+# refractiveindex.info pages the content cites, at the commit the calculator pins (RI_DATABASE_SHA a66ef88,
+# multilayer backend/app.py). Each entry is the calculator's own material reference; `file` is the page,
+# copied into this repository (public domain, CC0), from which `python -m pystratify.docs build` computes.
+rii:
+  SiO2_Malitson:
+    shelf: main
+    shelf_name: MAIN - simple inorganic materials
+    book: SiO2
+    book_name: SiO2 (Silicon dioxide)
+    page: Malitson
+    name: 'Malitson 1965: n 0.21–6.7 µm'
+    data: main/SiO2/nk/Malitson.yml
+    file: crosscheck/classics/data/SiO2_Malitson.yml
+  Au_Johnson:
+    shelf: main
+    shelf_name: MAIN - simple inorganic materials
+    book: Au
+    book_name: Au (Gold)
+    page: Johnson
+    name: 'Johnson and Christy 1972: n,k 0.188–1.94 µm'
+    data: main/Au/nk/Johnson.yml
+    file: crosscheck/classics/data/Au_Johnson.yml
+  Si_Green-2008:
+    shelf: main
+    shelf_name: MAIN - simple inorganic materials
+    book: Si
+    book_name: Si (Silicon)
+    page: Green-2008
+    name: 'Green 2008: n,k 0.25–1.45 µm'
+    data: main/Si/nk/Green-2008.yml
+    file: crosscheck/classics/data/Si_Green-2008.yml
+  Ag_Johnson:
+    shelf: main
+    shelf_name: MAIN - simple inorganic materials
+    book: Ag
+    book_name: Ag (Silver)
+    page: Johnson
+    name: 'Johnson and Christy 1972: n,k 0.188–1.94 µm'
+    data: main/Ag/nk/Johnson.yml
+    file: crosscheck/classics/data/Ag_Johnson.yml

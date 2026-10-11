@@ -1,0 +1,46 @@
+id: ruppin-2001
+kind: classic
+position: 7
+geometry: cylinders
+title: A 1 nm sodium wire
+cite: R. Ruppin, Opt. Commun. 190, 205 (2001)
+doi: 10.1016/S0030-4018(01)01063-X
+figure: 'Fig. 1, dashed curve: classical extinction of a sodium wire of radius 1 nm'
+shows: >-
+  Extinction efficiency (log scale) of a 1 nm Na wire in vacuum, light polarized across the wire, from 156 to 545 nm (ω/ωp
+  = 1.4 to 0.4).
+inputs: Drude sodium as printed (ωp = 8.65e15 s⁻¹, γ = 0.01 ωp), as an uploaded table.
+agreement: >-
+  Resonance at ωp/√2 and peak log₁₀ C_e = 0.65, as in Fig. 1; the paper's solid curve adds a hydrodynamic correction the calculator
+  does not model.
+perturb: >-
+  Put the wire in a medium of ε = 2 (n = 1.414): the resonance moves to ωp/√3, as in the paper's Fig. 4.
+script: crosscheck/classics/ruppin_2001.py
+results: crosscheck/classics/results/ruppin_2001.json
+calculator:
+  cylinder:
+    shells:
+    - label: Na (Drude)
+      n: 0.5
+      k: 1.0
+      table:
+        name: Na, Drude (ωp = 8.65e15 s⁻¹, γ = 0.01 ωp)
+        drude:
+          from_um: 0.155
+          to_um: 0.545
+          count: 391
+          lambda_p_um: 0.21776318697212177
+          gamma: 0.01
+      thickness: 0.001
+    host:
+      label: Vacuum
+      n: 1.0
+      k: 0.0
+  envelope:
+    start: 156
+    end: 545
+    step: 1
+    angle: 90
+    spectra_polarization: axial-magnetic
+    plot_scales:
+      spectra: log

@@ -1,0 +1,63 @@
+id: ruan-fan-2010
+kind: classic
+position: 5
+geometry: cylinders
+title: Superscattering
+cite: Z. Ruan and S. Fan, Phys. Rev. Lett. 105, 013901 (2010)
+doi: 10.1103/PhysRevLett.105.013901
+figure: 'Fig. 4a (and Fig. 1): a three-layer nanorod whose m = 1–4 resonances coincide'
+shows: >-
+  Scattering and absorption widths of the silver-like rod across ω/ωp = 0.25–0.259 (531–550 nm), with the multipole orders
+  that add up.
+inputs: >-
+  Drude core (radius 0.3485 λp), ε = 12.96 shell to 0.5623 λp, Drude shell to 0.6370 λp, in air; losses 0.004 ωp and 0.012
+  ωp; axial-magnetic polarization. The scale λp = 137.6 nm (silver) is ours: the paper is scale-free.
+agreement: >-
+  Peak scattering 1.92 and absorption 0.73 (in 2λ/π) as printed; without loss the script reaches 7.87 against the printed
+  7.94.
+perturb: >-
+  Thin the high-index shell by 1 nm: the four resonances separate and the superscattering peak falls apart.
+script: crosscheck/classics/ruan_fan_2010.py
+results: crosscheck/classics/results/ruan_fan_2010.json
+calculator:
+  cylinder:
+    shells:
+    - label: Drude core
+      n: 0.1
+      k: 3.8
+      table:
+        name: Drude, γ = 0.004 ωp (λp = 137.6 nm)
+        drude:
+          from_um: 0.53
+          to_um: 0.552
+          count: 221
+          lambda_p_um: 0.1376
+          gamma: 0.004
+      thickness: 0.047954
+    - label: ε = 12.96
+      n: 3.6
+      k: 0.0
+      thickness: 0.029419
+    - label: Drude shell
+      n: 0.1
+      k: 3.8
+      table:
+        name: Drude, γ = 0.012 ωp (λp = 137.6 nm)
+        drude:
+          from_um: 0.53
+          to_um: 0.552
+          count: 221
+          lambda_p_um: 0.1376
+          gamma: 0.012
+      thickness: 0.010279
+    host:
+      label: Air
+      n: 1.0
+      k: 0.0
+  envelope:
+    start: 531
+    end: 550
+    step: 0.05
+    angle: 90
+    spectra_polarization: axial-magnetic
+    cross_section_units: efficiency

@@ -1,0 +1,53 @@
+id: si-sphere-mie
+geometry: spheres
+source: plane_wave
+title: A silicon sphere under a plane wave
+caption: >-
+  Extinction and scattering efficiencies of a silicon sphere in free space, with the magnetic-dipole (b₁) part of the
+  scattering. Change the radius: every resonance moves to longer wavelengths, the magnetic dipole first.
+plot:
+  x_label: λ [nm]
+  y_label: Q
+  series:
+  - key: q_ext
+    label: Q_ext
+  - key: q_sca
+    label: Q_sca
+  - key: md_sca
+    label: Q_sca, magnetic dipole b_1
+params:
+- id: radius
+  label: Radius
+  unit: nm
+  target: shells.0.thickness
+  scale: 0.001
+  min: 50
+  max: 135
+  step: 5
+  value: 75
+checks:
+- check: magnetic-dipole peak, radius 75 nm (nm)
+  reference: 607
+  tolerance: 15
+  source: Kuznetsov et al., Sci. Rep. 2, 492 (2012), Fig. 3c(iv), read
+  measure:
+    peak: md_sca
+calculator:
+  sphere:
+    shells:
+    - label: Si
+      n: 3.9
+      k: 0.02
+      rii: Si_Green-2008
+      thickness: 0.075
+    host:
+      label: Vacuum
+      n: 1.0
+      k: 0.0
+    start: 430
+    end: 800
+    step: 2
+  envelope:
+    start: 430
+    end: 800
+    step: 2

@@ -1,0 +1,9207 @@
+{
+ "schema": 1,
+ "generator": "pystratify 0.10.5",
+ "records": [
+  {
+   "id": "mie-scattering",
+   "kind": "learn",
+   "geometry": "spheres",
+   "title": "Mie theory: light scattered by a sphere",
+   "summary": "How a plane wave scatters off a homogeneous sphere: the multipole expansion, the coefficients a_ℓ and b_ℓ from two boundary conditions per order, the efficiencies, and where the series can stop.",
+   "chapter": "Mie theory",
+   "chapter_order": 1,
+   "order": 1,
+   "slug": "mie-scattering",
+   "url": "learn/spheres/mie-scattering.html",
+   "topic": "mie",
+   "sources": [
+    "plane_wave"
+   ],
+   "examples": [
+    "si-sphere-mie"
+   ],
+   "references": [
+    {
+     "cite": "G. Mie, Ann. Phys. 330, 377 (1908)",
+     "doi": "10.1002/andp.19083300302"
+    },
+    {
+     "cite": "C. F. Bohren and D. R. Huffman, Absorption and Scattering of Light by Small Particles (Wiley, 1983), ch. 4",
+     "doi": "10.1002/9783527618156"
+    },
+    {
+     "cite": "W. J. Wiscombe, Appl. Opt. 19, 1505 (1980)",
+     "doi": "10.1364/AO.19.001505"
+    },
+    {
+     "cite": "A. Moroz, Ann. Phys. 315, 352 (2005)",
+     "doi": "10.1016/j.aop.2004.07.002"
+    },
+    {
+     "cite": "A. I. Kuznetsov et al., Sci. Rep. 2, 492 (2012)",
+     "doi": "10.1038/srep00492"
+    }
+   ],
+   "status": "draft",
+   "body": "A sphere of radius $a$ and refractive index $n_s$ sits in a host of index $n_h$, lit by a plane wave of vacuum\nwavelength $\\lambda$. Two numbers decide everything that follows: the **size parameter** and the **relative index**,\n\n$$\nx = \\frac{2\\pi n_h a}{\\lambda}, \\qquad m = \\frac{n_s}{n_h}.\n$$\n\nGustav Mie solved this problem exactly in 1908, to explain why colloidal gold is red, violet or blue depending on the\nsize of its particles. The same solution describes a raindrop, a silicon nanoparticle and a biological cell under an\ninfrared microscope.\n\n## Fields as a sum of multipoles\n\nIn spherical coordinates the vector wave equation separates. The fields inside and outside the sphere become sums of\nvector spherical harmonics, each labelled by an angular order $\\ell = 1, 2, \\dots$ (dipole, quadrupole, …) and by its\ncharacter: **electric** (transverse magnetic, TM) or **magnetic** (transverse electric, TE). The radial dependence of\nevery term obeys the spherical Bessel equation, a second-order linear equation, so in each region it is a combination\nof two independent solutions. We use the Riccati–Bessel functions\n\n$$\n\\psi_\\ell(\\rho) = \\rho\\, j_\\ell(\\rho), \\qquad \\xi_\\ell(\\rho) = \\rho\\, h^{(1)}_\\ell(\\rho),\n$$\n\nregular at the centre and outgoing at infinity respectively.\n\n## Two boundary conditions per order\n\nAt $r = a$ the tangential components of $\\mathbf{E}$ and $\\mathbf{H}$ are continuous. For each order $\\ell$ and each\ncharacter this gives two linear equations in two unknowns, the same $2\\times 2$ structure as a single interface of a\nthin film. Solving them gives the scattering coefficients of a non-magnetic sphere (time dependence\n$e^{-i\\omega t}$):\n\n$$\na_\\ell = \\frac{m\\,\\psi_\\ell(mx)\\,\\psi_\\ell'(x) - \\psi_\\ell(x)\\,\\psi_\\ell'(mx)}{m\\,\\psi_\\ell(mx)\\,\\xi_\\ell'(x) - \\xi_\\ell(x)\\,\\psi_\\ell'(mx)},\n\\qquad\nb_\\ell = \\frac{\\psi_\\ell(mx)\\,\\psi_\\ell'(x) - m\\,\\psi_\\ell(x)\\,\\psi_\\ell'(mx)}{\\psi_\\ell(mx)\\,\\xi_\\ell'(x) - m\\,\\xi_\\ell(x)\\,\\psi_\\ell'(mx)}.\n$$\n\n$a_\\ell$ is the electric multipole of order $\\ell$, $b_\\ell$ the magnetic one. The resonances of the sphere live in the\ndenominators: where one nearly vanishes, its coefficient peaks and the sphere radiates strongly in that multipole. Add\nshells and each interface contributes one more $2\\times 2$ matrix; that is the transfer-matrix solution of the\nmultilayered sphere, and what PyStratify computes for any number of layers.\n\n## Efficiencies\n\nDividing the cross sections by the geometric area $\\pi a^2$ gives the efficiencies:\n\n$$\nQ_\\mathrm{sca} = \\frac{2}{x^2}\\sum_{\\ell=1}^{\\infty}(2\\ell+1)\\left(|a_\\ell|^2 + |b_\\ell|^2\\right),\n\\qquad\nQ_\\mathrm{ext} = \\frac{2}{x^2}\\sum_{\\ell=1}^{\\infty}(2\\ell+1)\\,\\mathrm{Re}\\,(a_\\ell + b_\\ell),\n$$\n\nand $Q_\\mathrm{abs} = Q_\\mathrm{ext} - Q_\\mathrm{sca}$. Each term of the sums is the share of one multipole, which is\nhow the calculator splits a spectrum into its electric and magnetic orders.\n\n## A silicon sphere\n\nSilicon has an index near 4 across the visible. Inside so dense a particle the wavelength shrinks to $\\lambda/n_s$, and\nwhen it becomes comparable to the diameter the field inside circulates: a loop of displacement current, the\n**magnetic dipole** $b_1$. It is the lowest resonance of a high-index sphere, longer in wavelength than the electric\ndipole $a_1$ that follows it, and it gives such particles their colours (Kuznetsov et al., 2012).\n\n::: example si-sphere-mie\n\nMove the radius from 50 to 135 nm and the magnetic dipole walks across the visible spectrum; the electric dipole and\nthen the magnetic quadrupole follow it at shorter wavelengths.\n\n## Where the series stops\n\nThe sums converge once $\\ell$ exceeds the size parameter by a few terms. Wiscombe's rule\n\n$$\n\\ell_\\mathrm{max} = x + 4x^{1/3} + 2\n$$\n\nis accurate for far-field quantities. For a high-index core the internal size parameter $|m|x$ matters as well, so\nPyStratify, and the calculator through it, take the larger of the two.\n\n## Two limits worth knowing\n\nFor a sphere much smaller than the wavelength ($x \\ll 1$) only $a_1$ survives, and\n\n$$\nQ_\\mathrm{sca} \\approx \\frac{8}{3}\\,x^4 \\left|\\frac{m^2 - 1}{m^2 + 2}\\right|^2,\n$$\n\nRayleigh's $\\lambda^{-4}$ law. For a metal the denominator vanishes near $\\varepsilon_s = -2\\varepsilon_h$: that is the\nlocalized surface plasmon of a small gold or silver particle. For a sphere much larger than the wavelength,\n$Q_\\mathrm{ext} \\to 2$: the sphere removes twice the light that falls on its cross section, half by absorption or\nreflection and half by diffraction around its edge.\n",
+   "prev": null,
+   "next": null
+  },
+  {
+   "id": "yeh-1977",
+   "kind": "classic",
+   "position": 1,
+   "geometry": "films",
+   "title": "Bragg reflectors, band by band",
+   "cite": "P. Yeh, A. Yariv and C.-S. Hong, J. Opt. Soc. Am. 67, 423 (1977)",
+   "doi": "10.1364/JOSA.67.000423",
+   "figure": "Figs. 7–8: reflectivity of a 15-period stack for TE and TM waves from 0 to 85°",
+   "shows": "Reflectance against wavelength and angle for TM light, in GaAs: the stop bands, the 14 zeros between bands, and the TM gap closing at the Brewster angle (40.5° inside GaAs).",
+   "inputs": "The paper's figures are dimensionless; the indices are the GaAs/AlGaAs pair of its Fig. 12 (3.38, 2.89), quarter-wave layers at 1 µm.",
+   "agreement": "14 zeros between bands, as the paper states for N = 15; TM reflectance vanishes at the Brewster angle.",
+   "perturb": "Switch the view to TE: the gaps stay open at every angle. Then cut the stack to 8 periods and count the zeros again.",
+   "script": "crosscheck/classics/yeh_1977.py",
+   "results": "crosscheck/classics/results/yeh_1977.json",
+   "calculator": {
+    "film": {
+     "incident": {
+      "label": "GaAs",
+      "n": 3.38,
+      "k": 0.0
+     },
+     "layers": [
+      {
+       "repeat": 15,
+       "layers": [
+        {
+         "label": "AlGaAs",
+         "n": 2.89,
+         "k": 0.0,
+         "thickness": 0.086505
+        },
+        {
+         "label": "GaAs",
+         "n": 3.38,
+         "k": 0.0,
+         "thickness": 0.073964
+        }
+       ]
+      }
+     ],
+     "substrate": {
+      "label": "AlGaAs",
+      "n": 2.89,
+      "k": 0.0
+     },
+     "controls": {
+      "wavelength-start": 600,
+      "wavelength-end": 2500,
+      "wavelength-step": 5,
+      "angle-start": 0,
+      "angle-end": 85,
+      "angle-step": 5,
+      "sweepMode": "angle"
+     },
+     "view": {
+      "polarization": "p",
+      "angleMetric": "reflectance"
+     }
+    }
+   },
+   "checks": [
+    {
+     "check": "zeros of R between the first two bands (N - 1)",
+     "paper": 14,
+     "computed": 14.0,
+     "tolerance": 0,
+     "pass": true,
+     "source": "p. 426"
+    },
+    {
+     "check": "first band peak R at 0 deg (Yeh's unprinted pair has more contrast)",
+     "paper": 1.0,
+     "computed": 0.9693,
+     "tolerance": null,
+     "pass": null,
+     "source": "Fig. 7"
+    },
+    {
+     "check": "TM at the Brewster angle: largest R anywhere",
+     "paper": 0.0,
+     "computed": 0.0,
+     "tolerance": 1e-06,
+     "pass": true,
+     "source": "Fig. 4 / Fig. 8: gaps close at θ_B"
+    },
+    {
+     "check": "TM at 0 deg: band peak equals TE (the gap exists off θ_B)",
+     "paper": 0.9693283453719409,
+     "computed": 0.9693,
+     "tolerance": 1e-09,
+     "pass": true,
+     "source": "Fig. 8"
+    },
+    {
+     "check": "TE at 85 deg: R across the long-wavelength range",
+     "paper": 1.0,
+     "computed": 1.0,
+     "tolerance": 0.01,
+     "pass": true,
+     "source": "Fig. 7, top panel"
+    }
+   ]
+  },
+  {
+   "id": "lukosz-kunz-1977",
+   "kind": "classic",
+   "position": 2,
+   "geometry": "films",
+   "title": "A dipole near a plane interface",
+   "cite": "W. Lukosz and R. E. Kunz, J. Opt. Soc. Am. 67, 1607 (1977)",
+   "doi": "10.1364/JOSA.67.001607",
+   "figure": "Fig. 4: total radiated power L/L∞ against distance z0/λ1, relative index n = 1.5",
+   "shows": "The decay rate of an electric dipole in air, 3 to 600 nm above glass (n = 1.5) at 600 nm, perpendicular and parallel, relative to the same dipole in air.",
+   "inputs": "Medium 1 air, medium 2 n = 1.5 (the paper gives only the ratio); λ = 600 nm, so z0/λ1 = 1 at 600 nm.",
+   "agreement": "2.25 (perpendicular) and 1.36 (parallel) at contact against the paper's ~2.3 and ~1.4; the oscillation about 1 matches Fig. 4.",
+   "perturb": "Make the substrate n = 3: the near-contact rise grows and the parallel dipole oscillates more strongly.",
+   "script": "crosscheck/classics/lukosz_kunz_1977.py",
+   "results": "crosscheck/classics/results/lukosz_kunz_1977.json",
+   "calculator": {
+    "film": {
+     "incident": {
+      "label": "Air",
+      "n": 1.0,
+      "k": 0.0
+     },
+     "layers": [],
+     "substrate": {
+      "label": "Glass",
+      "n": 1.5,
+      "k": 0.0
+     },
+     "controls": {
+      "wavelength-start": 600,
+      "wavelength-end": 600
+     }
+    },
+    "envelope": {
+     "kind": "dipole",
+     "region": "origin",
+     "offset": -3,
+     "sweep": true,
+     "position_start": -600,
+     "position_end": -3,
+     "position_step": 3,
+     "start": 600,
+     "end": 600,
+     "step": 5,
+     "emitter_outputs": [
+      "decay"
+     ]
+    }
+   },
+   "checks": [
+    {
+     "check": "e, perp, n = 1.5, at contact",
+     "paper": 2.3,
+     "computed": 2.2456,
+     "tolerance": 0.1,
+     "pass": true,
+     "source": "Fig. 4, read"
+    },
+    {
+     "check": "e, par, n = 1.5, at contact",
+     "paper": 1.4,
+     "computed": 1.356,
+     "tolerance": 0.1,
+     "pass": true,
+     "source": "Fig. 4, read"
+    },
+    {
+     "check": "e, par, n = 3: first minimum",
+     "paper": 0.9,
+     "computed": 0.8991,
+     "tolerance": 0.05,
+     "pass": true,
+     "source": "Fig. 4, read"
+    },
+    {
+     "check": "e, par, n = 3: z0/λ1 of the first minimum",
+     "paper": 0.13,
+     "computed": 0.135,
+     "tolerance": 0.04,
+     "pass": true,
+     "source": "Fig. 4, read"
+    },
+    {
+     "check": "e, par, n = 3: second minimum near z0/λ1 = 0.6",
+     "paper": 0.92,
+     "computed": 0.9046,
+     "tolerance": 0.05,
+     "pass": true,
+     "source": "Fig. 4, read"
+    },
+    {
+     "check": "e, par, n = 3: maximum near z0/λ1 = 0.35",
+     "paper": 1.15,
+     "computed": 1.1589,
+     "tolerance": 0.06,
+     "pass": true,
+     "source": "Fig. 4, read"
+    },
+    {
+     "check": "e, perp, n = 1.5, z0/λ1 = 0.4: back to ~1",
+     "paper": 1.0,
+     "computed": 0.9767,
+     "tolerance": 0.05,
+     "pass": true,
+     "source": "Fig. 4, read"
+    },
+    {
+     "check": "m, perp, n = 1.5, at contact",
+     "paper": 2.0,
+     "computed": 2.0368,
+     "tolerance": 0.15,
+     "pass": true,
+     "source": "Fig. 6, read"
+    }
+   ]
+  },
+  {
+   "id": "neyts-1998",
+   "kind": "classic",
+   "position": 3,
+   "geometry": "films",
+   "title": "Light out of a thin-film microcavity",
+   "cite": "K. A. Neyts, J. Opt. Soc. Am. A 15, 962 (1998)",
+   "doi": "10.1364/JOSAA.15.000962",
+   "figure": "Figs. 9–10: emission into air (E_appl) and total rate F of a dipole in ZnS on aluminium",
+   "shows": "A randomly oriented dipole swept through a 190.4 nm ZnS layer on Al at 600 nm, from the air side (depth 2 nm) to the mirror: how much of its light escapes into air, how much is trapped or absorbed.",
+   "inputs": "ZnS n = 2.3, Al n = 1 + 6i, air (printed); the optimum thickness n·d/λ = 0.73. Al is a 200 nm opaque layer, since the calculator's outer media must be lossless.",
+   "agreement": "Useful emission 0.376 and total rate 0.825 with the dipole at the air side, against the printed 0.38 and 0.817.",
+   "perturb": "Change the ZnS thickness by a quarter wave (65 nm) and watch the outcoupled fraction collapse.",
+   "script": "crosscheck/classics/neyts_1998.py",
+   "results": "crosscheck/classics/results/neyts_1998.json",
+   "calculator": {
+    "film": {
+     "incident": {
+      "label": "Air",
+      "n": 1.0,
+      "k": 0.0
+     },
+     "layers": [
+      {
+       "label": "ZnS",
+       "n": 2.3,
+       "k": 0.0,
+       "thickness": 0.1904
+      },
+      {
+       "label": "Al",
+       "n": 1.0,
+       "k": 6.0,
+       "thickness": 0.2
+      }
+     ],
+     "substrate": {
+      "label": "Air",
+      "n": 1.0,
+      "k": 0.0
+     },
+     "controls": {
+      "wavelength-start": 600,
+      "wavelength-end": 600
+     }
+    },
+    "envelope": {
+     "kind": "dipole",
+     "region": "origin",
+     "offset": 2,
+     "sweep": true,
+     "position_start": 2,
+     "position_end": 188.4,
+     "position_step": 2,
+     "start": 600,
+     "end": 600,
+     "step": 5,
+     "emitter_outputs": [
+      "decay",
+      "efficiency"
+     ]
+    }
+   },
+   "checks": [
+    {
+     "check": "maximum E_appl (dipole at the air side)",
+     "paper": 0.38,
+     "computed": 0.3762,
+     "tolerance": 0.02,
+     "pass": true,
+     "source": "Fig. 11 caption, p. 970"
+    },
+    {
+     "check": "F at that point",
+     "paper": 0.817,
+     "computed": 0.8253,
+     "tolerance": 0.03,
+     "pass": true,
+     "source": "text p. 970"
+    },
+    {
+     "check": "optimum thickness n_e d_e / λ (dipole at the air side)",
+     "paper": 0.73,
+     "computed": 0.725,
+     "tolerance": 0.03,
+     "pass": true,
+     "source": "p. 970, Fig. 11 caption"
+    },
+    {
+     "check": "next thickness maximum, n_e d_e / λ (half a wave later)",
+     "paper": 1.23,
+     "computed": 1.25,
+     "tolerance": null,
+     "pass": null,
+     "source": "the (0.19 + 0.5 l) rule of p. 969 is for Fig. 7's normal direction"
+    },
+    {
+     "check": "F near the mirror (z_ = 5 nm) is large",
+     "paper": 5.0,
+     "computed": 19.5319,
+     "tolerance": null,
+     "pass": null,
+     "source": "Fig. 9: contours 2-5 near Al"
+    }
+   ]
+  },
+  {
+   "id": "katsidis-2002",
+   "kind": "classic",
+   "position": 4,
+   "geometry": "films",
+   "title": "Coherent film, incoherent wafer",
+   "cite": "C. C. Katsidis and D. I. Siapkas, Appl. Opt. 41, 3978 (2002)",
+   "doi": "10.1364/AO.41.003978",
+   "figure": "Fig. 2: infrared reflectance of 2 µm SiC on a 300 µm Si wafer, finite incoherent or semi-infinite",
+   "shows": "Reflectance from 1.43 to 14.3 µm (7000 to 700 cm⁻¹): film fringes riding on the wafer's back-face reflection, and the SiC reststrahlen band.",
+   "inputs": "SiC from the paper's oscillator (ε∞ 6.7, Δε 3.3, ω_TO 796.5 cm⁻¹, γ 20 cm⁻¹) as an uploaded table; Si n = 3.42, 300 µm, incoherent.",
+   "agreement": "Fringe band 0.34–0.46 (incoherent wafer) and 0.09–0.30 (semi-infinite) against Fig. 2's ~0.33–0.50 and ~0.07–0.30; identical in the reststrahlen band.",
+   "perturb": "Make the wafer the substrate instead of an incoherent layer: the whole level drops except between 790 and 870 cm⁻¹.",
+   "script": "crosscheck/classics/katsidis_2002.py",
+   "results": "crosscheck/classics/results/katsidis_2002.json",
+   "calculator": {
+    "film": {
+     "incident": {
+      "label": "Air",
+      "n": 1.0,
+      "k": 0.0
+     },
+     "layers": [
+      {
+       "label": "SiC",
+       "n": 2.6,
+       "k": 0.0,
+       "table": {
+        "name": "SiC, single oscillator (Katsidis & Siapkas 2002)",
+        "rows": [
+         [
+          1.428571,
+          2.580061,
+          2.4e-05
+         ],
+         [
+          1.460795,
+          2.579673,
+          2.6e-05
+         ],
+         [
+          1.493018,
+          2.579276,
+          2.8e-05
+         ],
+         [
+          1.525242,
+          2.578869,
+          3e-05
+         ],
+         [
+          1.557465,
+          2.578454,
+          3.2e-05
+         ],
+         [
+          1.589689,
+          2.578029,
+          3.4e-05
+         ],
+         [
+          1.621912,
+          2.577594,
+          3.6e-05
+         ],
+         [
+          1.654135,
+          2.577151,
+          3.8e-05
+         ],
+         [
+          1.686359,
+          2.576698,
+          4e-05
+         ],
+         [
+          1.718582,
+          2.576235,
+          4.3e-05
+         ],
+         [
+          1.750806,
+          2.575763,
+          4.5e-05
+         ],
+         [
+          1.783029,
+          2.575281,
+          4.8e-05
+         ],
+         [
+          1.815252,
+          2.57479,
+          5.1e-05
+         ],
+         [
+          1.847476,
+          2.574289,
+          5.4e-05
+         ],
+         [
+          1.879699,
+          2.573778,
+          5.7e-05
+         ],
+         [
+          1.911923,
+          2.573258,
+          6e-05
+         ],
+         [
+          1.944146,
+          2.572728,
+          6.3e-05
+         ],
+         [
+          1.976369,
+          2.572187,
+          6.6e-05
+         ],
+         [
+          2.008593,
+          2.571637,
+          6.9e-05
+         ],
+         [
+          2.040816,
+          2.571078,
+          7.3e-05
+         ],
+         [
+          2.07304,
+          2.570508,
+          7.7e-05
+         ],
+         [
+          2.105263,
+          2.569928,
+          8e-05
+         ],
+         [
+          2.137487,
+          2.569337,
+          8.4e-05
+         ],
+         [
+          2.16971,
+          2.568737,
+          8.8e-05
+         ],
+         [
+          2.201933,
+          2.568127,
+          9.3e-05
+         ],
+         [
+          2.234157,
+          2.567506,
+          9.7e-05
+         ],
+         [
+          2.26638,
+          2.566875,
+          0.000101
+         ],
+         [
+          2.298604,
+          2.566233,
+          0.000106
+         ],
+         [
+          2.330827,
+          2.565581,
+          0.000111
+         ],
+         [
+          2.36305,
+          2.564918,
+          0.000116
+         ],
+         [
+          2.395274,
+          2.564245,
+          0.000121
+         ],
+         [
+          2.427497,
+          2.563561,
+          0.000126
+         ],
+         [
+          2.459721,
+          2.562866,
+          0.000131
+         ],
+         [
+          2.491944,
+          2.56216,
+          0.000137
+         ],
+         [
+          2.524168,
+          2.561444,
+          0.000143
+         ],
+         [
+          2.556391,
+          2.560717,
+          0.000149
+         ],
+         [
+          2.588614,
+          2.559978,
+          0.000155
+         ],
+         [
+          2.620838,
+          2.559228,
+          0.000161
+         ],
+         [
+          2.653061,
+          2.558468,
+          0.000167
+         ],
+         [
+          2.685285,
+          2.557696,
+          0.000174
+         ],
+         [
+          2.717508,
+          2.556912,
+          0.000181
+         ],
+         [
+          2.749731,
+          2.556117,
+          0.000188
+         ],
+         [
+          2.781955,
+          2.555311,
+          0.000195
+         ],
+         [
+          2.814178,
+          2.554493,
+          0.000202
+         ],
+         [
+          2.846402,
+          2.553663,
+          0.00021
+         ],
+         [
+          2.878625,
+          2.552822,
+          0.000218
+         ],
+         [
+          2.910849,
+          2.551968,
+          0.000226
+         ],
+         [
+          2.943072,
+          2.551103,
+          0.000234
+         ],
+         [
+          2.975295,
+          2.550226,
+          0.000243
+         ],
+         [
+          3.007519,
+          2.549336,
+          0.000251
+         ],
+         [
+          3.039742,
+          2.548434,
+          0.00026
+         ],
+         [
+          3.071966,
+          2.54752,
+          0.00027
+         ],
+         [
+          3.104189,
+          2.546594,
+          0.000279
+         ],
+         [
+          3.136412,
+          2.545654,
+          0.000289
+         ],
+         [
+          3.168636,
+          2.544703,
+          0.000299
+         ],
+         [
+          3.200859,
+          2.543738,
+          0.000309
+         ],
+         [
+          3.233083,
+          2.542761,
+          0.000319
+         ],
+         [
+          3.265306,
+          2.54177,
+          0.00033
+         ],
+         [
+          3.29753,
+          2.540767,
+          0.000341
+         ],
+         [
+          3.329753,
+          2.53975,
+          0.000352
+         ],
+         [
+          3.361976,
+          2.538721,
+          0.000364
+         ],
+         [
+          3.3942,
+          2.537677,
+          0.000375
+         ],
+         [
+          3.426423,
+          2.53662,
+          0.000388
+         ],
+         [
+          3.458647,
+          2.53555,
+          0.0004
+         ],
+         [
+          3.49087,
+          2.534465,
+          0.000413
+         ],
+         [
+          3.523093,
+          2.533367,
+          0.000426
+         ],
+         [
+          3.555317,
+          2.532255,
+          0.000439
+         ],
+         [
+          3.58754,
+          2.531128,
+          0.000453
+         ],
+         [
+          3.619764,
+          2.529987,
+          0.000467
+         ],
+         [
+          3.651987,
+          2.528832,
+          0.000481
+         ],
+         [
+          3.684211,
+          2.527662,
+          0.000496
+         ],
+         [
+          3.716434,
+          2.526478,
+          0.000511
+         ],
+         [
+          3.748657,
+          2.525278,
+          0.000526
+         ],
+         [
+          3.780881,
+          2.524064,
+          0.000542
+         ],
+         [
+          3.813104,
+          2.522834,
+          0.000558
+         ],
+         [
+          3.845328,
+          2.52159,
+          0.000575
+         ],
+         [
+          3.877551,
+          2.520329,
+          0.000592
+         ],
+         [
+          3.909774,
+          2.519053,
+          0.000609
+         ],
+         [
+          3.941998,
+          2.517762,
+          0.000627
+         ],
+         [
+          3.974221,
+          2.516454,
+          0.000645
+         ],
+         [
+          4.006445,
+          2.51513,
+          0.000664
+         ],
+         [
+          4.038668,
+          2.51379,
+          0.000683
+         ],
+         [
+          4.070892,
+          2.512434,
+          0.000702
+         ],
+         [
+          4.103115,
+          2.51106,
+          0.000722
+         ],
+         [
+          4.135338,
+          2.509671,
+          0.000742
+         ],
+         [
+          4.167562,
+          2.508264,
+          0.000763
+         ],
+         [
+          4.199785,
+          2.50684,
+          0.000784
+         ],
+         [
+          4.232009,
+          2.505398,
+          0.000806
+         ],
+         [
+          4.264232,
+          2.503939,
+          0.000828
+         ],
+         [
+          4.296455,
+          2.502463,
+          0.000851
+         ],
+         [
+          4.328679,
+          2.500968,
+          0.000874
+         ],
+         [
+          4.360902,
+          2.499455,
+          0.000898
+         ],
+         [
+          4.393126,
+          2.497924,
+          0.000923
+         ],
+         [
+          4.425349,
+          2.496375,
+          0.000948
+         ],
+         [
+          4.457573,
+          2.494806,
+          0.000973
+         ],
+         [
+          4.489796,
+          2.493219,
+          0.000999
+         ],
+         [
+          4.522019,
+          2.491612,
+          0.001026
+         ],
+         [
+          4.554243,
+          2.489987,
+          0.001053
+         ],
+         [
+          4.586466,
+          2.488341,
+          0.001081
+         ],
+         [
+          4.61869,
+          2.486675,
+          0.001109
+         ],
+         [
+          4.650913,
+          2.48499,
+          0.001139
+         ],
+         [
+          4.683136,
+          2.483284,
+          0.001168
+         ],
+         [
+          4.71536,
+          2.481557,
+          0.001199
+         ],
+         [
+          4.747583,
+          2.47981,
+          0.00123
+         ],
+         [
+          4.779807,
+          2.478041,
+          0.001262
+         ],
+         [
+          4.81203,
+          2.476251,
+          0.001294
+         ],
+         [
+          4.844253,
+          2.474439,
+          0.001328
+         ],
+         [
+          4.876477,
+          2.472606,
+          0.001362
+         ],
+         [
+          4.9087,
+          2.47075,
+          0.001396
+         ],
+         [
+          4.940924,
+          2.468871,
+          0.001432
+         ],
+         [
+          4.973147,
+          2.46697,
+          0.001468
+         ],
+         [
+          5.005371,
+          2.465046,
+          0.001505
+         ],
+         [
+          5.037594,
+          2.463098,
+          0.001543
+         ],
+         [
+          5.069817,
+          2.461127,
+          0.001582
+         ],
+         [
+          5.102041,
+          2.459132,
+          0.001622
+         ],
+         [
+          5.134264,
+          2.457112,
+          0.001663
+         ],
+         [
+          5.166488,
+          2.455068,
+          0.001704
+         ],
+         [
+          5.198711,
+          2.452998,
+          0.001747
+         ],
+         [
+          5.230934,
+          2.450904,
+          0.00179
+         ],
+         [
+          5.263158,
+          2.448783,
+          0.001834
+         ],
+         [
+          5.295381,
+          2.446637,
+          0.00188
+         ],
+         [
+          5.327605,
+          2.444464,
+          0.001926
+         ],
+         [
+          5.359828,
+          2.442264,
+          0.001973
+         ],
+         [
+          5.392052,
+          2.440038,
+          0.002022
+         ],
+         [
+          5.424275,
+          2.437783,
+          0.002072
+         ],
+         [
+          5.456498,
+          2.435501,
+          0.002122
+         ],
+         [
+          5.488722,
+          2.43319,
+          0.002174
+         ],
+         [
+          5.520945,
+          2.430851,
+          0.002227
+         ],
+         [
+          5.553169,
+          2.428483,
+          0.002281
+         ],
+         [
+          5.585392,
+          2.426084,
+          0.002337
+         ],
+         [
+          5.617615,
+          2.423656,
+          0.002393
+         ],
+         [
+          5.649839,
+          2.421198,
+          0.002451
+         ],
+         [
+          5.682062,
+          2.418708,
+          0.002511
+         ],
+         [
+          5.714286,
+          2.416187,
+          0.002571
+         ],
+         [
+          5.746509,
+          2.413634,
+          0.002633
+         ],
+         [
+          5.778733,
+          2.411049,
+          0.002697
+         ],
+         [
+          5.810956,
+          2.408431,
+          0.002762
+         ],
+         [
+          5.843179,
+          2.405779,
+          0.002828
+         ],
+         [
+          5.875403,
+          2.403093,
+          0.002896
+         ],
+         [
+          5.907626,
+          2.400373,
+          0.002966
+         ],
+         [
+          5.93985,
+          2.397618,
+          0.003037
+         ],
+         [
+          5.972073,
+          2.394828,
+          0.00311
+         ],
+         [
+          6.004296,
+          2.392001,
+          0.003184
+         ],
+         [
+          6.03652,
+          2.389138,
+          0.00326
+         ],
+         [
+          6.068743,
+          2.386237,
+          0.003338
+         ],
+         [
+          6.100967,
+          2.383298,
+          0.003418
+         ],
+         [
+          6.13319,
+          2.380321,
+          0.0035
+         ],
+         [
+          6.165414,
+          2.377304,
+          0.003583
+         ],
+         [
+          6.197637,
+          2.374248,
+          0.003669
+         ],
+         [
+          6.22986,
+          2.371151,
+          0.003756
+         ],
+         [
+          6.262084,
+          2.368013,
+          0.003846
+         ],
+         [
+          6.294307,
+          2.364833,
+          0.003938
+         ],
+         [
+          6.326531,
+          2.36161,
+          0.004032
+         ],
+         [
+          6.358754,
+          2.358343,
+          0.004128
+         ],
+         [
+          6.390977,
+          2.355033,
+          0.004226
+         ],
+         [
+          6.423201,
+          2.351677,
+          0.004327
+         ],
+         [
+          6.455424,
+          2.348276,
+          0.004431
+         ],
+         [
+          6.487648,
+          2.344828,
+          0.004536
+         ],
+         [
+          6.519871,
+          2.341333,
+          0.004645
+         ],
+         [
+          6.552095,
+          2.337789,
+          0.004756
+         ],
+         [
+          6.584318,
+          2.334196,
+          0.00487
+         ],
+         [
+          6.616541,
+          2.330553,
+          0.004986
+         ],
+         [
+          6.648765,
+          2.326859,
+          0.005106
+         ],
+         [
+          6.680988,
+          2.323113,
+          0.005228
+         ],
+         [
+          6.713212,
+          2.319314,
+          0.005354
+         ],
+         [
+          6.745435,
+          2.315461,
+          0.005482
+         ],
+         [
+          6.777658,
+          2.311553,
+          0.005614
+         ],
+         [
+          6.809882,
+          2.307588,
+          0.005749
+         ],
+         [
+          6.842105,
+          2.303567,
+          0.005888
+         ],
+         [
+          6.874329,
+          2.299487,
+          0.00603
+         ],
+         [
+          6.906552,
+          2.295347,
+          0.006176
+         ],
+         [
+          6.938776,
+          2.291147,
+          0.006326
+         ],
+         [
+          6.970999,
+          2.286885,
+          0.006479
+         ],
+         [
+          7.003222,
+          2.28256,
+          0.006636
+         ],
+         [
+          7.035446,
+          2.27817,
+          0.006798
+         ],
+         [
+          7.067669,
+          2.273714,
+          0.006963
+         ],
+         [
+          7.099893,
+          2.269191,
+          0.007134
+         ],
+         [
+          7.132116,
+          2.2646,
+          0.007308
+         ],
+         [
+          7.164339,
+          2.259938,
+          0.007487
+         ],
+         [
+          7.196563,
+          2.255205,
+          0.007671
+         ],
+         [
+          7.228786,
+          2.250399,
+          0.00786
+         ],
+         [
+          7.26101,
+          2.245518,
+          0.008054
+         ],
+         [
+          7.293233,
+          2.240561,
+          0.008254
+         ],
+         [
+          7.325456,
+          2.235525,
+          0.008458
+         ],
+         [
+          7.35768,
+          2.23041,
+          0.008669
+         ],
+         [
+          7.389903,
+          2.225213,
+          0.008885
+         ],
+         [
+          7.422127,
+          2.219933,
+          0.009107
+         ],
+         [
+          7.45435,
+          2.214568,
+          0.009336
+         ],
+         [
+          7.486574,
+          2.209115,
+          0.009571
+         ],
+         [
+          7.518797,
+          2.203572,
+          0.009812
+         ],
+         [
+          7.55102,
+          2.197938,
+          0.010061
+         ],
+         [
+          7.583244,
+          2.192211,
+          0.010316
+         ],
+         [
+          7.615467,
+          2.186387,
+          0.010579
+         ],
+         [
+          7.647691,
+          2.180466,
+          0.01085
+         ],
+         [
+          7.679914,
+          2.174443,
+          0.011129
+         ],
+         [
+          7.712137,
+          2.168318,
+          0.011416
+         ],
+         [
+          7.744361,
+          2.162086,
+          0.011711
+         ],
+         [
+          7.776584,
+          2.155746,
+          0.012015
+         ],
+         [
+          7.808808,
+          2.149295,
+          0.012329
+         ],
+         [
+          7.841031,
+          2.14273,
+          0.012652
+         ],
+         [
+          7.873255,
+          2.136048,
+          0.012985
+         ],
+         [
+          7.905478,
+          2.129246,
+          0.013328
+         ],
+         [
+          7.937701,
+          2.122321,
+          0.013682
+         ],
+         [
+          7.969925,
+          2.115269,
+          0.014047
+         ],
+         [
+          8.002148,
+          2.108086,
+          0.014424
+         ],
+         [
+          8.034372,
+          2.100771,
+          0.014813
+         ],
+         [
+          8.066595,
+          2.093317,
+          0.015214
+         ],
+         [
+          8.098818,
+          2.085723,
+          0.015628
+         ],
+         [
+          8.131042,
+          2.077984,
+          0.016056
+         ],
+         [
+          8.163265,
+          2.070095,
+          0.016498
+         ],
+         [
+          8.195489,
+          2.062052,
+          0.016955
+         ],
+         [
+          8.227712,
+          2.053851,
+          0.017427
+         ],
+         [
+          8.259936,
+          2.045487,
+          0.017916
+         ],
+         [
+          8.292159,
+          2.036955,
+          0.018421
+         ],
+         [
+          8.324382,
+          2.028251,
+          0.018944
+         ],
+         [
+          8.356606,
+          2.019367,
+          0.019485
+         ],
+         [
+          8.388829,
+          2.0103,
+          0.020046
+         ],
+         [
+          8.421053,
+          2.001044,
+          0.020626
+         ],
+         [
+          8.453276,
+          1.991591,
+          0.021228
+         ],
+         [
+          8.485499,
+          1.981936,
+          0.021852
+         ],
+         [
+          8.517723,
+          1.972072,
+          0.022499
+         ],
+         [
+          8.549946,
+          1.961992,
+          0.02317
+         ],
+         [
+          8.58217,
+          1.951689,
+          0.023867
+         ],
+         [
+          8.614393,
+          1.941155,
+          0.024591
+         ],
+         [
+          8.646617,
+          1.930382,
+          0.025343
+         ],
+         [
+          8.67884,
+          1.919362,
+          0.026125
+         ],
+         [
+          8.711063,
+          1.908085,
+          0.026938
+         ],
+         [
+          8.743287,
+          1.896542,
+          0.027784
+         ],
+         [
+          8.77551,
+          1.884723,
+          0.028665
+         ],
+         [
+          8.807734,
+          1.872619,
+          0.029583
+         ],
+         [
+          8.839957,
+          1.860217,
+          0.03054
+         ],
+         [
+          8.87218,
+          1.847507,
+          0.031538
+         ],
+         [
+          8.904404,
+          1.834475,
+          0.03258
+         ],
+         [
+          8.936627,
+          1.82111,
+          0.033668
+         ],
+         [
+          8.968851,
+          1.807397,
+          0.034805
+         ],
+         [
+          9.001074,
+          1.793321,
+          0.035995
+         ],
+         [
+          9.033298,
+          1.778868,
+          0.03724
+         ],
+         [
+          9.065521,
+          1.76402,
+          0.038544
+         ],
+         [
+          9.097744,
+          1.74876,
+          0.039912
+         ],
+         [
+          9.129968,
+          1.73307,
+          0.041348
+         ],
+         [
+          9.162191,
+          1.716929,
+          0.042856
+         ],
+         [
+          9.194415,
+          1.700315,
+          0.044443
+         ],
+         [
+          9.226638,
+          1.683207,
+          0.046112
+         ],
+         [
+          9.258861,
+          1.665579,
+          0.047872
+         ],
+         [
+          9.291085,
+          1.647404,
+          0.049729
+         ],
+         [
+          9.323308,
+          1.628655,
+          0.05169
+         ],
+         [
+          9.355532,
+          1.6093,
+          0.053765
+         ],
+         [
+          9.387755,
+          1.589307,
+          0.055964
+         ],
+         [
+          9.419979,
+          1.568638,
+          0.058297
+         ],
+         [
+          9.452202,
+          1.547254,
+          0.060777
+         ],
+         [
+          9.484425,
+          1.525114,
+          0.063418
+         ],
+         [
+          9.516649,
+          1.502169,
+          0.066235
+         ],
+         [
+          9.548872,
+          1.478368,
+          0.069246
+         ],
+         [
+          9.581096,
+          1.453656,
+          0.072474
+         ],
+         [
+          9.613319,
+          1.427968,
+          0.075941
+         ],
+         [
+          9.645542,
+          1.401237,
+          0.079675
+         ],
+         [
+          9.677766,
+          1.373385,
+          0.08371
+         ],
+         [
+          9.709989,
+          1.344326,
+          0.088083
+         ],
+         [
+          9.742213,
+          1.313964,
+          0.092841
+         ],
+         [
+          9.774436,
+          1.28219,
+          0.098039
+         ],
+         [
+          9.80666,
+          1.24888,
+          0.103744
+         ],
+         [
+          9.838883,
+          1.213895,
+          0.110038
+         ],
+         [
+          9.871106,
+          1.177072,
+          0.117021
+         ],
+         [
+          9.90333,
+          1.138229,
+          0.124824
+         ],
+         [
+          9.935553,
+          1.09715,
+          0.133608
+         ],
+         [
+          9.967777,
+          1.053588,
+          0.143589
+         ],
+         [
+          10.0,
+          1.007257,
+          0.155047
+         ],
+         [
+          10.032223,
+          0.957826,
+          0.168367
+         ],
+         [
+          10.064447,
+          0.904924,
+          0.184076
+         ],
+         [
+          10.09667,
+          0.848154,
+          0.202924
+         ],
+         [
+          10.128894,
+          0.787143,
+          0.22599
+         ],
+         [
+          10.161117,
+          0.721694,
+          0.254838
+         ],
+         [
+          10.19334,
+          0.652131,
+          0.291677
+         ],
+         [
+          10.225564,
+          0.58001,
+          0.339288
+         ],
+         [
+          10.257787,
+          0.509049,
+          0.400096
+         ],
+         [
+          10.290011,
+          0.44492,
+          0.473936
+         ],
+         [
+          10.322234,
+          0.392307,
+          0.556693
+         ],
+         [
+          10.354458,
+          0.352074,
+          0.642711
+         ],
+         [
+          10.386681,
+          0.322179,
+          0.728001
+         ],
+         [
+          10.418904,
+          0.299977,
+          0.810775
+         ],
+         [
+          10.451128,
+          0.283309,
+          0.890575
+         ],
+         [
+          10.483351,
+          0.270646,
+          0.967523
+         ],
+         [
+          10.515575,
+          0.260944,
+          1.041944
+         ],
+         [
+          10.547798,
+          0.253489,
+          1.114202
+         ],
+         [
+          10.580021,
+          0.247785,
+          1.184648
+         ],
+         [
+          10.612245,
+          0.24348,
+          1.253594
+         ],
+         [
+          10.644468,
+          0.240323,
+          1.321318
+         ],
+         [
+          10.676692,
+          0.238127,
+          1.38806
+         ],
+         [
+          10.708915,
+          0.236753,
+          1.454035
+         ],
+         [
+          10.741139,
+          0.236099,
+          1.51943
+         ],
+         [
+          10.773362,
+          0.236084,
+          1.584415
+         ],
+         [
+          10.805585,
+          0.23665,
+          1.649143
+         ],
+         [
+          10.837809,
+          0.237752,
+          1.713753
+         ],
+         [
+          10.870032,
+          0.239357,
+          1.778376
+         ],
+         [
+          10.902256,
+          0.24144,
+          1.843133
+         ],
+         [
+          10.934479,
+          0.243986,
+          1.908141
+         ],
+         [
+          10.966702,
+          0.246984,
+          1.973511
+         ],
+         [
+          10.998926,
+          0.25043,
+          2.03935
+         ],
+         [
+          11.031149,
+          0.254327,
+          2.105766
+         ],
+         [
+          11.063373,
+          0.258679,
+          2.172863
+         ],
+         [
+          11.095596,
+          0.263496,
+          2.240747
+         ],
+         [
+          11.12782,
+          0.268793,
+          2.309524
+         ],
+         [
+          11.160043,
+          0.274589,
+          2.379305
+         ],
+         [
+          11.192266,
+          0.280906,
+          2.450201
+         ],
+         [
+          11.22449,
+          0.287773,
+          2.522327
+         ],
+         [
+          11.256713,
+          0.295221,
+          2.595805
+         ],
+         [
+          11.288937,
+          0.303289,
+          2.670761
+         ],
+         [
+          11.32116,
+          0.31202,
+          2.747328
+         ],
+         [
+          11.353383,
+          0.321464,
+          2.825649
+         ],
+         [
+          11.385607,
+          0.331679,
+          2.905873
+         ],
+         [
+          11.41783,
+          0.342728,
+          2.988163
+         ],
+         [
+          11.450054,
+          0.354688,
+          3.072692
+         ],
+         [
+          11.482277,
+          0.367643,
+          3.159647
+         ],
+         [
+          11.514501,
+          0.381691,
+          3.249231
+         ],
+         [
+          11.546724,
+          0.396942,
+          3.341665
+         ],
+         [
+          11.578947,
+          0.413526,
+          3.43719
+         ],
+         [
+          11.611171,
+          0.431589,
+          3.536069
+         ],
+         [
+          11.643394,
+          0.451304,
+          3.638592
+         ],
+         [
+          11.675618,
+          0.472867,
+          3.74508
+         ],
+         [
+          11.707841,
+          0.496509,
+          3.855885
+         ],
+         [
+          11.740064,
+          0.522501,
+          3.971401
+         ],
+         [
+          11.772288,
+          0.551161,
+          4.092063
+         ],
+         [
+          11.804511,
+          0.582864,
+          4.218359
+         ],
+         [
+          11.836735,
+          0.618056,
+          4.350835
+         ],
+         [
+          11.868958,
+          0.657273,
+          4.490102
+         ],
+         [
+          11.901182,
+          0.701158,
+          4.636849
+         ],
+         [
+          11.933405,
+          0.75049,
+          4.791848
+         ],
+         [
+          11.965628,
+          0.806224,
+          4.955973
+         ],
+         [
+          11.997852,
+          0.869532,
+          5.130205
+         ],
+         [
+          12.030075,
+          0.941873,
+          5.315648
+         ],
+         [
+          12.062299,
+          1.025071,
+          5.513532
+         ],
+         [
+          12.094522,
+          1.121434,
+          5.725222
+         ],
+         [
+          12.126745,
+          1.23391,
+          5.952195
+         ],
+         [
+          12.158969,
+          1.366294,
+          6.196008
+         ],
+         [
+          12.191192,
+          1.523528,
+          6.458197
+         ],
+         [
+          12.223416,
+          1.712091,
+          6.740086
+         ],
+         [
+          12.255639,
+          1.940538,
+          7.042408
+         ],
+         [
+          12.287863,
+          2.220182,
+          7.364597
+         ],
+         [
+          12.320086,
+          2.5659,
+          7.703485
+         ],
+         [
+          12.352309,
+          2.996828,
+          8.050969
+         ],
+         [
+          12.384533,
+          3.536288,
+          8.390034
+         ],
+         [
+          12.416756,
+          4.209253,
+          8.688609
+         ],
+         [
+          12.44898,
+          5.033883,
+          8.892076
+         ],
+         [
+          12.481203,
+          6.002612,
+          8.919945
+         ],
+         [
+          12.513426,
+          7.054012,
+          8.680881
+         ],
+         [
+          12.54565,
+          8.058209,
+          8.120392
+         ],
+         [
+          12.577873,
+          8.856507,
+          7.279139
+         ],
+         [
+          12.610097,
+          9.348082,
+          6.292783
+         ],
+         [
+          12.64232,
+          9.537687,
+          5.315075
+         ],
+         [
+          12.674544,
+          9.501222,
+          4.445868
+         ],
+         [
+          12.706767,
+          9.326438,
+          3.720089
+         ],
+         [
+          12.73899,
+          9.081028,
+          3.132429
+         ],
+         [
+          12.771214,
+          8.808016,
+          2.661815
+         ],
+         [
+          12.803437,
+          8.531786,
+          2.284862
+         ],
+         [
+          12.835661,
+          8.264977,
+          1.981085
+         ],
+         [
+          12.867884,
+          8.013445,
+          1.734089
+         ],
+         [
+          12.900107,
+          7.779342,
+          1.531241
+         ],
+         [
+          12.932331,
+          7.562869,
+          1.362944
+         ],
+         [
+          12.964554,
+          7.363269,
+          1.221928
+         ],
+         [
+          12.996778,
+          7.179353,
+          1.102661
+         ],
+         [
+          13.029001,
+          7.009787,
+          1.000904
+         ],
+         [
+          13.061224,
+          6.853239,
+          0.913383
+         ],
+         [
+          13.093448,
+          6.708448,
+          0.837543
+         ],
+         [
+          13.125671,
+          6.574258,
+          0.771373
+         ],
+         [
+          13.157895,
+          6.449624,
+          0.713272
+         ],
+         [
+          13.190118,
+          6.333612,
+          0.66196
+         ],
+         [
+          13.222342,
+          6.22539,
+          0.616399
+         ],
+         [
+          13.254565,
+          6.124222,
+          0.575743
+         ],
+         [
+          13.286788,
+          6.029453,
+          0.539297
+         ],
+         [
+          13.319012,
+          5.940502,
+          0.506485
+         ],
+         [
+          13.351235,
+          5.856854,
+          0.476828
+         ],
+         [
+          13.383459,
+          5.778051,
+          0.449923
+         ],
+         [
+          13.415682,
+          5.703683,
+          0.425431
+         ],
+         [
+          13.447905,
+          5.633386,
+          0.403063
+         ],
+         [
+          13.480129,
+          5.566832,
+          0.382574
+         ],
+         [
+          13.512352,
+          5.503729,
+          0.363753
+         ],
+         [
+          13.544576,
+          5.443813,
+          0.346418
+         ],
+         [
+          13.576799,
+          5.386846,
+          0.330411
+         ],
+         [
+          13.609023,
+          5.332613,
+          0.315597
+         ],
+         [
+          13.641246,
+          5.28092,
+          0.301855
+         ],
+         [
+          13.673469,
+          5.231591,
+          0.289082
+         ],
+         [
+          13.705693,
+          5.184464,
+          0.277185
+         ],
+         [
+          13.737916,
+          5.139394,
+          0.266083
+         ],
+         [
+          13.77014,
+          5.096247,
+          0.255705
+         ],
+         [
+          13.802363,
+          5.0549,
+          0.245987
+         ],
+         [
+          13.834586,
+          5.015243,
+          0.236872
+         ],
+         [
+          13.86681,
+          4.977171,
+          0.228309
+         ],
+         [
+          13.899033,
+          4.940591,
+          0.220254
+         ],
+         [
+          13.931257,
+          4.905415,
+          0.212665
+         ],
+         [
+          13.96348,
+          4.871563,
+          0.205506
+         ],
+         [
+          13.995704,
+          4.838959,
+          0.198743
+         ],
+         [
+          14.027927,
+          4.807537,
+          0.192348
+         ],
+         [
+          14.06015,
+          4.777231,
+          0.186292
+         ],
+         [
+          14.092374,
+          4.747982,
+          0.180552
+         ],
+         [
+          14.124597,
+          4.719735,
+          0.175105
+         ],
+         [
+          14.156821,
+          4.692439,
+          0.16993
+         ],
+         [
+          14.189044,
+          4.666046,
+          0.165009
+         ],
+         [
+          14.221267,
+          4.640512,
+          0.160326
+         ],
+         [
+          14.253491,
+          4.615794,
+          0.155864
+         ],
+         [
+          14.285714,
+          4.591853,
+          0.151609
+         ]
+        ]
+       },
+       "thickness": 2.0
+      },
+      {
+       "label": "Si",
+       "n": 3.42,
+       "k": 0.0,
+       "thickness": 300.0,
+       "coherency": "i"
+      }
+     ],
+     "substrate": {
+      "label": "Air",
+      "n": 1.0,
+      "k": 0.0
+     },
+     "controls": {
+      "wavelength-start": 1.43,
+      "wavelength-end": 14.3,
+      "wavelength-step": 0.03
+     },
+     "units": {
+      "wavelength": "um",
+      "length": "um"
+     }
+    }
+   },
+   "checks": [
+    {
+     "check": "ω_LO from the model (cm-1)",
+     "paper": 973,
+     "computed": 973.0796,
+     "tolerance": 1,
+     "pass": true,
+     "source": "my calc from the printed model, as the brief"
+    },
+    {
+     "check": "finite wafer: R maximum, 2000-6000 cm-1",
+     "paper": 0.5,
+     "computed": 0.461,
+     "tolerance": 0.04,
+     "pass": true,
+     "source": "Fig. 2, read"
+    },
+    {
+     "check": "finite wafer: R minimum, 2000-6000 cm-1",
+     "paper": 0.33,
+     "computed": 0.3423,
+     "tolerance": 0.04,
+     "pass": true,
+     "source": "Fig. 2, read"
+    },
+    {
+     "check": "semi-infinite: R maximum, 2000-6000 cm-1",
+     "paper": 0.3,
+     "computed": 0.2997,
+     "tolerance": 0.04,
+     "pass": true,
+     "source": "Fig. 2, read"
+    },
+    {
+     "check": "semi-infinite: R minimum, 2000-6000 cm-1",
+     "paper": 0.07,
+     "computed": 0.0891,
+     "tolerance": 0.04,
+     "pass": true,
+     "source": "Fig. 2, read"
+    },
+    {
+     "check": "the two coincide in the reststrahlen band (max |ΔR|, 800-860 cm-1)",
+     "paper": 0.0,
+     "computed": 0.0,
+     "tolerance": 0.01,
+     "pass": true,
+     "source": "p. 3982"
+    }
+   ]
+  },
+  {
+   "id": "ruan-fan-2010",
+   "kind": "classic",
+   "position": 5,
+   "geometry": "cylinders",
+   "title": "Superscattering",
+   "cite": "Z. Ruan and S. Fan, Phys. Rev. Lett. 105, 013901 (2010)",
+   "doi": "10.1103/PhysRevLett.105.013901",
+   "figure": "Fig. 4a (and Fig. 1): a three-layer nanorod whose m = 1–4 resonances coincide",
+   "shows": "Scattering and absorption widths of the silver-like rod across ω/ωp = 0.25–0.259 (531–550 nm), with the multipole orders that add up.",
+   "inputs": "Drude core (radius 0.3485 λp), ε = 12.96 shell to 0.5623 λp, Drude shell to 0.6370 λp, in air; losses 0.004 ωp and 0.012 ωp; axial-magnetic polarization. The scale λp = 137.6 nm (silver) is ours: the paper is scale-free.",
+   "agreement": "Peak scattering 1.92 and absorption 0.73 (in 2λ/π) as printed; without loss the script reaches 7.87 against the printed 7.94.",
+   "perturb": "Thin the high-index shell by 1 nm: the four resonances separate and the superscattering peak falls apart.",
+   "script": "crosscheck/classics/ruan_fan_2010.py",
+   "results": "crosscheck/classics/results/ruan_fan_2010.json",
+   "calculator": {
+    "cylinder": {
+     "shells": [
+      {
+       "label": "Drude core",
+       "n": 0.1,
+       "k": 3.8,
+       "table": {
+        "name": "Drude, γ = 0.004 ωp (λp = 137.6 nm)",
+        "rows": [
+         [
+          0.53,
+          0.030721,
+          3.719322
+         ],
+         [
+          0.5301,
+          0.030732,
+          3.720074
+         ],
+         [
+          0.5302,
+          0.030743,
+          3.720827
+         ],
+         [
+          0.5303,
+          0.030755,
+          3.721579
+         ],
+         [
+          0.5304,
+          0.030766,
+          3.722331
+         ],
+         [
+          0.5305,
+          0.030777,
+          3.723084
+         ],
+         [
+          0.5306,
+          0.030788,
+          3.723836
+         ],
+         [
+          0.5307,
+          0.030799,
+          3.724588
+         ],
+         [
+          0.5308,
+          0.03081,
+          3.725341
+         ],
+         [
+          0.5309,
+          0.030822,
+          3.726093
+         ],
+         [
+          0.531,
+          0.030833,
+          3.726845
+         ],
+         [
+          0.5311,
+          0.030844,
+          3.727597
+         ],
+         [
+          0.5312,
+          0.030855,
+          3.72835
+         ],
+         [
+          0.5313,
+          0.030866,
+          3.729102
+         ],
+         [
+          0.5314,
+          0.030878,
+          3.729854
+         ],
+         [
+          0.5315,
+          0.030889,
+          3.730606
+         ],
+         [
+          0.5316,
+          0.0309,
+          3.731358
+         ],
+         [
+          0.5317,
+          0.030911,
+          3.732111
+         ],
+         [
+          0.5318,
+          0.030922,
+          3.732863
+         ],
+         [
+          0.5319,
+          0.030934,
+          3.733615
+         ],
+         [
+          0.532,
+          0.030945,
+          3.734367
+         ],
+         [
+          0.5321,
+          0.030956,
+          3.735119
+         ],
+         [
+          0.5322,
+          0.030967,
+          3.735871
+         ],
+         [
+          0.5323,
+          0.030979,
+          3.736623
+         ],
+         [
+          0.5324,
+          0.03099,
+          3.737376
+         ],
+         [
+          0.5325,
+          0.031001,
+          3.738128
+         ],
+         [
+          0.5326,
+          0.031012,
+          3.73888
+         ],
+         [
+          0.5327,
+          0.031023,
+          3.739632
+         ],
+         [
+          0.5328,
+          0.031035,
+          3.740384
+         ],
+         [
+          0.5329,
+          0.031046,
+          3.741136
+         ],
+         [
+          0.533,
+          0.031057,
+          3.741888
+         ],
+         [
+          0.5331,
+          0.031068,
+          3.74264
+         ],
+         [
+          0.5332,
+          0.03108,
+          3.743392
+         ],
+         [
+          0.5333,
+          0.031091,
+          3.744144
+         ],
+         [
+          0.5334,
+          0.031102,
+          3.744896
+         ],
+         [
+          0.5335,
+          0.031113,
+          3.745648
+         ],
+         [
+          0.5336,
+          0.031125,
+          3.7464
+         ],
+         [
+          0.5337,
+          0.031136,
+          3.747152
+         ],
+         [
+          0.5338,
+          0.031147,
+          3.747904
+         ],
+         [
+          0.5339,
+          0.031158,
+          3.748656
+         ],
+         [
+          0.534,
+          0.03117,
+          3.749408
+         ],
+         [
+          0.5341,
+          0.031181,
+          3.75016
+         ],
+         [
+          0.5342,
+          0.031192,
+          3.750912
+         ],
+         [
+          0.5343,
+          0.031203,
+          3.751664
+         ],
+         [
+          0.5344,
+          0.031215,
+          3.752416
+         ],
+         [
+          0.5345,
+          0.031226,
+          3.753168
+         ],
+         [
+          0.5346,
+          0.031237,
+          3.753919
+         ],
+         [
+          0.5347,
+          0.031248,
+          3.754671
+         ],
+         [
+          0.5348,
+          0.03126,
+          3.755423
+         ],
+         [
+          0.5349,
+          0.031271,
+          3.756175
+         ],
+         [
+          0.535,
+          0.031282,
+          3.756927
+         ],
+         [
+          0.5351,
+          0.031294,
+          3.757679
+         ],
+         [
+          0.5352,
+          0.031305,
+          3.758431
+         ],
+         [
+          0.5353,
+          0.031316,
+          3.759182
+         ],
+         [
+          0.5354,
+          0.031327,
+          3.759934
+         ],
+         [
+          0.5355,
+          0.031339,
+          3.760686
+         ],
+         [
+          0.5356,
+          0.03135,
+          3.761438
+         ],
+         [
+          0.5357,
+          0.031361,
+          3.76219
+         ],
+         [
+          0.5358,
+          0.031373,
+          3.762941
+         ],
+         [
+          0.5359,
+          0.031384,
+          3.763693
+         ],
+         [
+          0.536,
+          0.031395,
+          3.764445
+         ],
+         [
+          0.5361,
+          0.031406,
+          3.765197
+         ],
+         [
+          0.5362,
+          0.031418,
+          3.765948
+         ],
+         [
+          0.5363,
+          0.031429,
+          3.7667
+         ],
+         [
+          0.5364,
+          0.03144,
+          3.767452
+         ],
+         [
+          0.5365,
+          0.031452,
+          3.768203
+         ],
+         [
+          0.5366,
+          0.031463,
+          3.768955
+         ],
+         [
+          0.5367,
+          0.031474,
+          3.769707
+         ],
+         [
+          0.5368,
+          0.031486,
+          3.770459
+         ],
+         [
+          0.5369,
+          0.031497,
+          3.77121
+         ],
+         [
+          0.537,
+          0.031508,
+          3.771962
+         ],
+         [
+          0.5371,
+          0.03152,
+          3.772713
+         ],
+         [
+          0.5372,
+          0.031531,
+          3.773465
+         ],
+         [
+          0.5373,
+          0.031542,
+          3.774217
+         ],
+         [
+          0.5374,
+          0.031554,
+          3.774968
+         ],
+         [
+          0.5375,
+          0.031565,
+          3.77572
+         ],
+         [
+          0.5376,
+          0.031576,
+          3.776472
+         ],
+         [
+          0.5377,
+          0.031588,
+          3.777223
+         ],
+         [
+          0.5378,
+          0.031599,
+          3.777975
+         ],
+         [
+          0.5379,
+          0.03161,
+          3.778726
+         ],
+         [
+          0.538,
+          0.031622,
+          3.779478
+         ],
+         [
+          0.5381,
+          0.031633,
+          3.780229
+         ],
+         [
+          0.5382,
+          0.031644,
+          3.780981
+         ],
+         [
+          0.5383,
+          0.031656,
+          3.781732
+         ],
+         [
+          0.5384,
+          0.031667,
+          3.782484
+         ],
+         [
+          0.5385,
+          0.031678,
+          3.783235
+         ],
+         [
+          0.5386,
+          0.03169,
+          3.783987
+         ],
+         [
+          0.5387,
+          0.031701,
+          3.784738
+         ],
+         [
+          0.5388,
+          0.031712,
+          3.78549
+         ],
+         [
+          0.5389,
+          0.031724,
+          3.786241
+         ],
+         [
+          0.539,
+          0.031735,
+          3.786993
+         ],
+         [
+          0.5391,
+          0.031746,
+          3.787744
+         ],
+         [
+          0.5392,
+          0.031758,
+          3.788496
+         ],
+         [
+          0.5393,
+          0.031769,
+          3.789247
+         ],
+         [
+          0.5394,
+          0.031781,
+          3.789998
+         ],
+         [
+          0.5395,
+          0.031792,
+          3.79075
+         ],
+         [
+          0.5396,
+          0.031803,
+          3.791501
+         ],
+         [
+          0.5397,
+          0.031815,
+          3.792253
+         ],
+         [
+          0.5398,
+          0.031826,
+          3.793004
+         ],
+         [
+          0.5399,
+          0.031837,
+          3.793755
+         ],
+         [
+          0.54,
+          0.031849,
+          3.794507
+         ],
+         [
+          0.5401,
+          0.03186,
+          3.795258
+         ],
+         [
+          0.5402,
+          0.031872,
+          3.796009
+         ],
+         [
+          0.5403,
+          0.031883,
+          3.796761
+         ],
+         [
+          0.5404,
+          0.031894,
+          3.797512
+         ],
+         [
+          0.5405,
+          0.031906,
+          3.798263
+         ],
+         [
+          0.5406,
+          0.031917,
+          3.799015
+         ],
+         [
+          0.5407,
+          0.031929,
+          3.799766
+         ],
+         [
+          0.5408,
+          0.03194,
+          3.800517
+         ],
+         [
+          0.5409,
+          0.031951,
+          3.801269
+         ],
+         [
+          0.541,
+          0.031963,
+          3.80202
+         ],
+         [
+          0.5411,
+          0.031974,
+          3.802771
+         ],
+         [
+          0.5412,
+          0.031986,
+          3.803522
+         ],
+         [
+          0.5413,
+          0.031997,
+          3.804274
+         ],
+         [
+          0.5414,
+          0.032008,
+          3.805025
+         ],
+         [
+          0.5415,
+          0.03202,
+          3.805776
+         ],
+         [
+          0.5416,
+          0.032031,
+          3.806527
+         ],
+         [
+          0.5417,
+          0.032043,
+          3.807278
+         ],
+         [
+          0.5418,
+          0.032054,
+          3.80803
+         ],
+         [
+          0.5419,
+          0.032066,
+          3.808781
+         ],
+         [
+          0.542,
+          0.032077,
+          3.809532
+         ],
+         [
+          0.5421,
+          0.032088,
+          3.810283
+         ],
+         [
+          0.5422,
+          0.0321,
+          3.811034
+         ],
+         [
+          0.5423,
+          0.032111,
+          3.811785
+         ],
+         [
+          0.5424,
+          0.032123,
+          3.812536
+         ],
+         [
+          0.5425,
+          0.032134,
+          3.813288
+         ],
+         [
+          0.5426,
+          0.032146,
+          3.814039
+         ],
+         [
+          0.5427,
+          0.032157,
+          3.81479
+         ],
+         [
+          0.5428,
+          0.032168,
+          3.815541
+         ],
+         [
+          0.5429,
+          0.03218,
+          3.816292
+         ],
+         [
+          0.543,
+          0.032191,
+          3.817043
+         ],
+         [
+          0.5431,
+          0.032203,
+          3.817794
+         ],
+         [
+          0.5432,
+          0.032214,
+          3.818545
+         ],
+         [
+          0.5433,
+          0.032226,
+          3.819296
+         ],
+         [
+          0.5434,
+          0.032237,
+          3.820047
+         ],
+         [
+          0.5435,
+          0.032249,
+          3.820798
+         ],
+         [
+          0.5436,
+          0.03226,
+          3.821549
+         ],
+         [
+          0.5437,
+          0.032272,
+          3.8223
+         ],
+         [
+          0.5438,
+          0.032283,
+          3.823051
+         ],
+         [
+          0.5439,
+          0.032294,
+          3.823802
+         ],
+         [
+          0.544,
+          0.032306,
+          3.824553
+         ],
+         [
+          0.5441,
+          0.032317,
+          3.825304
+         ],
+         [
+          0.5442,
+          0.032329,
+          3.826055
+         ],
+         [
+          0.5443,
+          0.03234,
+          3.826806
+         ],
+         [
+          0.5444,
+          0.032352,
+          3.827557
+         ],
+         [
+          0.5445,
+          0.032363,
+          3.828308
+         ],
+         [
+          0.5446,
+          0.032375,
+          3.829059
+         ],
+         [
+          0.5447,
+          0.032386,
+          3.82981
+         ],
+         [
+          0.5448,
+          0.032398,
+          3.83056
+         ],
+         [
+          0.5449,
+          0.032409,
+          3.831311
+         ],
+         [
+          0.545,
+          0.032421,
+          3.832062
+         ],
+         [
+          0.5451,
+          0.032432,
+          3.832813
+         ],
+         [
+          0.5452,
+          0.032444,
+          3.833564
+         ],
+         [
+          0.5453,
+          0.032455,
+          3.834315
+         ],
+         [
+          0.5454,
+          0.032467,
+          3.835066
+         ],
+         [
+          0.5455,
+          0.032478,
+          3.835816
+         ],
+         [
+          0.5456,
+          0.03249,
+          3.836567
+         ],
+         [
+          0.5457,
+          0.032501,
+          3.837318
+         ],
+         [
+          0.5458,
+          0.032513,
+          3.838069
+         ],
+         [
+          0.5459,
+          0.032524,
+          3.83882
+         ],
+         [
+          0.546,
+          0.032536,
+          3.83957
+         ],
+         [
+          0.5461,
+          0.032547,
+          3.840321
+         ],
+         [
+          0.5462,
+          0.032559,
+          3.841072
+         ],
+         [
+          0.5463,
+          0.03257,
+          3.841823
+         ],
+         [
+          0.5464,
+          0.032582,
+          3.842574
+         ],
+         [
+          0.5465,
+          0.032593,
+          3.843324
+         ],
+         [
+          0.5466,
+          0.032605,
+          3.844075
+         ],
+         [
+          0.5467,
+          0.032616,
+          3.844826
+         ],
+         [
+          0.5468,
+          0.032628,
+          3.845576
+         ],
+         [
+          0.5469,
+          0.032639,
+          3.846327
+         ],
+         [
+          0.547,
+          0.032651,
+          3.847078
+         ],
+         [
+          0.5471,
+          0.032662,
+          3.847828
+         ],
+         [
+          0.5472,
+          0.032674,
+          3.848579
+         ],
+         [
+          0.5473,
+          0.032686,
+          3.84933
+         ],
+         [
+          0.5474,
+          0.032697,
+          3.85008
+         ],
+         [
+          0.5475,
+          0.032709,
+          3.850831
+         ],
+         [
+          0.5476,
+          0.03272,
+          3.851582
+         ],
+         [
+          0.5477,
+          0.032732,
+          3.852332
+         ],
+         [
+          0.5478,
+          0.032743,
+          3.853083
+         ],
+         [
+          0.5479,
+          0.032755,
+          3.853834
+         ],
+         [
+          0.548,
+          0.032766,
+          3.854584
+         ],
+         [
+          0.5481,
+          0.032778,
+          3.855335
+         ],
+         [
+          0.5482,
+          0.03279,
+          3.856085
+         ],
+         [
+          0.5483,
+          0.032801,
+          3.856836
+         ],
+         [
+          0.5484,
+          0.032813,
+          3.857586
+         ],
+         [
+          0.5485,
+          0.032824,
+          3.858337
+         ],
+         [
+          0.5486,
+          0.032836,
+          3.859088
+         ],
+         [
+          0.5487,
+          0.032847,
+          3.859838
+         ],
+         [
+          0.5488,
+          0.032859,
+          3.860589
+         ],
+         [
+          0.5489,
+          0.03287,
+          3.861339
+         ],
+         [
+          0.549,
+          0.032882,
+          3.86209
+         ],
+         [
+          0.5491,
+          0.032894,
+          3.86284
+         ],
+         [
+          0.5492,
+          0.032905,
+          3.863591
+         ],
+         [
+          0.5493,
+          0.032917,
+          3.864341
+         ],
+         [
+          0.5494,
+          0.032928,
+          3.865091
+         ],
+         [
+          0.5495,
+          0.03294,
+          3.865842
+         ],
+         [
+          0.5496,
+          0.032952,
+          3.866592
+         ],
+         [
+          0.5497,
+          0.032963,
+          3.867343
+         ],
+         [
+          0.5498,
+          0.032975,
+          3.868093
+         ],
+         [
+          0.5499,
+          0.032986,
+          3.868844
+         ],
+         [
+          0.55,
+          0.032998,
+          3.869594
+         ],
+         [
+          0.5501,
+          0.03301,
+          3.870344
+         ],
+         [
+          0.5502,
+          0.033021,
+          3.871095
+         ],
+         [
+          0.5503,
+          0.033033,
+          3.871845
+         ],
+         [
+          0.5504,
+          0.033044,
+          3.872596
+         ],
+         [
+          0.5505,
+          0.033056,
+          3.873346
+         ],
+         [
+          0.5506,
+          0.033068,
+          3.874096
+         ],
+         [
+          0.5507,
+          0.033079,
+          3.874847
+         ],
+         [
+          0.5508,
+          0.033091,
+          3.875597
+         ],
+         [
+          0.5509,
+          0.033102,
+          3.876347
+         ],
+         [
+          0.551,
+          0.033114,
+          3.877098
+         ],
+         [
+          0.5511,
+          0.033126,
+          3.877848
+         ],
+         [
+          0.5512,
+          0.033137,
+          3.878598
+         ],
+         [
+          0.5513,
+          0.033149,
+          3.879349
+         ],
+         [
+          0.5514,
+          0.03316,
+          3.880099
+         ],
+         [
+          0.5515,
+          0.033172,
+          3.880849
+         ],
+         [
+          0.5516,
+          0.033184,
+          3.881599
+         ],
+         [
+          0.5517,
+          0.033195,
+          3.88235
+         ],
+         [
+          0.5518,
+          0.033207,
+          3.8831
+         ],
+         [
+          0.5519,
+          0.033219,
+          3.88385
+         ],
+         [
+          0.552,
+          0.03323,
+          3.8846
+         ]
+        ]
+       },
+       "thickness": 0.047954
+      },
+      {
+       "label": "ε = 12.96",
+       "n": 3.6,
+       "k": 0.0,
+       "thickness": 0.029419
+      },
+      {
+       "label": "Drude shell",
+       "n": 0.1,
+       "k": 3.8,
+       "table": {
+        "name": "Drude, γ = 0.012 ωp (λp = 137.6 nm)",
+        "rows": [
+         [
+          0.53,
+          0.092057,
+          3.716555
+         ],
+         [
+          0.5301,
+          0.09209,
+          3.717306
+         ],
+         [
+          0.5302,
+          0.092124,
+          3.718056
+         ],
+         [
+          0.5303,
+          0.092157,
+          3.718807
+         ],
+         [
+          0.5304,
+          0.092191,
+          3.719558
+         ],
+         [
+          0.5305,
+          0.092224,
+          3.720309
+         ],
+         [
+          0.5306,
+          0.092258,
+          3.721059
+         ],
+         [
+          0.5307,
+          0.092291,
+          3.72181
+         ],
+         [
+          0.5308,
+          0.092325,
+          3.722561
+         ],
+         [
+          0.5309,
+          0.092358,
+          3.723312
+         ],
+         [
+          0.531,
+          0.092392,
+          3.724062
+         ],
+         [
+          0.5311,
+          0.092425,
+          3.724813
+         ],
+         [
+          0.5312,
+          0.092459,
+          3.725564
+         ],
+         [
+          0.5313,
+          0.092492,
+          3.726314
+         ],
+         [
+          0.5314,
+          0.092526,
+          3.727065
+         ],
+         [
+          0.5315,
+          0.092559,
+          3.727816
+         ],
+         [
+          0.5316,
+          0.092593,
+          3.728566
+         ],
+         [
+          0.5317,
+          0.092626,
+          3.729317
+         ],
+         [
+          0.5318,
+          0.09266,
+          3.730068
+         ],
+         [
+          0.5319,
+          0.092693,
+          3.730818
+         ],
+         [
+          0.532,
+          0.092727,
+          3.731569
+         ],
+         [
+          0.5321,
+          0.09276,
+          3.732319
+         ],
+         [
+          0.5322,
+          0.092794,
+          3.73307
+         ],
+         [
+          0.5323,
+          0.092828,
+          3.73382
+         ],
+         [
+          0.5324,
+          0.092861,
+          3.734571
+         ],
+         [
+          0.5325,
+          0.092895,
+          3.735321
+         ],
+         [
+          0.5326,
+          0.092928,
+          3.736072
+         ],
+         [
+          0.5327,
+          0.092962,
+          3.736823
+         ],
+         [
+          0.5328,
+          0.092996,
+          3.737573
+         ],
+         [
+          0.5329,
+          0.093029,
+          3.738324
+         ],
+         [
+          0.533,
+          0.093063,
+          3.739074
+         ],
+         [
+          0.5331,
+          0.093096,
+          3.739824
+         ],
+         [
+          0.5332,
+          0.09313,
+          3.740575
+         ],
+         [
+          0.5333,
+          0.093164,
+          3.741325
+         ],
+         [
+          0.5334,
+          0.093197,
+          3.742076
+         ],
+         [
+          0.5335,
+          0.093231,
+          3.742826
+         ],
+         [
+          0.5336,
+          0.093265,
+          3.743577
+         ],
+         [
+          0.5337,
+          0.093298,
+          3.744327
+         ],
+         [
+          0.5338,
+          0.093332,
+          3.745077
+         ],
+         [
+          0.5339,
+          0.093366,
+          3.745828
+         ],
+         [
+          0.534,
+          0.093399,
+          3.746578
+         ],
+         [
+          0.5341,
+          0.093433,
+          3.747329
+         ],
+         [
+          0.5342,
+          0.093467,
+          3.748079
+         ],
+         [
+          0.5343,
+          0.0935,
+          3.748829
+         ],
+         [
+          0.5344,
+          0.093534,
+          3.74958
+         ],
+         [
+          0.5345,
+          0.093568,
+          3.75033
+         ],
+         [
+          0.5346,
+          0.093602,
+          3.75108
+         ],
+         [
+          0.5347,
+          0.093635,
+          3.751831
+         ],
+         [
+          0.5348,
+          0.093669,
+          3.752581
+         ],
+         [
+          0.5349,
+          0.093703,
+          3.753331
+         ],
+         [
+          0.535,
+          0.093737,
+          3.754081
+         ],
+         [
+          0.5351,
+          0.09377,
+          3.754832
+         ],
+         [
+          0.5352,
+          0.093804,
+          3.755582
+         ],
+         [
+          0.5353,
+          0.093838,
+          3.756332
+         ],
+         [
+          0.5354,
+          0.093872,
+          3.757082
+         ],
+         [
+          0.5355,
+          0.093905,
+          3.757833
+         ],
+         [
+          0.5356,
+          0.093939,
+          3.758583
+         ],
+         [
+          0.5357,
+          0.093973,
+          3.759333
+         ],
+         [
+          0.5358,
+          0.094007,
+          3.760083
+         ],
+         [
+          0.5359,
+          0.094041,
+          3.760833
+         ],
+         [
+          0.536,
+          0.094074,
+          3.761583
+         ],
+         [
+          0.5361,
+          0.094108,
+          3.762334
+         ],
+         [
+          0.5362,
+          0.094142,
+          3.763084
+         ],
+         [
+          0.5363,
+          0.094176,
+          3.763834
+         ],
+         [
+          0.5364,
+          0.09421,
+          3.764584
+         ],
+         [
+          0.5365,
+          0.094244,
+          3.765334
+         ],
+         [
+          0.5366,
+          0.094277,
+          3.766084
+         ],
+         [
+          0.5367,
+          0.094311,
+          3.766834
+         ],
+         [
+          0.5368,
+          0.094345,
+          3.767584
+         ],
+         [
+          0.5369,
+          0.094379,
+          3.768334
+         ],
+         [
+          0.537,
+          0.094413,
+          3.769084
+         ],
+         [
+          0.5371,
+          0.094447,
+          3.769835
+         ],
+         [
+          0.5372,
+          0.094481,
+          3.770585
+         ],
+         [
+          0.5373,
+          0.094515,
+          3.771335
+         ],
+         [
+          0.5374,
+          0.094549,
+          3.772085
+         ],
+         [
+          0.5375,
+          0.094582,
+          3.772835
+         ],
+         [
+          0.5376,
+          0.094616,
+          3.773585
+         ],
+         [
+          0.5377,
+          0.09465,
+          3.774335
+         ],
+         [
+          0.5378,
+          0.094684,
+          3.775085
+         ],
+         [
+          0.5379,
+          0.094718,
+          3.775834
+         ],
+         [
+          0.538,
+          0.094752,
+          3.776584
+         ],
+         [
+          0.5381,
+          0.094786,
+          3.777334
+         ],
+         [
+          0.5382,
+          0.09482,
+          3.778084
+         ],
+         [
+          0.5383,
+          0.094854,
+          3.778834
+         ],
+         [
+          0.5384,
+          0.094888,
+          3.779584
+         ],
+         [
+          0.5385,
+          0.094922,
+          3.780334
+         ],
+         [
+          0.5386,
+          0.094956,
+          3.781084
+         ],
+         [
+          0.5387,
+          0.09499,
+          3.781834
+         ],
+         [
+          0.5388,
+          0.095024,
+          3.782584
+         ],
+         [
+          0.5389,
+          0.095058,
+          3.783334
+         ],
+         [
+          0.539,
+          0.095092,
+          3.784083
+         ],
+         [
+          0.5391,
+          0.095126,
+          3.784833
+         ],
+         [
+          0.5392,
+          0.09516,
+          3.785583
+         ],
+         [
+          0.5393,
+          0.095194,
+          3.786333
+         ],
+         [
+          0.5394,
+          0.095228,
+          3.787083
+         ],
+         [
+          0.5395,
+          0.095262,
+          3.787832
+         ],
+         [
+          0.5396,
+          0.095296,
+          3.788582
+         ],
+         [
+          0.5397,
+          0.09533,
+          3.789332
+         ],
+         [
+          0.5398,
+          0.095364,
+          3.790082
+         ],
+         [
+          0.5399,
+          0.095398,
+          3.790832
+         ],
+         [
+          0.54,
+          0.095432,
+          3.791581
+         ],
+         [
+          0.5401,
+          0.095466,
+          3.792331
+         ],
+         [
+          0.5402,
+          0.0955,
+          3.793081
+         ],
+         [
+          0.5403,
+          0.095534,
+          3.79383
+         ],
+         [
+          0.5404,
+          0.095568,
+          3.79458
+         ],
+         [
+          0.5405,
+          0.095603,
+          3.79533
+         ],
+         [
+          0.5406,
+          0.095637,
+          3.79608
+         ],
+         [
+          0.5407,
+          0.095671,
+          3.796829
+         ],
+         [
+          0.5408,
+          0.095705,
+          3.797579
+         ],
+         [
+          0.5409,
+          0.095739,
+          3.798328
+         ],
+         [
+          0.541,
+          0.095773,
+          3.799078
+         ],
+         [
+          0.5411,
+          0.095807,
+          3.799828
+         ],
+         [
+          0.5412,
+          0.095841,
+          3.800577
+         ],
+         [
+          0.5413,
+          0.095876,
+          3.801327
+         ],
+         [
+          0.5414,
+          0.09591,
+          3.802077
+         ],
+         [
+          0.5415,
+          0.095944,
+          3.802826
+         ],
+         [
+          0.5416,
+          0.095978,
+          3.803576
+         ],
+         [
+          0.5417,
+          0.096012,
+          3.804325
+         ],
+         [
+          0.5418,
+          0.096046,
+          3.805075
+         ],
+         [
+          0.5419,
+          0.096081,
+          3.805824
+         ],
+         [
+          0.542,
+          0.096115,
+          3.806574
+         ],
+         [
+          0.5421,
+          0.096149,
+          3.807323
+         ],
+         [
+          0.5422,
+          0.096183,
+          3.808073
+         ],
+         [
+          0.5423,
+          0.096217,
+          3.808823
+         ],
+         [
+          0.5424,
+          0.096252,
+          3.809572
+         ],
+         [
+          0.5425,
+          0.096286,
+          3.810321
+         ],
+         [
+          0.5426,
+          0.09632,
+          3.811071
+         ],
+         [
+          0.5427,
+          0.096354,
+          3.81182
+         ],
+         [
+          0.5428,
+          0.096389,
+          3.81257
+         ],
+         [
+          0.5429,
+          0.096423,
+          3.813319
+         ],
+         [
+          0.543,
+          0.096457,
+          3.814069
+         ],
+         [
+          0.5431,
+          0.096491,
+          3.814818
+         ],
+         [
+          0.5432,
+          0.096526,
+          3.815568
+         ],
+         [
+          0.5433,
+          0.09656,
+          3.816317
+         ],
+         [
+          0.5434,
+          0.096594,
+          3.817066
+         ],
+         [
+          0.5435,
+          0.096628,
+          3.817816
+         ],
+         [
+          0.5436,
+          0.096663,
+          3.818565
+         ],
+         [
+          0.5437,
+          0.096697,
+          3.819315
+         ],
+         [
+          0.5438,
+          0.096731,
+          3.820064
+         ],
+         [
+          0.5439,
+          0.096766,
+          3.820813
+         ],
+         [
+          0.544,
+          0.0968,
+          3.821563
+         ],
+         [
+          0.5441,
+          0.096834,
+          3.822312
+         ],
+         [
+          0.5442,
+          0.096869,
+          3.823061
+         ],
+         [
+          0.5443,
+          0.096903,
+          3.823811
+         ],
+         [
+          0.5444,
+          0.096937,
+          3.82456
+         ],
+         [
+          0.5445,
+          0.096972,
+          3.825309
+         ],
+         [
+          0.5446,
+          0.097006,
+          3.826058
+         ],
+         [
+          0.5447,
+          0.09704,
+          3.826808
+         ],
+         [
+          0.5448,
+          0.097075,
+          3.827557
+         ],
+         [
+          0.5449,
+          0.097109,
+          3.828306
+         ],
+         [
+          0.545,
+          0.097144,
+          3.829055
+         ],
+         [
+          0.5451,
+          0.097178,
+          3.829805
+         ],
+         [
+          0.5452,
+          0.097212,
+          3.830554
+         ],
+         [
+          0.5453,
+          0.097247,
+          3.831303
+         ],
+         [
+          0.5454,
+          0.097281,
+          3.832052
+         ],
+         [
+          0.5455,
+          0.097316,
+          3.832801
+         ],
+         [
+          0.5456,
+          0.09735,
+          3.833551
+         ],
+         [
+          0.5457,
+          0.097384,
+          3.8343
+         ],
+         [
+          0.5458,
+          0.097419,
+          3.835049
+         ],
+         [
+          0.5459,
+          0.097453,
+          3.835798
+         ],
+         [
+          0.546,
+          0.097488,
+          3.836547
+         ],
+         [
+          0.5461,
+          0.097522,
+          3.837296
+         ],
+         [
+          0.5462,
+          0.097557,
+          3.838045
+         ],
+         [
+          0.5463,
+          0.097591,
+          3.838794
+         ],
+         [
+          0.5464,
+          0.097626,
+          3.839544
+         ],
+         [
+          0.5465,
+          0.09766,
+          3.840293
+         ],
+         [
+          0.5466,
+          0.097694,
+          3.841042
+         ],
+         [
+          0.5467,
+          0.097729,
+          3.841791
+         ],
+         [
+          0.5468,
+          0.097763,
+          3.84254
+         ],
+         [
+          0.5469,
+          0.097798,
+          3.843289
+         ],
+         [
+          0.547,
+          0.097832,
+          3.844038
+         ],
+         [
+          0.5471,
+          0.097867,
+          3.844787
+         ],
+         [
+          0.5472,
+          0.097902,
+          3.845536
+         ],
+         [
+          0.5473,
+          0.097936,
+          3.846285
+         ],
+         [
+          0.5474,
+          0.097971,
+          3.847034
+         ],
+         [
+          0.5475,
+          0.098005,
+          3.847783
+         ],
+         [
+          0.5476,
+          0.09804,
+          3.848532
+         ],
+         [
+          0.5477,
+          0.098074,
+          3.849281
+         ],
+         [
+          0.5478,
+          0.098109,
+          3.85003
+         ],
+         [
+          0.5479,
+          0.098143,
+          3.850779
+         ],
+         [
+          0.548,
+          0.098178,
+          3.851528
+         ],
+         [
+          0.5481,
+          0.098212,
+          3.852277
+         ],
+         [
+          0.5482,
+          0.098247,
+          3.853026
+         ],
+         [
+          0.5483,
+          0.098282,
+          3.853774
+         ],
+         [
+          0.5484,
+          0.098316,
+          3.854523
+         ],
+         [
+          0.5485,
+          0.098351,
+          3.855272
+         ],
+         [
+          0.5486,
+          0.098385,
+          3.856021
+         ],
+         [
+          0.5487,
+          0.09842,
+          3.85677
+         ],
+         [
+          0.5488,
+          0.098455,
+          3.857519
+         ],
+         [
+          0.5489,
+          0.098489,
+          3.858268
+         ],
+         [
+          0.549,
+          0.098524,
+          3.859016
+         ],
+         [
+          0.5491,
+          0.098559,
+          3.859765
+         ],
+         [
+          0.5492,
+          0.098593,
+          3.860514
+         ],
+         [
+          0.5493,
+          0.098628,
+          3.861263
+         ],
+         [
+          0.5494,
+          0.098663,
+          3.862012
+         ],
+         [
+          0.5495,
+          0.098697,
+          3.862761
+         ],
+         [
+          0.5496,
+          0.098732,
+          3.863509
+         ],
+         [
+          0.5497,
+          0.098767,
+          3.864258
+         ],
+         [
+          0.5498,
+          0.098801,
+          3.865007
+         ],
+         [
+          0.5499,
+          0.098836,
+          3.865756
+         ],
+         [
+          0.55,
+          0.098871,
+          3.866504
+         ],
+         [
+          0.5501,
+          0.098905,
+          3.867253
+         ],
+         [
+          0.5502,
+          0.09894,
+          3.868002
+         ],
+         [
+          0.5503,
+          0.098975,
+          3.86875
+         ],
+         [
+          0.5504,
+          0.09901,
+          3.869499
+         ],
+         [
+          0.5505,
+          0.099044,
+          3.870248
+         ],
+         [
+          0.5506,
+          0.099079,
+          3.870997
+         ],
+         [
+          0.5507,
+          0.099114,
+          3.871745
+         ],
+         [
+          0.5508,
+          0.099148,
+          3.872494
+         ],
+         [
+          0.5509,
+          0.099183,
+          3.873242
+         ],
+         [
+          0.551,
+          0.099218,
+          3.873991
+         ],
+         [
+          0.5511,
+          0.099253,
+          3.87474
+         ],
+         [
+          0.5512,
+          0.099288,
+          3.875488
+         ],
+         [
+          0.5513,
+          0.099322,
+          3.876237
+         ],
+         [
+          0.5514,
+          0.099357,
+          3.876986
+         ],
+         [
+          0.5515,
+          0.099392,
+          3.877734
+         ],
+         [
+          0.5516,
+          0.099427,
+          3.878483
+         ],
+         [
+          0.5517,
+          0.099462,
+          3.879231
+         ],
+         [
+          0.5518,
+          0.099496,
+          3.87998
+         ],
+         [
+          0.5519,
+          0.099531,
+          3.880728
+         ],
+         [
+          0.552,
+          0.099566,
+          3.881477
+         ]
+        ]
+       },
+       "thickness": 0.010279
+      }
+     ],
+     "host": {
+      "label": "Air",
+      "n": 1.0,
+      "k": 0.0
+     }
+    },
+    "envelope": {
+     "start": 531,
+     "end": 550,
+     "step": 0.05,
+     "angle": 90,
+     "spectra_polarization": "axial-magnetic",
+     "cross_section_units": "efficiency"
+    }
+   },
+   "checks": [
+    {
+     "check": "lossless: total scattering peak (2λ/π)",
+     "paper": 7.94,
+     "computed": 7.8696,
+     "tolerance": 0.15,
+     "pass": true,
+     "source": "p. 3, printed"
+    },
+    {
+     "check": "lossless: frequency of the peak (ω/ωp)",
+     "paper": 0.2542,
+     "computed": 0.2542,
+     "tolerance": 0.0005,
+     "pass": true,
+     "source": "p. 3, printed"
+    },
+    {
+     "check": "lossless: each channel m = 1..4 peaks at the single-channel limit (min of the four maxima)",
+     "paper": 1.0,
+     "computed": 0.978,
+     "tolerance": 0.03,
+     "pass": true,
+     "source": "p. 3"
+    },
+    {
+     "check": "lossy: total scattering peak (2λ/π)",
+     "paper": 1.92,
+     "computed": 1.917,
+     "tolerance": 0.1,
+     "pass": true,
+     "source": "p. 3, printed"
+    },
+    {
+     "check": "lossy: absorption peak (2λ/π)",
+     "paper": 0.73,
+     "computed": 0.731,
+     "tolerance": 0.05,
+     "pass": true,
+     "source": "p. 4, printed"
+    }
+   ]
+  },
+  {
+   "id": "bohren-huffman-1983",
+   "kind": "classic",
+   "position": 6,
+   "geometry": "cylinders",
+   "title": "The infinite cylinder: two polarizations",
+   "cite": "C. F. Bohren and D. R. Huffman, Absorption and Scattering of Light by Small Particles (Wiley, 1983), section 8.4",
+   "doi": "10.1002/9783527618156",
+   "figure": "Fig. 8.7: scattering per unit volume of a glass-like cylinder against diameter, polarized parallel and perpendicular to its axis",
+   "shows": "Scattering efficiency of a non-absorbing cylinder (n = 1.55, in air, 632.8 nm) swept from 10 nm to 1.5 µm in radius, for light polarized along the axis; switch to the perpendicular polarization to see the textbook difference.",
+   "inputs": "n = 1.55, λ = 0.6328 µm, air, normal incidence (p. 207). The book plots C_sca/V = 4Q/(πd); the calculator shows the efficiency Q.",
+   "agreement": "The parallel maxima 7.28, 9.52, 9.97 and 8.85 (×10⁴ cm⁻¹) at 0.16–0.61 µm diameter, and the perpendicular 7.97 at 0.50 µm, against ~7.3, 9.5, 10.0, 8.8 and 8.0 read off Fig. 8.7.",
+   "perturb": "Make the cylinder absorbing (k = 0.05): the ripple dies and both polarizations fall toward the geometric limit Q = 2.",
+   "script": "crosscheck/classics/bohren_huffman_1983.py",
+   "results": "crosscheck/classics/results/bohren_huffman_1983.json",
+   "calculator": {
+    "cylinder": {
+     "shells": [
+      {
+       "label": "n = 1.55",
+       "n": 1.55,
+       "k": 0.0,
+       "thickness": 0.01
+      }
+     ],
+     "host": {
+      "label": "Air",
+      "n": 1.0,
+      "k": 0.0
+     }
+    },
+    "envelope": {
+     "start": 632.8,
+     "end": 632.8,
+     "step": 1,
+     "angle": 90,
+     "spectra_polarization": "axial-electric",
+     "wave_sweep": "thickness:1",
+     "wave_ranges": {
+      "thickness:1": {
+       "start": 10,
+       "end": 1500,
+       "step": 7.5
+      }
+     }
+    }
+   },
+   "checks": [
+    {
+     "check": "parallel: first maximum",
+     "paper": 7.3,
+     "computed": 7.2795,
+     "tolerance": 0.2,
+     "pass": true,
+     "source": "Fig. 8.7, read"
+    },
+    {
+     "check": "parallel: second maximum",
+     "paper": 9.5,
+     "computed": 9.5203,
+     "tolerance": 0.2,
+     "pass": true,
+     "source": "Fig. 8.7, read"
+    },
+    {
+     "check": "parallel: highest maximum",
+     "paper": 10.0,
+     "computed": 9.9683,
+     "tolerance": 0.2,
+     "pass": true,
+     "source": "Fig. 8.7, read"
+    },
+    {
+     "check": "parallel: diameter of the highest maximum (µm)",
+     "paper": 0.47,
+     "computed": 0.4746,
+     "tolerance": 0.03,
+     "pass": true,
+     "source": "Fig. 8.7, read"
+    },
+    {
+     "check": "parallel: shoulder after it",
+     "paper": 8.8,
+     "computed": 8.8543,
+     "tolerance": 0.25,
+     "pass": true,
+     "source": "Fig. 8.7, read"
+    },
+    {
+     "check": "perpendicular: maximum",
+     "paper": 8.0,
+     "computed": 7.9708,
+     "tolerance": 0.2,
+     "pass": true,
+     "source": "Fig. 8.7, read"
+    },
+    {
+     "check": "perpendicular: diameter of the maximum (µm)",
+     "paper": 0.5,
+     "computed": 0.5046,
+     "tolerance": 0.03,
+     "pass": true,
+     "source": "Fig. 8.7, read"
+    }
+   ]
+  },
+  {
+   "id": "ruppin-2001",
+   "kind": "classic",
+   "position": 7,
+   "geometry": "cylinders",
+   "title": "A 1 nm sodium wire",
+   "cite": "R. Ruppin, Opt. Commun. 190, 205 (2001)",
+   "doi": "10.1016/S0030-4018(01)01063-X",
+   "figure": "Fig. 1, dashed curve: classical extinction of a sodium wire of radius 1 nm",
+   "shows": "Extinction efficiency (log scale) of a 1 nm Na wire in vacuum, light polarized across the wire, from 156 to 545 nm (ω/ωp = 1.4 to 0.4).",
+   "inputs": "Drude sodium as printed (ωp = 8.65e15 s⁻¹, γ = 0.01 ωp), as an uploaded table.",
+   "agreement": "Resonance at ωp/√2 and peak log₁₀ C_e = 0.65, as in Fig. 1; the paper's solid curve adds a hydrodynamic correction the calculator does not model.",
+   "perturb": "Put the wire in a medium of ε = 2 (n = 1.414): the resonance moves to ωp/√3, as in the paper's Fig. 4.",
+   "script": "crosscheck/classics/ruppin_2001.py",
+   "results": "crosscheck/classics/results/ruppin_2001.json",
+   "calculator": {
+    "cylinder": {
+     "shells": [
+      {
+       "label": "Na (Drude)",
+       "n": 0.5,
+       "k": 1.0,
+       "table": {
+        "name": "Na, Drude (ωp = 8.65e15 s⁻¹, γ = 0.01 ωp)",
+        "rows": [
+         [
+          0.155,
+          0.702423,
+          0.002567
+         ],
+         [
+          0.156,
+          0.69774,
+          0.002634
+         ],
+         [
+          0.157,
+          0.692995,
+          0.002704
+         ],
+         [
+          0.158,
+          0.688186,
+          0.002775
+         ],
+         [
+          0.159,
+          0.683313,
+          0.002848
+         ],
+         [
+          0.16,
+          0.678373,
+          0.002923
+         ],
+         [
+          0.161,
+          0.673366,
+          0.003001
+         ],
+         [
+          0.162,
+          0.66829,
+          0.00308
+         ],
+         [
+          0.163,
+          0.663144,
+          0.003162
+         ],
+         [
+          0.164,
+          0.657925,
+          0.003246
+         ],
+         [
+          0.165,
+          0.652632,
+          0.003333
+         ],
+         [
+          0.166,
+          0.647264,
+          0.003422
+         ],
+         [
+          0.167,
+          0.641817,
+          0.003513
+         ],
+         [
+          0.168,
+          0.636291,
+          0.003608
+         ],
+         [
+          0.169,
+          0.630683,
+          0.003705
+         ],
+         [
+          0.17,
+          0.624992,
+          0.003806
+         ],
+         [
+          0.171,
+          0.619213,
+          0.00391
+         ],
+         [
+          0.172,
+          0.613346,
+          0.004017
+         ],
+         [
+          0.173,
+          0.607388,
+          0.004127
+         ],
+         [
+          0.174,
+          0.601336,
+          0.004242
+         ],
+         [
+          0.175,
+          0.595187,
+          0.00436
+         ],
+         [
+          0.176,
+          0.588937,
+          0.004482
+         ],
+         [
+          0.177,
+          0.582585,
+          0.004608
+         ],
+         [
+          0.178,
+          0.576126,
+          0.004739
+         ],
+         [
+          0.179,
+          0.569557,
+          0.004875
+         ],
+         [
+          0.18,
+          0.562874,
+          0.005016
+         ],
+         [
+          0.181,
+          0.556073,
+          0.005163
+         ],
+         [
+          0.182,
+          0.549149,
+          0.005315
+         ],
+         [
+          0.183,
+          0.542099,
+          0.005473
+         ],
+         [
+          0.184,
+          0.534915,
+          0.005638
+         ],
+         [
+          0.185,
+          0.527595,
+          0.00581
+         ],
+         [
+          0.186,
+          0.520131,
+          0.00599
+         ],
+         [
+          0.187,
+          0.512517,
+          0.006177
+         ],
+         [
+          0.188,
+          0.504747,
+          0.006374
+         ],
+         [
+          0.189,
+          0.496813,
+          0.006579
+         ],
+         [
+          0.19,
+          0.488707,
+          0.006795
+         ],
+         [
+          0.191,
+          0.480421,
+          0.007022
+         ],
+         [
+          0.192,
+          0.471946,
+          0.007261
+         ],
+         [
+          0.193,
+          0.46327,
+          0.007513
+         ],
+         [
+          0.194,
+          0.454382,
+          0.00778
+         ],
+         [
+          0.195,
+          0.445271,
+          0.008062
+         ],
+         [
+          0.196,
+          0.435921,
+          0.008363
+         ],
+         [
+          0.197,
+          0.426317,
+          0.008683
+         ],
+         [
+          0.198,
+          0.416442,
+          0.009024
+         ],
+         [
+          0.199,
+          0.406276,
+          0.009391
+         ],
+         [
+          0.2,
+          0.395797,
+          0.009786
+         ],
+         [
+          0.201,
+          0.384979,
+          0.010212
+         ],
+         [
+          0.202,
+          0.373794,
+          0.010676
+         ],
+         [
+          0.203,
+          0.362207,
+          0.011182
+         ],
+         [
+          0.204,
+          0.350179,
+          0.011738
+         ],
+         [
+          0.205,
+          0.337664,
+          0.012353
+         ],
+         [
+          0.206,
+          0.324605,
+          0.013038
+         ],
+         [
+          0.207,
+          0.310937,
+          0.013811
+         ],
+         [
+          0.208,
+          0.296575,
+          0.01469
+         ],
+         [
+          0.209,
+          0.281417,
+          0.015706
+         ],
+         [
+          0.21,
+          0.265331,
+          0.016898
+         ],
+         [
+          0.211,
+          0.248142,
+          0.018328
+         ],
+         [
+          0.212,
+          0.229617,
+          0.02009
+         ],
+         [
+          0.213,
+          0.209425,
+          0.02234
+         ],
+         [
+          0.214,
+          0.187083,
+          0.025362
+         ],
+         [
+          0.215,
+          0.161851,
+          0.029729
+         ],
+         [
+          0.216,
+          0.132586,
+          0.036799
+         ],
+         [
+          0.217,
+          0.098161,
+          0.050398
+         ],
+         [
+          0.218,
+          0.063908,
+          0.078485
+         ],
+         [
+          0.219,
+          0.04419,
+          0.115074
+         ],
+         [
+          0.22,
+          0.034942,
+          0.147533
+         ],
+         [
+          0.221,
+          0.02981,
+          0.175303
+         ],
+         [
+          0.222,
+          0.026523,
+          0.199715
+         ],
+         [
+          0.223,
+          0.024217,
+          0.221701
+         ],
+         [
+          0.224,
+          0.022499,
+          0.241858
+         ],
+         [
+          0.225,
+          0.021163,
+          0.260583
+         ],
+         [
+          0.226,
+          0.020092,
+          0.27815
+         ],
+         [
+          0.227,
+          0.019212,
+          0.294761
+         ],
+         [
+          0.228,
+          0.018477,
+          0.310562
+         ],
+         [
+          0.229,
+          0.017852,
+          0.32567
+         ],
+         [
+          0.23,
+          0.017316,
+          0.340176
+         ],
+         [
+          0.231,
+          0.016851,
+          0.354151
+         ],
+         [
+          0.232,
+          0.016443,
+          0.367656
+         ],
+         [
+          0.233,
+          0.016084,
+          0.38074
+         ],
+         [
+          0.234,
+          0.015766,
+          0.393444
+         ],
+         [
+          0.235,
+          0.015483,
+          0.405805
+         ],
+         [
+          0.236,
+          0.015229,
+          0.417851
+         ],
+         [
+          0.237,
+          0.015002,
+          0.42961
+         ],
+         [
+          0.238,
+          0.014796,
+          0.441104
+         ],
+         [
+          0.239,
+          0.014611,
+          0.452354
+         ],
+         [
+          0.24,
+          0.014443,
+          0.463377
+         ],
+         [
+          0.241,
+          0.014291,
+          0.474188
+         ],
+         [
+          0.242,
+          0.014153,
+          0.484802
+         ],
+         [
+          0.243,
+          0.014027,
+          0.495232
+         ],
+         [
+          0.244,
+          0.013913,
+          0.505489
+         ],
+         [
+          0.245,
+          0.013809,
+          0.515582
+         ],
+         [
+          0.246,
+          0.013714,
+          0.525523
+         ],
+         [
+          0.247,
+          0.013628,
+          0.535318
+         ],
+         [
+          0.248,
+          0.01355,
+          0.544976
+         ],
+         [
+          0.249,
+          0.013479,
+          0.554504
+         ],
+         [
+          0.25,
+          0.013414,
+          0.563909
+         ],
+         [
+          0.251,
+          0.013356,
+          0.573196
+         ],
+         [
+          0.252,
+          0.013303,
+          0.582372
+         ],
+         [
+          0.253,
+          0.013256,
+          0.591441
+         ],
+         [
+          0.254,
+          0.013213,
+          0.600408
+         ],
+         [
+          0.255,
+          0.013175,
+          0.609278
+         ],
+         [
+          0.256,
+          0.013142,
+          0.618054
+         ],
+         [
+          0.257,
+          0.013112,
+          0.626742
+         ],
+         [
+          0.258,
+          0.013086,
+          0.635344
+         ],
+         [
+          0.259,
+          0.013064,
+          0.643864
+         ],
+         [
+          0.26,
+          0.013044,
+          0.652305
+         ],
+         [
+          0.261,
+          0.013028,
+          0.66067
+         ],
+         [
+          0.262,
+          0.013015,
+          0.668962
+         ],
+         [
+          0.263,
+          0.013005,
+          0.677184
+         ],
+         [
+          0.264,
+          0.012998,
+          0.685338
+         ],
+         [
+          0.265,
+          0.012992,
+          0.693426
+         ],
+         [
+          0.266,
+          0.01299,
+          0.701451
+         ],
+         [
+          0.267,
+          0.012989,
+          0.709415
+         ],
+         [
+          0.268,
+          0.012991,
+          0.717321
+         ],
+         [
+          0.269,
+          0.012995,
+          0.725169
+         ],
+         [
+          0.27,
+          0.013,
+          0.732962
+         ],
+         [
+          0.271,
+          0.013008,
+          0.740701
+         ],
+         [
+          0.272,
+          0.013018,
+          0.748388
+         ],
+         [
+          0.273,
+          0.013029,
+          0.756026
+         ],
+         [
+          0.274,
+          0.013041,
+          0.763614
+         ],
+         [
+          0.275,
+          0.013056,
+          0.771155
+         ],
+         [
+          0.276,
+          0.013072,
+          0.77865
+         ],
+         [
+          0.277,
+          0.013089,
+          0.786101
+         ],
+         [
+          0.278,
+          0.013108,
+          0.793508
+         ],
+         [
+          0.279,
+          0.013128,
+          0.800873
+         ],
+         [
+          0.28,
+          0.013149,
+          0.808197
+         ],
+         [
+          0.281,
+          0.013172,
+          0.815481
+         ],
+         [
+          0.282,
+          0.013196,
+          0.822726
+         ],
+         [
+          0.283,
+          0.013221,
+          0.829934
+         ],
+         [
+          0.284,
+          0.013247,
+          0.837104
+         ],
+         [
+          0.285,
+          0.013274,
+          0.844238
+         ],
+         [
+          0.286,
+          0.013303,
+          0.851338
+         ],
+         [
+          0.287,
+          0.013332,
+          0.858403
+         ],
+         [
+          0.288,
+          0.013362,
+          0.865435
+         ],
+         [
+          0.289,
+          0.013394,
+          0.872435
+         ],
+         [
+          0.29,
+          0.013426,
+          0.879403
+         ],
+         [
+          0.291,
+          0.013459,
+          0.886339
+         ],
+         [
+          0.292,
+          0.013493,
+          0.893246
+         ],
+         [
+          0.293,
+          0.013528,
+          0.900123
+         ],
+         [
+          0.294,
+          0.013564,
+          0.906971
+         ],
+         [
+          0.295,
+          0.013601,
+          0.913791
+         ],
+         [
+          0.296,
+          0.013638,
+          0.920583
+         ],
+         [
+          0.297,
+          0.013676,
+          0.927348
+         ],
+         [
+          0.298,
+          0.013715,
+          0.934087
+         ],
+         [
+          0.299,
+          0.013755,
+          0.940799
+         ],
+         [
+          0.3,
+          0.013795,
+          0.947487
+         ],
+         [
+          0.301,
+          0.013836,
+          0.95415
+         ],
+         [
+          0.302,
+          0.013878,
+          0.960788
+         ],
+         [
+          0.303,
+          0.01392,
+          0.967403
+         ],
+         [
+          0.304,
+          0.013964,
+          0.973994
+         ],
+         [
+          0.305,
+          0.014007,
+          0.980563
+         ],
+         [
+          0.306,
+          0.014052,
+          0.987109
+         ],
+         [
+          0.307,
+          0.014097,
+          0.993633
+         ],
+         [
+          0.308,
+          0.014142,
+          1.000136
+         ],
+         [
+          0.309,
+          0.014189,
+          1.006618
+         ],
+         [
+          0.31,
+          0.014235,
+          1.013079
+         ],
+         [
+          0.311,
+          0.014283,
+          1.01952
+         ],
+         [
+          0.312,
+          0.014331,
+          1.025941
+         ],
+         [
+          0.313,
+          0.014379,
+          1.032342
+         ],
+         [
+          0.314,
+          0.014428,
+          1.038724
+         ],
+         [
+          0.315,
+          0.014478,
+          1.045087
+         ],
+         [
+          0.316,
+          0.014528,
+          1.051432
+         ],
+         [
+          0.317,
+          0.014579,
+          1.057759
+         ],
+         [
+          0.318,
+          0.01463,
+          1.064068
+         ],
+         [
+          0.319,
+          0.014681,
+          1.07036
+         ],
+         [
+          0.32,
+          0.014733,
+          1.076634
+         ],
+         [
+          0.321,
+          0.014786,
+          1.082891
+         ],
+         [
+          0.322,
+          0.014839,
+          1.089132
+         ],
+         [
+          0.323,
+          0.014893,
+          1.095357
+         ],
+         [
+          0.324,
+          0.014947,
+          1.101565
+         ],
+         [
+          0.325,
+          0.015001,
+          1.107758
+         ],
+         [
+          0.326,
+          0.015056,
+          1.113935
+         ],
+         [
+          0.327,
+          0.015111,
+          1.120097
+         ],
+         [
+          0.328,
+          0.015167,
+          1.126243
+         ],
+         [
+          0.329,
+          0.015224,
+          1.132376
+         ],
+         [
+          0.33,
+          0.01528,
+          1.138493
+         ],
+         [
+          0.331,
+          0.015337,
+          1.144596
+         ],
+         [
+          0.332,
+          0.015395,
+          1.150686
+         ],
+         [
+          0.333,
+          0.015453,
+          1.156761
+         ],
+         [
+          0.334,
+          0.015511,
+          1.162823
+         ],
+         [
+          0.335,
+          0.01557,
+          1.168871
+         ],
+         [
+          0.336,
+          0.015629,
+          1.174906
+         ],
+         [
+          0.337,
+          0.015688,
+          1.180928
+         ],
+         [
+          0.338,
+          0.015748,
+          1.186938
+         ],
+         [
+          0.339,
+          0.015809,
+          1.192934
+         ],
+         [
+          0.34,
+          0.015869,
+          1.198919
+         ],
+         [
+          0.341,
+          0.01593,
+          1.204891
+         ],
+         [
+          0.342,
+          0.015992,
+          1.210851
+         ],
+         [
+          0.343,
+          0.016054,
+          1.216799
+         ],
+         [
+          0.344,
+          0.016116,
+          1.222735
+         ],
+         [
+          0.345,
+          0.016178,
+          1.22866
+         ],
+         [
+          0.346,
+          0.016241,
+          1.234574
+         ],
+         [
+          0.347,
+          0.016304,
+          1.240476
+         ],
+         [
+          0.348,
+          0.016368,
+          1.246367
+         ],
+         [
+          0.349,
+          0.016432,
+          1.252248
+         ],
+         [
+          0.35,
+          0.016496,
+          1.258117
+         ],
+         [
+          0.351,
+          0.016561,
+          1.263976
+         ],
+         [
+          0.352,
+          0.016626,
+          1.269825
+         ],
+         [
+          0.353,
+          0.016691,
+          1.275663
+         ],
+         [
+          0.354,
+          0.016757,
+          1.281491
+         ],
+         [
+          0.355,
+          0.016823,
+          1.287309
+         ],
+         [
+          0.356,
+          0.016889,
+          1.293118
+         ],
+         [
+          0.357,
+          0.016956,
+          1.298916
+         ],
+         [
+          0.358,
+          0.017023,
+          1.304705
+         ],
+         [
+          0.359,
+          0.01709,
+          1.310484
+         ],
+         [
+          0.36,
+          0.017158,
+          1.316254
+         ],
+         [
+          0.361,
+          0.017226,
+          1.322015
+         ],
+         [
+          0.362,
+          0.017294,
+          1.327767
+         ],
+         [
+          0.363,
+          0.017363,
+          1.333509
+         ],
+         [
+          0.364,
+          0.017432,
+          1.339243
+         ],
+         [
+          0.365,
+          0.017501,
+          1.344968
+         ],
+         [
+          0.366,
+          0.01757,
+          1.350684
+         ],
+         [
+          0.367,
+          0.01764,
+          1.356392
+         ],
+         [
+          0.368,
+          0.01771,
+          1.362091
+         ],
+         [
+          0.369,
+          0.017781,
+          1.367782
+         ],
+         [
+          0.37,
+          0.017852,
+          1.373464
+         ],
+         [
+          0.371,
+          0.017923,
+          1.379139
+         ],
+         [
+          0.372,
+          0.017994,
+          1.384805
+         ],
+         [
+          0.373,
+          0.018066,
+          1.390464
+         ],
+         [
+          0.374,
+          0.018138,
+          1.396114
+         ],
+         [
+          0.375,
+          0.01821,
+          1.401757
+         ],
+         [
+          0.376,
+          0.018282,
+          1.407392
+         ],
+         [
+          0.377,
+          0.018355,
+          1.41302
+         ],
+         [
+          0.378,
+          0.018428,
+          1.41864
+         ],
+         [
+          0.379,
+          0.018502,
+          1.424253
+         ],
+         [
+          0.38,
+          0.018576,
+          1.429858
+         ],
+         [
+          0.381,
+          0.01865,
+          1.435457
+         ],
+         [
+          0.382,
+          0.018724,
+          1.441048
+         ],
+         [
+          0.383,
+          0.018798,
+          1.446632
+         ],
+         [
+          0.384,
+          0.018873,
+          1.452209
+         ],
+         [
+          0.385,
+          0.018948,
+          1.457779
+         ],
+         [
+          0.386,
+          0.019024,
+          1.463343
+         ],
+         [
+          0.387,
+          0.019099,
+          1.468899
+         ],
+         [
+          0.388,
+          0.019175,
+          1.474449
+         ],
+         [
+          0.389,
+          0.019252,
+          1.479993
+         ],
+         [
+          0.39,
+          0.019328,
+          1.48553
+         ],
+         [
+          0.391,
+          0.019405,
+          1.49106
+         ],
+         [
+          0.392,
+          0.019482,
+          1.496584
+         ],
+         [
+          0.393,
+          0.019559,
+          1.502102
+         ],
+         [
+          0.394,
+          0.019637,
+          1.507614
+         ],
+         [
+          0.395,
+          0.019715,
+          1.513119
+         ],
+         [
+          0.396,
+          0.019793,
+          1.518618
+         ],
+         [
+          0.397,
+          0.019871,
+          1.524112
+         ],
+         [
+          0.398,
+          0.01995,
+          1.529599
+         ],
+         [
+          0.399,
+          0.020029,
+          1.53508
+         ],
+         [
+          0.4,
+          0.020108,
+          1.540556
+         ],
+         [
+          0.401,
+          0.020188,
+          1.546026
+         ],
+         [
+          0.402,
+          0.020267,
+          1.55149
+         ],
+         [
+          0.403,
+          0.020347,
+          1.556948
+         ],
+         [
+          0.404,
+          0.020428,
+          1.562401
+         ],
+         [
+          0.405,
+          0.020508,
+          1.567849
+         ],
+         [
+          0.406,
+          0.020589,
+          1.573291
+         ],
+         [
+          0.407,
+          0.02067,
+          1.578727
+         ],
+         [
+          0.408,
+          0.020751,
+          1.584158
+         ],
+         [
+          0.409,
+          0.020833,
+          1.589584
+         ],
+         [
+          0.41,
+          0.020915,
+          1.595004
+         ],
+         [
+          0.411,
+          0.020997,
+          1.60042
+         ],
+         [
+          0.412,
+          0.021079,
+          1.60583
+         ],
+         [
+          0.413,
+          0.021162,
+          1.611235
+         ],
+         [
+          0.414,
+          0.021245,
+          1.616635
+         ],
+         [
+          0.415,
+          0.021328,
+          1.62203
+         ],
+         [
+          0.416,
+          0.021411,
+          1.62742
+         ],
+         [
+          0.417,
+          0.021495,
+          1.632805
+         ],
+         [
+          0.418,
+          0.021579,
+          1.638185
+         ],
+         [
+          0.419,
+          0.021663,
+          1.643561
+         ],
+         [
+          0.42,
+          0.021747,
+          1.648932
+         ],
+         [
+          0.421,
+          0.021832,
+          1.654298
+         ],
+         [
+          0.422,
+          0.021917,
+          1.659659
+         ],
+         [
+          0.423,
+          0.022002,
+          1.665016
+         ],
+         [
+          0.424,
+          0.022087,
+          1.670368
+         ],
+         [
+          0.425,
+          0.022173,
+          1.675716
+         ],
+         [
+          0.426,
+          0.022259,
+          1.681059
+         ],
+         [
+          0.427,
+          0.022345,
+          1.686398
+         ],
+         [
+          0.428,
+          0.022431,
+          1.691732
+         ],
+         [
+          0.429,
+          0.022518,
+          1.697062
+         ],
+         [
+          0.43,
+          0.022604,
+          1.702388
+         ],
+         [
+          0.431,
+          0.022692,
+          1.707709
+         ],
+         [
+          0.432,
+          0.022779,
+          1.713026
+         ],
+         [
+          0.433,
+          0.022867,
+          1.718339
+         ],
+         [
+          0.434,
+          0.022954,
+          1.723648
+         ],
+         [
+          0.435,
+          0.023042,
+          1.728952
+         ],
+         [
+          0.436,
+          0.023131,
+          1.734253
+         ],
+         [
+          0.437,
+          0.023219,
+          1.739549
+         ],
+         [
+          0.438,
+          0.023308,
+          1.744842
+         ],
+         [
+          0.439,
+          0.023397,
+          1.75013
+         ],
+         [
+          0.44,
+          0.023486,
+          1.755415
+         ],
+         [
+          0.441,
+          0.023576,
+          1.760696
+         ],
+         [
+          0.442,
+          0.023666,
+          1.765972
+         ],
+         [
+          0.443,
+          0.023756,
+          1.771245
+         ],
+         [
+          0.444,
+          0.023846,
+          1.776514
+         ],
+         [
+          0.445,
+          0.023937,
+          1.78178
+         ],
+         [
+          0.446,
+          0.024027,
+          1.787042
+         ],
+         [
+          0.447,
+          0.024118,
+          1.792299
+         ],
+         [
+          0.448,
+          0.024209,
+          1.797554
+         ],
+         [
+          0.449,
+          0.024301,
+          1.802804
+         ],
+         [
+          0.45,
+          0.024393,
+          1.808051
+         ],
+         [
+          0.451,
+          0.024485,
+          1.813295
+         ],
+         [
+          0.452,
+          0.024577,
+          1.818535
+         ],
+         [
+          0.453,
+          0.024669,
+          1.823771
+         ],
+         [
+          0.454,
+          0.024762,
+          1.829004
+         ],
+         [
+          0.455,
+          0.024855,
+          1.834233
+         ],
+         [
+          0.456,
+          0.024948,
+          1.839459
+         ],
+         [
+          0.457,
+          0.025041,
+          1.844682
+         ],
+         [
+          0.458,
+          0.025135,
+          1.849901
+         ],
+         [
+          0.459,
+          0.025228,
+          1.855117
+         ],
+         [
+          0.46,
+          0.025322,
+          1.86033
+         ],
+         [
+          0.461,
+          0.025417,
+          1.865539
+         ],
+         [
+          0.462,
+          0.025511,
+          1.870745
+         ],
+         [
+          0.463,
+          0.025606,
+          1.875948
+         ],
+         [
+          0.464,
+          0.025701,
+          1.881148
+         ],
+         [
+          0.465,
+          0.025796,
+          1.886344
+         ],
+         [
+          0.466,
+          0.025892,
+          1.891538
+         ],
+         [
+          0.467,
+          0.025987,
+          1.896728
+         ],
+         [
+          0.468,
+          0.026083,
+          1.901915
+         ],
+         [
+          0.469,
+          0.026179,
+          1.907099
+         ],
+         [
+          0.47,
+          0.026276,
+          1.91228
+         ],
+         [
+          0.471,
+          0.026372,
+          1.917458
+         ],
+         [
+          0.472,
+          0.026469,
+          1.922633
+         ],
+         [
+          0.473,
+          0.026566,
+          1.927805
+         ],
+         [
+          0.474,
+          0.026664,
+          1.932974
+         ],
+         [
+          0.475,
+          0.026761,
+          1.93814
+         ],
+         [
+          0.476,
+          0.026859,
+          1.943303
+         ],
+         [
+          0.477,
+          0.026957,
+          1.948463
+         ],
+         [
+          0.478,
+          0.027055,
+          1.953621
+         ],
+         [
+          0.479,
+          0.027154,
+          1.958775
+         ],
+         [
+          0.48,
+          0.027252,
+          1.963927
+         ],
+         [
+          0.481,
+          0.027351,
+          1.969076
+         ],
+         [
+          0.482,
+          0.02745,
+          1.974222
+         ],
+         [
+          0.483,
+          0.02755,
+          1.979366
+         ],
+         [
+          0.484,
+          0.027649,
+          1.984507
+         ],
+         [
+          0.485,
+          0.027749,
+          1.989645
+         ],
+         [
+          0.486,
+          0.027849,
+          1.99478
+         ],
+         [
+          0.487,
+          0.02795,
+          1.999913
+         ],
+         [
+          0.488,
+          0.02805,
+          2.005043
+         ],
+         [
+          0.489,
+          0.028151,
+          2.01017
+         ],
+         [
+          0.49,
+          0.028252,
+          2.015295
+         ],
+         [
+          0.491,
+          0.028353,
+          2.020417
+         ],
+         [
+          0.492,
+          0.028454,
+          2.025537
+         ],
+         [
+          0.493,
+          0.028556,
+          2.030654
+         ],
+         [
+          0.494,
+          0.028658,
+          2.035769
+         ],
+         [
+          0.495,
+          0.02876,
+          2.040881
+         ],
+         [
+          0.496,
+          0.028862,
+          2.04599
+         ],
+         [
+          0.497,
+          0.028965,
+          2.051098
+         ],
+         [
+          0.498,
+          0.029068,
+          2.056202
+         ],
+         [
+          0.499,
+          0.029171,
+          2.061304
+         ],
+         [
+          0.5,
+          0.029274,
+          2.066404
+         ],
+         [
+          0.501,
+          0.029377,
+          2.071502
+         ],
+         [
+          0.502,
+          0.029481,
+          2.076597
+         ],
+         [
+          0.503,
+          0.029585,
+          2.081689
+         ],
+         [
+          0.504,
+          0.029689,
+          2.08678
+         ],
+         [
+          0.505,
+          0.029794,
+          2.091868
+         ],
+         [
+          0.506,
+          0.029898,
+          2.096953
+         ],
+         [
+          0.507,
+          0.030003,
+          2.102037
+         ],
+         [
+          0.508,
+          0.030108,
+          2.107118
+         ],
+         [
+          0.509,
+          0.030213,
+          2.112197
+         ],
+         [
+          0.51,
+          0.030319,
+          2.117273
+         ],
+         [
+          0.511,
+          0.030425,
+          2.122348
+         ],
+         [
+          0.512,
+          0.03053,
+          2.12742
+         ],
+         [
+          0.513,
+          0.030637,
+          2.13249
+         ],
+         [
+          0.514,
+          0.030743,
+          2.137558
+         ],
+         [
+          0.515,
+          0.03085,
+          2.142623
+         ],
+         [
+          0.516,
+          0.030956,
+          2.147687
+         ],
+         [
+          0.517,
+          0.031063,
+          2.152748
+         ],
+         [
+          0.518,
+          0.031171,
+          2.157807
+         ],
+         [
+          0.519,
+          0.031278,
+          2.162864
+         ],
+         [
+          0.52,
+          0.031386,
+          2.167919
+         ],
+         [
+          0.521,
+          0.031494,
+          2.172972
+         ],
+         [
+          0.522,
+          0.031602,
+          2.178023
+         ],
+         [
+          0.523,
+          0.031711,
+          2.183072
+         ],
+         [
+          0.524,
+          0.031819,
+          2.188119
+         ],
+         [
+          0.525,
+          0.031928,
+          2.193163
+         ],
+         [
+          0.526,
+          0.032037,
+          2.198206
+         ],
+         [
+          0.527,
+          0.032146,
+          2.203247
+         ],
+         [
+          0.528,
+          0.032256,
+          2.208285
+         ],
+         [
+          0.529,
+          0.032366,
+          2.213322
+         ],
+         [
+          0.53,
+          0.032475,
+          2.218357
+         ],
+         [
+          0.531,
+          0.032586,
+          2.22339
+         ],
+         [
+          0.532,
+          0.032696,
+          2.228421
+         ],
+         [
+          0.533,
+          0.032807,
+          2.23345
+         ],
+         [
+          0.534,
+          0.032917,
+          2.238477
+         ],
+         [
+          0.535,
+          0.033029,
+          2.243502
+         ],
+         [
+          0.536,
+          0.03314,
+          2.248526
+         ],
+         [
+          0.537,
+          0.033251,
+          2.253547
+         ],
+         [
+          0.538,
+          0.033363,
+          2.258567
+         ],
+         [
+          0.539,
+          0.033475,
+          2.263585
+         ],
+         [
+          0.54,
+          0.033587,
+          2.268601
+         ],
+         [
+          0.541,
+          0.0337,
+          2.273615
+         ],
+         [
+          0.542,
+          0.033812,
+          2.278627
+         ],
+         [
+          0.543,
+          0.033925,
+          2.283638
+         ],
+         [
+          0.544,
+          0.034038,
+          2.288646
+         ],
+         [
+          0.545,
+          0.034151,
+          2.293654
+         ]
+        ]
+       },
+       "thickness": 0.001
+      }
+     ],
+     "host": {
+      "label": "Vacuum",
+      "n": 1.0,
+      "k": 0.0
+     }
+    },
+    "envelope": {
+     "start": 156,
+     "end": 545,
+     "step": 1,
+     "angle": 90,
+     "spectra_polarization": "axial-magnetic",
+     "plot_scales": {
+      "spectra": "log"
+     }
+    }
+   },
+   "checks": [
+    {
+     "check": "λp from ωp (nm)",
+     "paper": 217.9,
+     "computed": 217.7632,
+     "tolerance": 0.2,
+     "pass": true,
+     "source": "conversion of p. 207"
+    },
+    {
+     "check": "a = 1 nm, ε_m = 1: local resonance (ω/ωp)",
+     "paper": 0.7071,
+     "computed": 0.707,
+     "tolerance": 0.004,
+     "pass": true,
+     "source": "ωp/√2, p. 207"
+    },
+    {
+     "check": "a = 1 nm: log10 of the local peak",
+     "paper": 0.65,
+     "computed": 0.6457,
+     "tolerance": 0.08,
+     "pass": true,
+     "source": "Fig. 1 dashed, read"
+    },
+    {
+     "check": "a = 2 nm, ε_m = 2: local resonance (ω/ωp)",
+     "paper": 0.5774,
+     "computed": 0.576,
+     "tolerance": 0.004,
+     "pass": true,
+     "source": "ωp/√3, p. 208"
+    },
+    {
+     "check": "a = 1 nm: log10 C_e at 1.4 ωp",
+     "paper": -3.35,
+     "computed": -3.3617,
+     "tolerance": 0.25,
+     "pass": true,
+     "source": "Fig. 1 dashed, read"
+    }
+   ]
+  },
+  {
+   "id": "davis-2011",
+   "kind": "classic",
+   "position": 8,
+   "geometry": "cylinders",
+   "title": "An FT-IR microscope looking at a fiber",
+   "cite": "B. J. Davis, P. S. Carney and R. Bhargava, Anal. Chem. 83, 525 (2011)",
+   "doi": "10.1021/ac102239b",
+   "figure": "Fig. 5a: transmission through a non-absorbing fiber of radius 5 µm, n0 = 1.477",
+   "shows": "Apparent absorbance of a fiber that absorbs nothing, under a Cassegrain (NA 0.1–0.4) from 4000 to 800 cm⁻¹: the refraction-and-scattering baseline that hides real bands.",
+   "inputs": "Fiber n = 1.477 (Fig. 5 caption), radius 5 µm, in air. The paper does not state Fig. 5's aperture; NA 0.4 with a 0.1 obscuration (its Fig. 2) reproduces the shape.",
+   "agreement": "Transmission minimum 9.9% near 1120 cm⁻¹, 77% near 2100 cm⁻¹ and 42% near 3000 cm⁻¹, against ~10%, ~76% and ~42% read off Fig. 5a.",
+   "perturb": "Double the radius to 10 µm, as in Fig. 5b: the deep minimum near 1100 cm⁻¹ disappears.",
+   "script": "crosscheck/classics/davis_2011.py",
+   "results": "crosscheck/classics/results/davis_2011.json",
+   "calculator": {
+    "cylinder": {
+     "shells": [
+      {
+       "label": "Fiber",
+       "n": 1.477,
+       "k": 0.0,
+       "thickness": 5.0
+      }
+     ],
+     "host": {
+      "label": "Air",
+      "n": 1.0,
+      "k": 0.0
+     }
+    },
+    "envelope": {
+     "kind": "focused",
+     "spectral_unit": "cm-1",
+     "length_unit": "um",
+     "start": 800,
+     "end": 4000,
+     "step": 20,
+     "beam": {
+      "na": 0.4,
+      "obscuration": 0.1
+     },
+     "focused_initialized": true
+    }
+   },
+   "checks": [
+    {
+     "check": "R = 5 µm: transmission minimum (%)",
+     "paper": 10,
+     "computed": 9.8497,
+     "tolerance": 4,
+     "pass": true,
+     "source": "Fig. 5a, read"
+    },
+    {
+     "check": "R = 5 µm: wavenumber of the minimum (cm-1)",
+     "paper": 1100,
+     "computed": 1120.0,
+     "tolerance": 80,
+     "pass": true,
+     "source": "Fig. 5a, read"
+    },
+    {
+     "check": "R = 5 µm: maximum near the fit range, 1900-2600 cm-1 (%)",
+     "paper": 76,
+     "computed": 77.1153,
+     "tolerance": 6,
+     "pass": true,
+     "source": "Fig. 5a, read"
+    },
+    {
+     "check": "R = 5 µm: dip near 3000 cm-1 (%)",
+     "paper": 42,
+     "computed": 42.3581,
+     "tolerance": 6,
+     "pass": true,
+     "source": "Fig. 5a, read"
+    },
+    {
+     "check": "R = 5 µm: at 4000 cm-1 (%)",
+     "paper": 70,
+     "computed": 70.2422,
+     "tolerance": 6,
+     "pass": true,
+     "source": "Fig. 5a, read"
+    },
+    {
+     "check": "R = 10 µm: at 800 cm-1 (%)",
+     "paper": 42,
+     "computed": 42.2747,
+     "tolerance": 8,
+     "pass": true,
+     "source": "Fig. 5b, read"
+    }
+   ]
+  },
+  {
+   "id": "mie-1908",
+   "kind": "classic",
+   "position": 9,
+   "geometry": "spheres",
+   "title": "Why gold sols are red, violet or blue",
+   "cite": "G. Mie, Ann. Phys. 330, 377 (1908)",
+   "doi": "10.1002/andp.19083300302",
+   "figure": "Fig. 25 and its table (p. 438): light loss of colloidal gold in water, particle diameters 0–180 nm",
+   "shows": "Extinction efficiency of a 100 nm gold sphere in water from 420 to 650 nm, with Mie's own optical constants: the peak that turns the sol violet.",
+   "inputs": "Gold n, k at seven wavelengths from Mie's table (p. 417) as an uploaded table; water n = 1.337, from his λ′ column.",
+   "agreement": "56 printed values, diameters 20–180 nm: all within 10%, 51 within 5%. His loss per mm is 1500·Q/d with d in nm.",
+   "perturb": "Shrink the radius from 50 to 10 nm: the peak returns to ~525 nm, the red of fine gold.",
+   "script": "crosscheck/classics/mie_1908.py",
+   "results": "crosscheck/classics/results/mie_1908.json",
+   "calculator": {
+    "sphere": {
+     "shells": [
+      {
+       "label": "Au (Mie 1908)",
+       "n": 0.6,
+       "k": 2.6,
+       "table": {
+        "name": "Au, Mie 1908 (p. 417)",
+        "rows": [
+         [
+          0.42,
+          1.7,
+          1.7
+         ],
+         [
+          0.45,
+          1.73,
+          1.72
+         ],
+         [
+          0.5,
+          1.1,
+          2.02
+         ],
+         [
+          0.525,
+          0.79,
+          2.23
+         ],
+         [
+          0.55,
+          0.57,
+          2.45
+         ],
+         [
+          0.6,
+          0.38,
+          2.96
+         ],
+         [
+          0.65,
+          0.41,
+          3.54
+         ]
+        ]
+       },
+       "thickness": 0.05
+      }
+     ],
+     "host": {
+      "label": "Water",
+      "n": 1.337,
+      "k": 0.0
+     },
+     "start": 420,
+     "end": 650,
+     "step": 1
+    },
+    "envelope": {
+     "start": 420,
+     "end": 650,
+     "step": 1
+    }
+   },
+   "checks": [
+    {
+     "check": "d = 20 nm, 420 nm: K (per mille)",
+     "paper": 42.7,
+     "computed": 41.7576,
+     "tolerance": 4.27,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 20 nm, 450 nm: K (per mille)",
+     "paper": 38.8,
+     "computed": 38.1371,
+     "tolerance": 3.88,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 20 nm, 500 nm: K (per mille)",
+     "paper": 62.2,
+     "computed": 61.2203,
+     "tolerance": 6.22,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 20 nm, 525 nm: K (per mille)",
+     "paper": 76.6,
+     "computed": 73.1765,
+     "tolerance": 7.66,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 20 nm, 550 nm: K (per mille)",
+     "paper": 61.6,
+     "computed": 60.3255,
+     "tolerance": 6.16,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 20 nm, 600 nm: K (per mille)",
+     "paper": 18.5,
+     "computed": 17.8753,
+     "tolerance": 1.85,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 20 nm, 650 nm: K (per mille)",
+     "paper": 8.0,
+     "computed": 7.4903,
+     "tolerance": 1.5,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 60 nm, 420 nm: K (per mille)",
+     "paper": 48.8,
+     "computed": 48.6195,
+     "tolerance": 4.88,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 60 nm, 450 nm: K (per mille)",
+     "paper": 45.4,
+     "computed": 44.8351,
+     "tolerance": 4.54,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 60 nm, 500 nm: K (per mille)",
+     "paper": 67.4,
+     "computed": 67.7801,
+     "tolerance": 6.74,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 60 nm, 525 nm: K (per mille)",
+     "paper": 88.4,
+     "computed": 90.03,
+     "tolerance": 8.84,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 60 nm, 550 nm: K (per mille)",
+     "paper": 96.1,
+     "computed": 97.1769,
+     "tolerance": 9.61,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 60 nm, 600 nm: K (per mille)",
+     "paper": 37.3,
+     "computed": 37.9242,
+     "tolerance": 3.73,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 60 nm, 650 nm: K (per mille)",
+     "paper": 16.4,
+     "computed": 14.9982,
+     "tolerance": 1.64,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 80 nm, 420 nm: K (per mille)",
+     "paper": 46.5,
+     "computed": 47.0797,
+     "tolerance": 4.65,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 80 nm, 450 nm: K (per mille)",
+     "paper": 44.8,
+     "computed": 44.9401,
+     "tolerance": 4.48,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 80 nm, 500 nm: K (per mille)",
+     "paper": 62.5,
+     "computed": 62.6936,
+     "tolerance": 6.25,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 80 nm, 525 nm: K (per mille)",
+     "paper": 81.0,
+     "computed": 83.2295,
+     "tolerance": 8.1,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 80 nm, 550 nm: K (per mille)",
+     "paper": 97.0,
+     "computed": 104.0008,
+     "tolerance": 9.7,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 80 nm, 600 nm: K (per mille)",
+     "paper": 65.0,
+     "computed": 65.2016,
+     "tolerance": 6.5,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 80 nm, 650 nm: K (per mille)",
+     "paper": 27.1,
+     "computed": 26.6124,
+     "tolerance": 2.71,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 100 nm, 420 nm: K (per mille)",
+     "paper": 41.0,
+     "computed": 41.3944,
+     "tolerance": 4.1,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 100 nm, 450 nm: K (per mille)",
+     "paper": 41.0,
+     "computed": 40.8708,
+     "tolerance": 4.1,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 100 nm, 500 nm: K (per mille)",
+     "paper": 52.2,
+     "computed": 52.5189,
+     "tolerance": 5.22,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 100 nm, 525 nm: K (per mille)",
+     "paper": 66.3,
+     "computed": 66.2832,
+     "tolerance": 6.63,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 100 nm, 550 nm: K (per mille)",
+     "paper": 82.2,
+     "computed": 83.9473,
+     "tolerance": 8.22,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 100 nm, 600 nm: K (per mille)",
+     "paper": 85.0,
+     "computed": 86.8478,
+     "tolerance": 8.5,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 100 nm, 650 nm: K (per mille)",
+     "paper": 44.5,
+     "computed": 45.2447,
+     "tolerance": 4.45,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 120 nm, 420 nm: K (per mille)",
+     "paper": 34.6,
+     "computed": 35.3391,
+     "tolerance": 3.46,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 120 nm, 450 nm: K (per mille)",
+     "paper": 34.8,
+     "computed": 35.3425,
+     "tolerance": 3.48,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 120 nm, 500 nm: K (per mille)",
+     "paper": 42.8,
+     "computed": 43.0303,
+     "tolerance": 4.28,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 120 nm, 525 nm: K (per mille)",
+     "paper": 51.2,
+     "computed": 51.5678,
+     "tolerance": 5.12,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 120 nm, 550 nm: K (per mille)",
+     "paper": 61.0,
+     "computed": 61.6223,
+     "tolerance": 6.1,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 120 nm, 600 nm: K (per mille)",
+     "paper": 77.5,
+     "computed": 77.1298,
+     "tolerance": 7.75,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 120 nm, 650 nm: K (per mille)",
+     "paper": 58.7,
+     "computed": 59.5084,
+     "tolerance": 5.87,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 140 nm, 420 nm: K (per mille) [a1, a2, p1]",
+     "paper": 29.4,
+     "computed": 29.6143,
+     "tolerance": 2.94,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 140 nm, 450 nm: K (per mille) [a1, a2, p1]",
+     "paper": 29.7,
+     "computed": 29.8183,
+     "tolerance": 2.97,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 140 nm, 500 nm: K (per mille) [a1, a2, p1]",
+     "paper": 35.9,
+     "computed": 35.9251,
+     "tolerance": 3.59,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 140 nm, 525 nm: K (per mille) [a1, a2, p1]",
+     "paper": 41.9,
+     "computed": 42.1308,
+     "tolerance": 4.19,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 140 nm, 550 nm: K (per mille) [a1, a2, p1]",
+     "paper": 48.6,
+     "computed": 47.608,
+     "tolerance": 4.86,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 140 nm, 600 nm: K (per mille) [a1, a2, p1]",
+     "paper": 57.0,
+     "computed": 57.0795,
+     "tolerance": 5.7,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 140 nm, 650 nm: K (per mille) [a1, a2, p1]",
+     "paper": 56.1,
+     "computed": 56.5402,
+     "tolerance": 5.61,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 160 nm, 420 nm: K (per mille) [a1, a2, p1]",
+     "paper": 25.7,
+     "computed": 25.6366,
+     "tolerance": 2.57,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 160 nm, 450 nm: K (per mille) [a1, a2, p1]",
+     "paper": 26.1,
+     "computed": 25.9498,
+     "tolerance": 2.61,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 160 nm, 500 nm: K (per mille) [a1, a2, p1]",
+     "paper": 30.8,
+     "computed": 31.2557,
+     "tolerance": 3.08,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 160 nm, 525 nm: K (per mille) [a1, a2, p1]",
+     "paper": 36.0,
+     "computed": 36.7388,
+     "tolerance": 3.6,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 160 nm, 550 nm: K (per mille) [a1, a2, p1]",
+     "paper": 41.2,
+     "computed": 40.833,
+     "tolerance": 4.12,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 160 nm, 600 nm: K (per mille) [a1, a2, p1]",
+     "paper": 45.1,
+     "computed": 42.7923,
+     "tolerance": 4.51,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 160 nm, 650 nm: K (per mille) [a1, a2, p1]",
+     "paper": 45.6,
+     "computed": 45.1911,
+     "tolerance": 4.56,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 180 nm, 420 nm: K (per mille) [a1, a2, p1]",
+     "paper": 24.0,
+     "computed": 21.994,
+     "tolerance": 2.4,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 180 nm, 450 nm: K (per mille) [a1, a2, p1]",
+     "paper": 24.8,
+     "computed": 22.6547,
+     "tolerance": 2.48,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 180 nm, 500 nm: K (per mille) [a1, a2, p1]",
+     "paper": 28.0,
+     "computed": 27.4156,
+     "tolerance": 2.8,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 180 nm, 525 nm: K (per mille) [a1, a2, p1]",
+     "paper": 33.0,
+     "computed": 32.5248,
+     "tolerance": 3.3,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 180 nm, 550 nm: K (per mille) [a1, a2, p1]",
+     "paper": 37.0,
+     "computed": 37.339,
+     "tolerance": 3.7,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 180 nm, 600 nm: K (per mille) [a1, a2, p1]",
+     "paper": 37.7,
+     "computed": 35.2265,
+     "tolerance": 3.77,
+     "pass": true,
+     "source": "table p. 438"
+    },
+    {
+     "check": "d = 180 nm, 650 nm: K (per mille) [a1, a2, p1]",
+     "paper": 36.5,
+     "computed": 35.2067,
+     "tolerance": 3.65,
+     "pass": true,
+     "source": "table p. 438"
+    }
+   ]
+  },
+  {
+   "id": "prodan-2003",
+   "kind": "classic",
+   "position": 10,
+   "geometry": "spheres",
+   "title": "Plasmon hybridization in a nanomatryushka",
+   "cite": "E. Prodan, C. Radloff, N. J. Halas and P. Nordlander, Science 302, 419 (2003)",
+   "doi": "10.1126/science.1089171",
+   "figure": "Fig. 4A: extinction of a concentric gold nanoshell, 80/107/135/157 nm",
+   "shows": "Extinction from 500 to 1900 nm: the inner- and outer-shell plasmons mix into a bonding peak (red) and an antibonding peak (blue).",
+   "inputs": "Silica core 80 nm, gold 27 nm, silica 28 nm, gold 22 nm (Fig. 4 caption). The paper prints no optical constants or host: Johnson & Christy gold, Malitson silica, host n = 1.45 (the best fit to the marked peaks).",
+   "agreement": "Peaks at 920 and 1465 nm against the marked ~900 and ~1550 nm; the shells alone peak at 913 and 1270 nm (marked ~900 and ~1280).",
+   "perturb": "Thicken the silica spacer to 236 nm (Fig. 4C): the shells decouple and the hybridized pair merges back.",
+   "script": "crosscheck/classics/prodan_2003.py",
+   "results": "crosscheck/classics/results/prodan_2003.json",
+   "calculator": {
+    "sphere": {
+     "shells": [
+      {
+       "label": "SiO2",
+       "n": 1.45,
+       "k": 0.0,
+       "rii": {
+        "key": "SiO2_Malitson",
+        "shelf": "main",
+        "shelf_name": "MAIN - simple inorganic materials",
+        "book": "SiO2",
+        "book_name": "SiO2 (Silicon dioxide)",
+        "page": "Malitson",
+        "name": "Malitson 1965: n 0.21–6.7 µm",
+        "data": "main/SiO2/nk/Malitson.yml",
+        "file": "crosscheck/classics/data/SiO2_Malitson.yml"
+       },
+       "thickness": 0.08
+      },
+      {
+       "label": "Au",
+       "n": 0.2,
+       "k": 3.0,
+       "rii": {
+        "key": "Au_Johnson",
+        "shelf": "main",
+        "shelf_name": "MAIN - simple inorganic materials",
+        "book": "Au",
+        "book_name": "Au (Gold)",
+        "page": "Johnson",
+        "name": "Johnson and Christy 1972: n,k 0.188–1.94 µm",
+        "data": "main/Au/nk/Johnson.yml",
+        "file": "crosscheck/classics/data/Au_Johnson.yml"
+       },
+       "thickness": 0.027
+      },
+      {
+       "label": "SiO2",
+       "n": 1.45,
+       "k": 0.0,
+       "rii": {
+        "key": "SiO2_Malitson",
+        "shelf": "main",
+        "shelf_name": "MAIN - simple inorganic materials",
+        "book": "SiO2",
+        "book_name": "SiO2 (Silicon dioxide)",
+        "page": "Malitson",
+        "name": "Malitson 1965: n 0.21–6.7 µm",
+        "data": "main/SiO2/nk/Malitson.yml",
+        "file": "crosscheck/classics/data/SiO2_Malitson.yml"
+       },
+       "thickness": 0.028
+      },
+      {
+       "label": "Au",
+       "n": 0.2,
+       "k": 3.0,
+       "rii": {
+        "key": "Au_Johnson",
+        "shelf": "main",
+        "shelf_name": "MAIN - simple inorganic materials",
+        "book": "Au",
+        "book_name": "Au (Gold)",
+        "page": "Johnson",
+        "name": "Johnson and Christy 1972: n,k 0.188–1.94 µm",
+        "data": "main/Au/nk/Johnson.yml",
+        "file": "crosscheck/classics/data/Au_Johnson.yml"
+       },
+       "thickness": 0.022
+      }
+     ],
+     "host": {
+      "label": "Host",
+      "n": 1.45,
+      "k": 0.0
+     },
+     "start": 500,
+     "end": 1900,
+     "step": 5
+    },
+    "envelope": {
+     "start": 500,
+     "end": 1900,
+     "step": 5
+    }
+   },
+   "checks": [
+    {
+     "check": "(3) antibonding dipole peak (nm)",
+     "paper": 900,
+     "computed": 920.0,
+     "tolerance": 60,
+     "pass": true,
+     "source": "Fig. 4A mark, read"
+    },
+    {
+     "check": "(3) bonding dipole peak (nm)",
+     "paper": 1550,
+     "computed": 1465.0,
+     "tolerance": 100,
+     "pass": true,
+     "source": "Fig. 4A mark, read"
+    },
+    {
+     "check": "(2) outer shell alone (nm)",
+     "paper": 1280,
+     "computed": 1270.0,
+     "tolerance": 60,
+     "pass": true,
+     "source": "Fig. 4A mark, read"
+    },
+    {
+     "check": "(1) inner shell alone (nm)",
+     "paper": 900,
+     "computed": 912.5,
+     "tolerance": 60,
+     "pass": true,
+     "source": "Fig. 4A mark, read"
+    },
+    {
+     "check": "hybridization: the bonding peak lies red of the outer shell alone",
+     "paper": 1,
+     "computed": 1.0,
+     "tolerance": 0,
+     "pass": true,
+     "source": "hybridization, Fig. 4A"
+    }
+   ]
+  },
+  {
+   "id": "kuznetsov-2012",
+   "kind": "classic",
+   "position": 11,
+   "geometry": "spheres",
+   "title": "Magnetic light",
+   "cite": "A. I. Kuznetsov et al., Sci. Rep. 2, 492 (2012)",
+   "doi": "10.1038/srep00492",
+   "figure": "Fig. 3(iv): scattering of silicon spheres of 100–270 nm with the md, ed and mq peaks",
+   "shows": "Extinction and scattering of a 150 nm silicon sphere in free space from 430 to 800 nm, split into its electric and magnetic multipoles.",
+   "inputs": "Diameter 150 nm (Fig. 3c); free space. The paper names no silicon data: Green 2008.",
+   "agreement": "Ten md, ed and mq peaks across six sizes, all within 5 nm of Fig. 3.",
+   "perturb": "Sweep the radius from 50 to 135 nm: the magnetic dipole walks from ~470 to ~730 nm, the colours of the paper's Fig. 1.",
+   "script": "crosscheck/classics/kuznetsov_2012.py",
+   "results": "crosscheck/classics/results/kuznetsov_2012.json",
+   "calculator": {
+    "sphere": {
+     "shells": [
+      {
+       "label": "Si",
+       "n": 3.9,
+       "k": 0.02,
+       "rii": {
+        "key": "Si_Green-2008",
+        "shelf": "main",
+        "shelf_name": "MAIN - simple inorganic materials",
+        "book": "Si",
+        "book_name": "Si (Silicon)",
+        "page": "Green-2008",
+        "name": "Green 2008: n,k 0.25–1.45 µm",
+        "data": "main/Si/nk/Green-2008.yml",
+        "file": "crosscheck/classics/data/Si_Green-2008.yml"
+       },
+       "thickness": 0.075
+      }
+     ],
+     "host": {
+      "label": "Vacuum",
+      "n": 1.0,
+      "k": 0.0
+     },
+     "start": 430,
+     "end": 800,
+     "step": 1,
+     "changes": {
+      "multipoles": {
+       "kind": "all",
+       "orders": {
+        "from": 1,
+        "to": 2
+       }
+      }
+     }
+    },
+    "envelope": {
+     "start": 430,
+     "end": 800,
+     "step": 1,
+     "multipoles": {
+      "kind": "all",
+      "orders": {
+       "from": 1,
+       "to": 2
+      }
+     }
+    }
+   },
+   "checks": [
+    {
+     "check": "100 nm: md peak (nm)",
+     "paper": 466,
+     "computed": 467.0,
+     "tolerance": 15,
+     "pass": true,
+     "source": "Fig. 3a(iv), read"
+    },
+    {
+     "check": "140 nm: md peak (nm)",
+     "paper": 581,
+     "computed": 580.0,
+     "tolerance": 15,
+     "pass": true,
+     "source": "Fig. 3b(iv), read"
+    },
+    {
+     "check": "140 nm: ed peak (nm)",
+     "paper": 478,
+     "computed": 477.0,
+     "tolerance": 15,
+     "pass": true,
+     "source": "Fig. 3b(iv), read"
+    },
+    {
+     "check": "150 nm: md peak (nm)",
+     "paper": 607,
+     "computed": 611.0,
+     "tolerance": 15,
+     "pass": true,
+     "source": "Fig. 3c(iv), read"
+    },
+    {
+     "check": "150 nm: ed peak (nm)",
+     "paper": 492,
+     "computed": 497.0,
+     "tolerance": 15,
+     "pass": true,
+     "source": "Fig. 3c(iv), read"
+    },
+    {
+     "check": "182 nm: ed peak (nm)",
+     "paper": 568,
+     "computed": 568.0,
+     "tolerance": 15,
+     "pass": true,
+     "source": "Fig. 3d(iv), read"
+    },
+    {
+     "check": "182 nm: mq peak (nm)",
+     "paper": 538,
+     "computed": 537.0,
+     "tolerance": 15,
+     "pass": true,
+     "source": "Fig. 3d(iv), read"
+    },
+    {
+     "check": "220 nm: mq peak (nm)",
+     "paper": 618,
+     "computed": 616.0,
+     "tolerance": 15,
+     "pass": true,
+     "source": "Fig. 3e(iv), read"
+    },
+    {
+     "check": "220 nm: ed peak (nm)",
+     "paper": 662,
+     "computed": 659.0,
+     "tolerance": 15,
+     "pass": true,
+     "source": "Fig. 3e(iv), read"
+    },
+    {
+     "check": "270 nm: mq peak (nm)",
+     "paper": 728,
+     "computed": 726.0,
+     "tolerance": 15,
+     "pass": true,
+     "source": "Fig. 3f(iv), read"
+    }
+   ]
+  },
+  {
+   "id": "fu-2013",
+   "kind": "classic",
+   "position": 12,
+   "geometry": "spheres",
+   "title": "Directional scattering: the Kerker condition",
+   "cite": "Y. H. Fu et al., Nat. Commun. 4, 1527 (2013)",
+   "doi": "10.1038/ncomms2538",
+   "figure": "Fig. 1a: forward and backward scattering of a silicon sphere of radius 75 nm",
+   "shows": "Scattering of a 150 nm silicon sphere from 380 to 780 nm with its multipoles, and its far-field scattering pattern: pick 660 nm, where forward scattering dominates.",
+   "inputs": "Radius 75 nm, free space (Fig. 1 caption); Green 2008 silicon (the paper names none).",
+   "agreement": "Forward/backward ratio peaks at 7.5 near 659 nm (paper: ~8 at 660 nm); F = B at 499 and 604 nm (paper: 500 and 603 nm).",
+   "perturb": "Change the radius to 65 nm and find the new wavelength of zero backward scattering.",
+   "script": "crosscheck/classics/fu_2013.py",
+   "results": "crosscheck/classics/results/fu_2013.json",
+   "calculator": {
+    "sphere": {
+     "shells": [
+      {
+       "label": "Si",
+       "n": 3.9,
+       "k": 0.02,
+       "rii": {
+        "key": "Si_Green-2008",
+        "shelf": "main",
+        "shelf_name": "MAIN - simple inorganic materials",
+        "book": "Si",
+        "book_name": "Si (Silicon)",
+        "page": "Green-2008",
+        "name": "Green 2008: n,k 0.25–1.45 µm",
+        "data": "main/Si/nk/Green-2008.yml",
+        "file": "crosscheck/classics/data/Si_Green-2008.yml"
+       },
+       "thickness": 0.075
+      }
+     ],
+     "host": {
+      "label": "Vacuum",
+      "n": 1.0,
+      "k": 0.0
+     },
+     "start": 380,
+     "end": 780,
+     "step": 2,
+     "changes": {
+      "multipoles": {
+       "kind": "all",
+       "orders": {
+        "from": 1,
+        "to": 2
+       }
+      },
+      "outputs": {
+       "active": [
+        "scattering"
+       ]
+      }
+     }
+    },
+    "envelope": {
+     "start": 380,
+     "end": 780,
+     "step": 2,
+     "multipoles": {
+      "kind": "all",
+      "orders": {
+       "from": 1,
+       "to": 2
+      }
+     }
+    }
+   },
+   "checks": [
+    {
+     "check": "F/B maximum",
+     "paper": 8,
+     "computed": 7.4629,
+     "tolerance": 1.5,
+     "pass": true,
+     "source": "p. 3: ~8 at 660 nm"
+    },
+    {
+     "check": "wavelength of the F/B maximum (nm)",
+     "paper": 660,
+     "computed": 659.0,
+     "tolerance": 15,
+     "pass": true,
+     "source": "p. 3"
+    },
+    {
+     "check": "F/B minimum wavelength (nm)",
+     "paper": 564,
+     "computed": 565.0,
+     "tolerance": 15,
+     "pass": true,
+     "source": "p. 3"
+    },
+    {
+     "check": "F/B minimum value (< 0.5)",
+     "paper": 0.25,
+     "computed": 0.4064,
+     "tolerance": 0.25,
+     "pass": true,
+     "source": "p. 3: below 0.5"
+    },
+    {
+     "check": "F = B, electric dipole (nm)",
+     "paper": 500,
+     "computed": 499.0,
+     "tolerance": 15,
+     "pass": true,
+     "source": "p. 3"
+    },
+    {
+     "check": "F = B, magnetic dipole (nm)",
+     "paper": 603,
+     "computed": 604.0,
+     "tolerance": 15,
+     "pass": true,
+     "source": "p. 3"
+    },
+    {
+     "check": "hemispheres add up to the cross section (rel. error)",
+     "paper": 0,
+     "computed": 0.0029,
+     "tolerance": 0.005,
+     "pass": true,
+     "source": "energy check (quadrature)"
+    }
+   ]
+  },
+  {
+   "id": "ruppin-1982",
+   "kind": "classic",
+   "position": 13,
+   "geometry": "spheres",
+   "title": "A molecule beside a small silver sphere",
+   "cite": "R. Ruppin, J. Chem. Phys. 76, 1681 (1982)",
+   "doi": "10.1063/1.443196",
+   "figure": "Figs. 1–2: lifetime of a molecule against its distance from a silver sphere of radius 10 nm",
+   "shows": "Decay rates of an electric dipole at 612 nm moving away from a 10 nm silver sphere in a medium of n = 1.5, radial and tangential.",
+   "inputs": "Radius 10 nm, host ε = 2.25, λ = 612 nm (printed); Johnson & Christy silver (the paper prints none), which puts the dipole plasmon at the paper's 3.05 eV.",
+   "agreement": "Lifetime (the inverse of the total rate) 0.98 at kd = 1 and no oscillation beyond; tangential maximum 1.16 at kd = 0.19 (paper ~1.12 at ~0.2).",
+   "perturb": "Switch the axis to wavelength at a fixed 10 nm gap: the l = 1 plasmon appears at ~407 nm (3.05 eV).",
+   "script": "crosscheck/classics/ruppin_1982.py",
+   "results": "crosscheck/classics/results/ruppin_1982.json",
+   "calculator": {
+    "sphere": {
+     "shells": [
+      {
+       "label": "Ag",
+       "n": 0.06,
+       "k": 4.1,
+       "rii": {
+        "key": "Ag_Johnson",
+        "shelf": "main",
+        "shelf_name": "MAIN - simple inorganic materials",
+        "book": "Ag",
+        "book_name": "Ag (Silver)",
+        "page": "Johnson",
+        "name": "Johnson and Christy 1972: n,k 0.188–1.94 µm",
+        "data": "main/Ag/nk/Johnson.yml",
+        "file": "crosscheck/classics/data/Ag_Johnson.yml"
+       },
+       "thickness": 0.01
+      }
+     ],
+     "host": {
+      "label": "Host",
+      "n": 1.5,
+      "k": 0.0
+     },
+     "start": 612,
+     "end": 612,
+     "step": 1
+    },
+    "envelope": {
+     "kind": "dipole",
+     "region": "core",
+     "offset": 11,
+     "sweep": true,
+     "position_start": 11,
+     "position_end": 281,
+     "position_step": 2,
+     "start": 612,
+     "end": 612,
+     "step": 1,
+     "emitter_outputs": [
+      "decay"
+     ]
+    }
+   },
+   "checks": [
+    {
+     "check": "radial: lifetime at d^ = 0.5",
+     "paper": 0.86,
+     "computed": 0.9037,
+     "tolerance": 0.06,
+     "pass": true,
+     "source": "Fig. 1, read"
+    },
+    {
+     "check": "radial: lifetime at d^ = 1",
+     "paper": 0.98,
+     "computed": 0.9806,
+     "tolerance": 0.04,
+     "pass": true,
+     "source": "Fig. 1, read"
+    },
+    {
+     "check": "radial: lifetime at d^ = 3 (no oscillation)",
+     "paper": 1.0,
+     "computed": 1.0002,
+     "tolerance": 0.02,
+     "pass": true,
+     "source": "Fig. 1, read; p. 1683"
+    },
+    {
+     "check": "tangential: maximum lifetime",
+     "paper": 1.12,
+     "computed": 1.1565,
+     "tolerance": 0.06,
+     "pass": true,
+     "source": "Fig. 2, read"
+    },
+    {
+     "check": "tangential: d^ of the maximum",
+     "paper": 0.2,
+     "computed": 0.1945,
+     "tolerance": 0.1,
+     "pass": true,
+     "source": "Fig. 2, read"
+    },
+    {
+     "check": "Fig. 3: l = 1 plasmon, 10 nm (eV)",
+     "paper": 3.05,
+     "computed": 3.05,
+     "tolerance": 0.08,
+     "pass": true,
+     "source": "p. 1684: 'at about 3.05 eV'"
+    },
+    {
+     "check": "Fig. 3: total rate at the plasmon, 10 nm (order of magnitude, log10)",
+     "paper": 2.0,
+     "computed": 2.3834,
+     "tolerance": 0.5,
+     "pass": true,
+     "source": "Fig. 3, read ~1e2"
+    }
+   ]
+  },
+  {
+   "id": "anger-2006",
+   "kind": "classic",
+   "position": 14,
+   "geometry": "spheres",
+   "title": "Enhancement and quenching of fluorescence",
+   "cite": "P. Anger, P. Bharadwaj and L. Novotny, Phys. Rev. Lett. 96, 113002 (2006)",
+   "doi": "10.1103/PhysRevLett.96.113002",
+   "figure": "Fig. 1a: quantum yield of a molecule beside an 80 nm gold sphere, against distance",
+   "shows": "Decay rates and quantum yield of a radial dipole at 650 nm, 0.5–100 nm from an 80 nm gold sphere in free space: quenching at contact, radiation enhanced beyond.",
+   "inputs": "Gold ε = −12.99 + 1.09i at 650 nm (printed), i.e. n + ik = 0.1511 + 3.6073i; free space; intrinsic quantum yield 1.",
+   "agreement": "Times the plane-wave intensity at the molecule (a second run, the near field along the polarization), the fluorescence peaks at 3.5 near z = 12 nm, as in Fig. 1b; 5.3, 2.2 and 1.04 for 100, 60 and 20 nm spheres.",
+   "perturb": "Shrink the sphere to 20 nm: the quantum yield collapses over a much longer range, and Fig. 1b's enhancement disappears.",
+   "script": "crosscheck/classics/anger_2006.py",
+   "results": "crosscheck/classics/results/anger_2006.json",
+   "calculator": {
+    "sphere": {
+     "shells": [
+      {
+       "label": "Au (ε printed)",
+       "n": 0.1511,
+       "k": 3.6073,
+       "thickness": 0.04
+      }
+     ],
+     "host": {
+      "label": "Vacuum",
+      "n": 1.0,
+      "k": 0.0
+     },
+     "start": 650,
+     "end": 650,
+     "step": 1
+    },
+    "envelope": {
+     "kind": "dipole",
+     "region": "core",
+     "offset": 40.5,
+     "sweep": true,
+     "position_start": 40.5,
+     "position_end": 140.5,
+     "position_step": 0.5,
+     "start": 650,
+     "end": 650,
+     "step": 1,
+     "emitter_outputs": [
+      "decay",
+      "efficiency"
+     ]
+    }
+   },
+   "checks": [
+    {
+     "check": "80 nm: excitation at z = 20 nm",
+     "paper": 4.0,
+     "computed": 3.9116,
+     "tolerance": 0.3,
+     "pass": true,
+     "source": "Fig. 1a, read"
+    },
+    {
+     "check": "80 nm: excitation at z = 30 nm",
+     "paper": 2.8,
+     "computed": 2.6907,
+     "tolerance": 0.25,
+     "pass": true,
+     "source": "Fig. 1a, read"
+    },
+    {
+     "check": "80 nm: excitation at z = 60 nm",
+     "paper": 1.6,
+     "computed": 1.5547,
+     "tolerance": 0.2,
+     "pass": true,
+     "source": "Fig. 1a, read"
+    },
+    {
+     "check": "80 nm: quantum yield at z = 20 nm",
+     "paper": 0.8,
+     "computed": 0.7923,
+     "tolerance": 0.05,
+     "pass": true,
+     "source": "Fig. 1a, read"
+    },
+    {
+     "check": "80 nm: quantum yield at z = 30 nm",
+     "paper": 0.88,
+     "computed": 0.8953,
+     "tolerance": 0.04,
+     "pass": true,
+     "source": "Fig. 1a, read"
+    },
+    {
+     "check": "80 nm: quantum yield at z = 60 nm",
+     "paper": 0.95,
+     "computed": 0.9775,
+     "tolerance": 0.05,
+     "pass": true,
+     "source": "Fig. 1a, read"
+    },
+    {
+     "check": "80 nm: fluorescence maximum",
+     "paper": 3.5,
+     "computed": 3.5249,
+     "tolerance": 0.35,
+     "pass": true,
+     "source": "Fig. 1b, read"
+    },
+    {
+     "check": "80 nm: z of the maximum (nm)",
+     "paper": 10,
+     "computed": 12.5,
+     "tolerance": 4,
+     "pass": true,
+     "source": "Fig. 1b, read"
+    },
+    {
+     "check": "100 nm: fluorescence maximum",
+     "paper": 5.3,
+     "computed": 5.2671,
+     "tolerance": 0.5,
+     "pass": true,
+     "source": "Fig. 1b, read"
+    },
+    {
+     "check": "60 nm: fluorescence maximum",
+     "paper": 2.3,
+     "computed": 2.203,
+     "tolerance": 0.25,
+     "pass": true,
+     "source": "Fig. 1b, read"
+    },
+    {
+     "check": "20 nm: fluorescence maximum",
+     "paper": 1.05,
+     "computed": 1.0354,
+     "tolerance": 0.15,
+     "pass": true,
+     "source": "Fig. 1b, read"
+    },
+    {
+     "check": "80 nm: quenched at contact (z = 0.5 nm)",
+     "paper": 0.0,
+     "computed": 0.005,
+     "tolerance": 0.3,
+     "pass": true,
+     "source": "Fig. 1b"
+    }
+   ]
+  },
+  {
+   "id": "mohlenhoff-2005",
+   "kind": "classic",
+   "position": 15,
+   "geometry": "spheres",
+   "title": "The Mie wave under infrared spectra of cells",
+   "cite": "B. Mohlenhoff, M. Romeo, M. Diem and B. R. Wood, Biophys. J. 88, 3635 (2005)",
+   "doi": "10.1529/biophysj.104.057950",
+   "figure": "Fig. 4: scattering efficiency of non-absorbing spheres of index 1.33, radius 4–10 µm",
+   "shows": "Scattering efficiency of a 4 µm sphere of n = 1.33 in air from 600 to 7000 cm⁻¹: the broad oscillation that distorts infrared spectra of cells and nuclei.",
+   "inputs": "n = 1.33, k = 0, radius 4 µm, air (Fig. 4 caption and Eq. 8).",
+   "agreement": "The paper plots van de Hulst's approximation (its Eq. 8, maximum 3.17 near 2470 cm⁻¹), which the script reproduces; the calculator's exact Mie peaks higher, Q = 4.0 near 2590 cm⁻¹.",
+   "perturb": "Raise the radius to 10 µm: the first maximum moves to ~1000 cm⁻¹, right under the protein bands.",
+   "script": "crosscheck/classics/mohlenhoff_2005.py",
+   "results": "crosscheck/classics/results/mohlenhoff_2005.json",
+   "calculator": {
+    "sphere": {
+     "shells": [
+      {
+       "label": "Cell (n = 1.33)",
+       "n": 1.33,
+       "k": 0.0,
+       "thickness": 4.0
+      }
+     ],
+     "host": {
+      "label": "Air",
+      "n": 1.0,
+      "k": 0.0
+     },
+     "start": 600,
+     "end": 7000,
+     "step": 20,
+     "changes": {
+      "spectralUnit": "cm-1",
+      "lengthUnit": "um"
+     }
+    },
+    "envelope": {
+     "spectral_unit": "cm-1",
+     "length_unit": "um",
+     "start": 600,
+     "end": 7000,
+     "step": 20
+    }
+   },
+   "checks": [
+    {
+     "check": "their formula, a = 4 µm: first maximum (cm-1)",
+     "paper": 2470,
+     "computed": 2460.0,
+     "tolerance": 150,
+     "pass": true,
+     "source": "Fig. 4, read"
+    },
+    {
+     "check": "their formula, a = 10 µm: first maximum (cm-1)",
+     "paper": 1000,
+     "computed": 990.0,
+     "tolerance": 100,
+     "pass": true,
+     "source": "Fig. 4, read"
+    },
+    {
+     "check": "their formula: maximum Q",
+     "paper": 3.2,
+     "computed": 3.1731,
+     "tolerance": 0.15,
+     "pass": true,
+     "source": "Fig. 4, read"
+    },
+    {
+     "check": "exact Mie, a = 4 µm: first maximum (cm-1)",
+     "paper": 2470,
+     "computed": 2590.0,
+     "tolerance": null,
+     "pass": null,
+     "source": "differs: exact vs Eq. 8"
+    },
+    {
+     "check": "exact Mie, a = 4 µm: maximum Q",
+     "paper": 3.2,
+     "computed": 3.9824,
+     "tolerance": null,
+     "pass": null,
+     "source": "differs: exact vs Eq. 8"
+    }
+   ]
+  }
+ ],
+ "examples": {
+  "si-sphere-mie": {
+   "id": "si-sphere-mie",
+   "geometry": "spheres",
+   "source": "plane_wave",
+   "title": "A silicon sphere under a plane wave",
+   "caption": "Extinction and scattering efficiencies of a silicon sphere in free space, with the magnetic-dipole (b₁) part of the scattering. Change the radius: every resonance moves to longer wavelengths, the magnetic dipole first.",
+   "plot": {
+    "x_label": "λ [nm]",
+    "y_label": "Q",
+    "series": [
+     {
+      "key": "q_ext",
+      "label": "Q_ext"
+     },
+     {
+      "key": "q_sca",
+      "label": "Q_sca"
+     },
+     {
+      "key": "md_sca",
+      "label": "Q_sca, magnetic dipole b_1"
+     }
+    ]
+   },
+   "params": [
+    {
+     "id": "radius",
+     "label": "Radius",
+     "unit": "nm",
+     "target": "shells.0.thickness",
+     "scale": 0.001,
+     "min": 50,
+     "max": 135,
+     "step": 5,
+     "value": 75
+    }
+   ],
+   "checks": [
+    {
+     "check": "magnetic-dipole peak, radius 75 nm (nm)",
+     "reference": 607,
+     "computed": 610.0,
+     "tolerance": 15,
+     "pass": true,
+     "source": "Kuznetsov et al., Sci. Rep. 2, 492 (2012), Fig. 3c(iv), read"
+    }
+   ],
+   "calculator": {
+    "sphere": {
+     "shells": [
+      {
+       "label": "Si",
+       "n": 3.9,
+       "k": 0.02,
+       "rii": {
+        "key": "Si_Green-2008",
+        "shelf": "main",
+        "shelf_name": "MAIN - simple inorganic materials",
+        "book": "Si",
+        "book_name": "Si (Silicon)",
+        "page": "Green-2008",
+        "name": "Green 2008: n,k 0.25–1.45 µm",
+        "data": "main/Si/nk/Green-2008.yml",
+        "file": "crosscheck/classics/data/Si_Green-2008.yml"
+       },
+       "thickness": 0.075
+      }
+     ],
+     "host": {
+      "label": "Vacuum",
+      "n": 1.0,
+      "k": 0.0
+     },
+     "start": 430,
+     "end": 800,
+     "step": 2
+    },
+    "envelope": {
+     "start": 430,
+     "end": 800,
+     "step": 2
+    }
+   },
+   "data": {
+    "x": [
+     430.0,
+     432.0,
+     434.0,
+     436.0,
+     438.0,
+     440.0,
+     442.0,
+     444.0,
+     446.0,
+     448.0,
+     450.0,
+     452.0,
+     454.0,
+     456.0,
+     458.0,
+     460.0,
+     462.0,
+     464.0,
+     466.0,
+     468.0,
+     470.0,
+     472.0,
+     474.0,
+     476.0,
+     478.0,
+     480.0,
+     482.0,
+     484.0,
+     486.0,
+     488.0,
+     490.0,
+     492.0,
+     494.0,
+     496.0,
+     498.0,
+     500.0,
+     502.0,
+     504.0,
+     506.0,
+     508.0,
+     510.0,
+     512.0,
+     514.0,
+     516.0,
+     518.0,
+     520.0,
+     522.0,
+     524.0,
+     526.0,
+     528.0,
+     530.0,
+     532.0,
+     534.0,
+     536.0,
+     538.0,
+     540.0,
+     542.0,
+     544.0,
+     546.0,
+     548.0,
+     550.0,
+     552.0,
+     554.0,
+     556.0,
+     558.0,
+     560.0,
+     562.0,
+     564.0,
+     566.0,
+     568.0,
+     570.0,
+     572.0,
+     574.0,
+     576.0,
+     578.0,
+     580.0,
+     582.0,
+     584.0,
+     586.0,
+     588.0,
+     590.0,
+     592.0,
+     594.0,
+     596.0,
+     598.0,
+     600.0,
+     602.0,
+     604.0,
+     606.0,
+     608.0,
+     610.0,
+     612.0,
+     614.0,
+     616.0,
+     618.0,
+     620.0,
+     622.0,
+     624.0,
+     626.0,
+     628.0,
+     630.0,
+     632.0,
+     634.0,
+     636.0,
+     638.0,
+     640.0,
+     642.0,
+     644.0,
+     646.0,
+     648.0,
+     650.0,
+     652.0,
+     654.0,
+     656.0,
+     658.0,
+     660.0,
+     662.0,
+     664.0,
+     666.0,
+     668.0,
+     670.0,
+     672.0,
+     674.0,
+     676.0,
+     678.0,
+     680.0,
+     682.0,
+     684.0,
+     686.0,
+     688.0,
+     690.0,
+     692.0,
+     694.0,
+     696.0,
+     698.0,
+     700.0,
+     702.0,
+     704.0,
+     706.0,
+     708.0,
+     710.0,
+     712.0,
+     714.0,
+     716.0,
+     718.0,
+     720.0,
+     722.0,
+     724.0,
+     726.0,
+     728.0,
+     730.0,
+     732.0,
+     734.0,
+     736.0,
+     738.0,
+     740.0,
+     742.0,
+     744.0,
+     746.0,
+     748.0,
+     750.0,
+     752.0,
+     754.0,
+     756.0,
+     758.0,
+     760.0,
+     762.0,
+     764.0,
+     766.0,
+     768.0,
+     770.0,
+     772.0,
+     774.0,
+     776.0,
+     778.0,
+     780.0,
+     782.0,
+     784.0,
+     786.0,
+     788.0,
+     790.0,
+     792.0,
+     794.0,
+     796.0,
+     798.0,
+     800.0
+    ],
+    "series": {
+     "q_ext": [
+      1.82536,
+      1.68825,
+      1.57577,
+      1.47992,
+      1.39473,
+      1.31636,
+      1.25229,
+      1.19174,
+      1.13443,
+      1.08065,
+      1.03123,
+      0.994657,
+      0.96598,
+      0.948368,
+      0.94652,
+      0.967505,
+      1.02464,
+      1.12665,
+      1.29626,
+      1.57202,
+      2.02188,
+      2.69814,
+      3.65642,
+      4.48701,
+      4.54797,
+      4.36491,
+      4.45651,
+      4.77333,
+      5.18542,
+      5.58862,
+      5.91395,
+      6.11522,
+      6.21388,
+      6.21905,
+      6.1482,
+      6.02132,
+      5.86057,
+      5.67833,
+      5.48586,
+      5.29129,
+      5.10018,
+      4.92124,
+      4.75121,
+      4.59111,
+      4.44143,
+      4.30224,
+      4.17732,
+      4.06151,
+      3.95455,
+      3.85612,
+      3.76591,
+      3.68488,
+      3.6112,
+      3.54467,
+      3.48514,
+      3.43249,
+      3.3872,
+      3.34835,
+      3.31599,
+      3.29025,
+      3.27134,
+      3.25891,
+      3.25354,
+      3.25566,
+      3.2658,
+      3.28459,
+      3.31209,
+      3.3496,
+      3.39819,
+      3.45915,
+      3.53401,
+      3.62076,
+      3.72429,
+      3.84691,
+      3.99139,
+      4.16095,
+      4.35447,
+      4.57963,
+      4.84091,
+      5.14314,
+      5.49124,
+      5.88013,
+      6.31985,
+      6.81042,
+      7.347,
+      7.91704,
+      8.49294,
+      9.04446,
+      9.52325,
+      9.87273,
+      10.039,
+      9.98625,
+      9.71829,
+      9.26062,
+      8.66199,
+      7.98059,
+      7.27859,
+      6.59006,
+      5.94209,
+      5.34956,
+      4.81822,
+      4.35268,
+      3.94301,
+      3.58403,
+      3.27004,
+      2.9954,
+      2.7574,
+      2.54816,
+      2.3637,
+      2.20058,
+      2.05583,
+      1.92838,
+      1.81431,
+      1.71187,
+      1.61953,
+      1.53602,
+      1.46123,
+      1.39306,
+      1.33071,
+      1.27353,
+      1.22092,
+      1.1723,
+      1.12732,
+      1.08561,
+      1.04682,
+      1.01067,
+      0.977326,
+      0.946075,
+      0.91673,
+      0.889119,
+      0.863089,
+      0.838966,
+      0.816112,
+      0.794426,
+      0.773818,
+      0.754206,
+      0.735472,
+      0.717604,
+      0.700538,
+      0.68422,
+      0.668598,
+      0.653889,
+      0.639762,
+      0.62618,
+      0.613109,
+      0.60052,
+      0.588276,
+      0.576465,
+      0.565063,
+      0.554046,
+      0.543395,
+      0.533203,
+      0.523331,
+      0.513763,
+      0.504485,
+      0.495482,
+      0.486755,
+      0.478277,
+      0.470038,
+      0.462026,
+      0.454232,
+      0.446677,
+      0.439318,
+      0.432149,
+      0.425161,
+      0.418347,
+      0.411747,
+      0.405306,
+      0.399018,
+      0.392879,
+      0.386881,
+      0.381089,
+      0.375426,
+      0.369889,
+      0.364472,
+      0.359173,
+      0.353936,
+      0.348811,
+      0.343794,
+      0.338881,
+      0.334068,
+      0.329383,
+      0.324792,
+      0.320293,
+      0.315882,
+      0.311557
+     ],
+     "q_sca": [
+      1.23024,
+      1.17302,
+      1.11449,
+      1.05469,
+      0.993413,
+      0.930456,
+      0.869744,
+      0.807769,
+      0.744773,
+      0.681205,
+      0.6178,
+      0.560465,
+      0.505795,
+      0.455794,
+      0.413398,
+      0.382921,
+      0.37135,
+      0.38321,
+      0.429562,
+      0.527259,
+      0.702675,
+      0.969261,
+      1.35519,
+      1.77123,
+      2.07258,
+      2.39192,
+      2.81838,
+      3.33775,
+      3.88603,
+      4.40063,
+      4.83156,
+      5.12784,
+      5.32113,
+      5.41814,
+      5.43383,
+      5.38636,
+      5.29539,
+      5.17505,
+      5.03687,
+      4.88955,
+      4.73936,
+      4.59199,
+      4.44928,
+      4.31282,
+      4.18353,
+      4.06192,
+      3.95214,
+      3.84947,
+      3.75387,
+      3.66522,
+      3.5834,
+      3.50893,
+      3.44076,
+      3.37875,
+      3.32282,
+      3.27294,
+      3.2292,
+      3.19116,
+      3.15891,
+      3.13257,
+      3.11233,
+      3.09788,
+      3.08977,
+      3.0884,
+      3.09423,
+      3.10785,
+      3.12862,
+      3.15833,
+      3.19793,
+      3.24854,
+      3.31153,
+      3.38518,
+      3.47374,
+      3.57928,
+      3.70423,
+      3.85144,
+      4.01958,
+      4.2157,
+      4.44375,
+      4.70798,
+      5.01272,
+      5.35224,
+      5.73629,
+      6.16481,
+      6.6334,
+      7.1309,
+      7.63562,
+      8.11864,
+      8.53732,
+      8.8418,
+      8.9846,
+      8.93039,
+      8.68662,
+      8.27616,
+      7.74226,
+      7.13635,
+      6.51212,
+      5.90082,
+      5.32619,
+      4.80118,
+      4.33068,
+      3.91908,
+      3.55695,
+      3.23967,
+      2.96215,
+      2.71938,
+      2.50893,
+      2.32386,
+      2.16065,
+      2.01624,
+      1.88803,
+      1.77494,
+      1.67366,
+      1.58263,
+      1.50052,
+      1.42619,
+      1.35931,
+      1.2983,
+      1.24245,
+      1.19116,
+      1.14394,
+      1.10033,
+      1.05994,
+      1.02243,
+      0.987515,
+      0.954926,
+      0.924718,
+      0.896374,
+      0.869724,
+      0.844617,
+      0.820919,
+      0.798906,
+      0.778027,
+      0.75819,
+      0.739315,
+      0.72133,
+      0.704018,
+      0.687488,
+      0.671683,
+      0.656554,
+      0.642055,
+      0.628369,
+      0.61521,
+      0.602547,
+      0.590349,
+      0.578589,
+      0.567244,
+      0.556289,
+      0.5457,
+      0.53546,
+      0.525548,
+      0.51602,
+      0.506783,
+      0.497823,
+      0.489126,
+      0.480679,
+      0.472471,
+      0.464492,
+      0.456731,
+      0.449178,
+      0.441826,
+      0.434716,
+      0.427786,
+      0.421029,
+      0.414439,
+      0.408009,
+      0.401731,
+      0.395602,
+      0.389616,
+      0.383767,
+      0.378051,
+      0.3725,
+      0.367071,
+      0.36176,
+      0.356563,
+      0.351476,
+      0.346496,
+      0.341619,
+      0.336842,
+      0.332163,
+      0.327577,
+      0.323083,
+      0.318676,
+      0.314356,
+      0.31012,
+      0.305965
+     ],
+     "md_sca": [
+      0.0970351,
+      0.108368,
+      0.119527,
+      0.130413,
+      0.140986,
+      0.151246,
+      0.160437,
+      0.169359,
+      0.178051,
+      0.186555,
+      0.194915,
+      0.202348,
+      0.209705,
+      0.217023,
+      0.224336,
+      0.231678,
+      0.238344,
+      0.245075,
+      0.2519,
+      0.258847,
+      0.265947,
+      0.27254,
+      0.279306,
+      0.28627,
+      0.293461,
+      0.300909,
+      0.308043,
+      0.315452,
+      0.323166,
+      0.331218,
+      0.339642,
+      0.34743,
+      0.355577,
+      0.364114,
+      0.373078,
+      0.382507,
+      0.392144,
+      0.402305,
+      0.413038,
+      0.424395,
+      0.436433,
+      0.448512,
+      0.461326,
+      0.474942,
+      0.489435,
+      0.504889,
+      0.520412,
+      0.53697,
+      0.554663,
+      0.573605,
+      0.593919,
+      0.61502,
+      0.637693,
+      0.662101,
+      0.688433,
+      0.7169,
+      0.746375,
+      0.778283,
+      0.812904,
+      0.850557,
+      0.89161,
+      0.934999,
+      0.982429,
+      1.03442,
+      1.09156,
+      1.15456,
+      1.22247,
+      1.29763,
+      1.38106,
+      1.47398,
+      1.57782,
+      1.69036,
+      1.81656,
+      1.95853,
+      2.11877,
+      2.30016,
+      2.50112,
+      2.7291,
+      2.98806,
+      3.28231,
+      3.61619,
+      3.98378,
+      4.39513,
+      4.85019,
+      5.34461,
+      5.86724,
+      6.3963,
+      6.90302,
+      7.3448,
+      7.67177,
+      7.83651,
+      7.8035,
+      7.58041,
+      7.19012,
+      6.67591,
+      6.08922,
+      5.48367,
+      4.8906,
+      4.33379,
+      3.82618,
+      3.37268,
+      2.97762,
+      2.63166,
+      2.33018,
+      2.06812,
+      1.84046,
+      1.64473,
+      1.47406,
+      1.32494,
+      1.19433,
+      1.07961,
+      0.979674,
+      0.891274,
+      0.812856,
+      0.743094,
+      0.680859,
+      0.625785,
+      0.576331,
+      0.531809,
+      0.49163,
+      0.455286,
+      0.422342,
+      0.392407,
+      0.365151,
+      0.340283,
+      0.31755,
+      0.296965,
+      0.27806,
+      0.26067,
+      0.244647,
+      0.229861,
+      0.216514,
+      0.20414,
+      0.192651,
+      0.181972,
+      0.172032,
+      0.162656,
+      0.153917,
+      0.145763,
+      0.138146,
+      0.131024,
+      0.124516,
+      0.118409,
+      0.112673,
+      0.10728,
+      0.102207,
+      0.0974308,
+      0.0929298,
+      0.0886847,
+      0.0846781,
+      0.0808937,
+      0.0773607,
+      0.0740168,
+      0.0708499,
+      0.0678487,
+      0.0650028,
+      0.0623025,
+      0.059739,
+      0.0573039,
+      0.0549895,
+      0.0527887,
+      0.0507215,
+      0.0487524,
+      0.046876,
+      0.045087,
+      0.0433807,
+      0.0417521,
+      0.0401974,
+      0.0387125,
+      0.0372937,
+      0.0359375,
+      0.0346573,
+      0.0334319,
+      0.0322586,
+      0.0311347,
+      0.0300578,
+      0.0290257,
+      0.0280359,
+      0.0270866,
+      0.0261756,
+      0.0253013,
+      0.0244617,
+      0.0236553,
+      0.0228807,
+      0.0221362,
+      0.0214205
+     ]
+    }
+   },
+   "code": "import numpy as np\nimport pystratify as ps\nfrom pystratify.docs import material  # n + ik of a refractiveindex.info page\n\nlam = (430 + 2 * np.arange(186)) * 1e-3  # wavelength, µm\nN = np.column_stack([material('crosscheck/classics/data/Si_Green-2008.yml', lam), np.full(lam.shape, (1+0j))])  # n + ik: core, then the host\ncs = ps.cross_sections(ps.solve([0.075], N, lam))  # outer radii, µm\nq_ext, q_sca = cs.q_ext, cs.q_sca\nb1 = cs.sca_by_order[:, ps.TE, 0] / cs.geometric  # magnetic dipole part of Q_sca\n"
+  }
+ }
+}

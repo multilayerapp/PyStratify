@@ -1,0 +1,47 @@
+id: kuznetsov-2012
+kind: classic
+position: 11
+geometry: spheres
+title: Magnetic light
+cite: A. I. Kuznetsov et al., Sci. Rep. 2, 492 (2012)
+doi: 10.1038/srep00492
+figure: 'Fig. 3(iv): scattering of silicon spheres of 100–270 nm with the md, ed and mq peaks'
+shows: >-
+  Extinction and scattering of a 150 nm silicon sphere in free space from 430 to 800 nm, split into its electric and magnetic
+  multipoles.
+inputs: 'Diameter 150 nm (Fig. 3c); free space. The paper names no silicon data: Green 2008.'
+agreement: Ten md, ed and mq peaks across six sizes, all within 5 nm of Fig. 3.
+perturb: >-
+  Sweep the radius from 50 to 135 nm: the magnetic dipole walks from ~470 to ~730 nm, the colours of the paper's Fig. 1.
+script: crosscheck/classics/kuznetsov_2012.py
+results: crosscheck/classics/results/kuznetsov_2012.json
+calculator:
+  sphere:
+    shells:
+    - label: Si
+      n: 3.9
+      k: 0.02
+      rii: Si_Green-2008
+      thickness: 0.075
+    host:
+      label: Vacuum
+      n: 1.0
+      k: 0.0
+    start: 430
+    end: 800
+    step: 1
+    changes:
+      multipoles:
+        kind: all
+        orders:
+          from: 1
+          to: 2
+  envelope:
+    start: 430
+    end: 800
+    step: 1
+    multipoles:
+      kind: all
+      orders:
+        from: 1
+        to: 2

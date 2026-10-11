@@ -1,0 +1,42 @@
+id: davis-2011
+kind: classic
+position: 8
+geometry: cylinders
+title: An FT-IR microscope looking at a fiber
+cite: B. J. Davis, P. S. Carney and R. Bhargava, Anal. Chem. 83, 525 (2011)
+doi: 10.1021/ac102239b
+figure: 'Fig. 5a: transmission through a non-absorbing fiber of radius 5 µm, n0 = 1.477'
+shows: >-
+  Apparent absorbance of a fiber that absorbs nothing, under a Cassegrain (NA 0.1–0.4) from 4000 to 800 cm⁻¹: the refraction-and-scattering
+  baseline that hides real bands.
+inputs: >-
+  Fiber n = 1.477 (Fig. 5 caption), radius 5 µm, in air. The paper does not state Fig. 5's aperture; NA 0.4 with a 0.1 obscuration
+  (its Fig. 2) reproduces the shape.
+agreement: >-
+  Transmission minimum 9.9% near 1120 cm⁻¹, 77% near 2100 cm⁻¹ and 42% near 3000 cm⁻¹, against ~10%, ~76% and ~42% read off
+  Fig. 5a.
+perturb: 'Double the radius to 10 µm, as in Fig. 5b: the deep minimum near 1100 cm⁻¹ disappears.'
+script: crosscheck/classics/davis_2011.py
+results: crosscheck/classics/results/davis_2011.json
+calculator:
+  cylinder:
+    shells:
+    - label: Fiber
+      n: 1.477
+      k: 0.0
+      thickness: 5.0
+    host:
+      label: Air
+      n: 1.0
+      k: 0.0
+  envelope:
+    kind: focused
+    spectral_unit: cm-1
+    length_unit: um
+    start: 800
+    end: 4000
+    step: 20
+    beam:
+      na: 0.4
+      obscuration: 0.1
+    focused_initialized: true

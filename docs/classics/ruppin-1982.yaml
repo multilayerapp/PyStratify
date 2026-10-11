@@ -1,0 +1,47 @@
+id: ruppin-1982
+kind: classic
+position: 13
+geometry: spheres
+title: A molecule beside a small silver sphere
+cite: R. Ruppin, J. Chem. Phys. 76, 1681 (1982)
+doi: 10.1063/1.443196
+figure: 'Figs. 1–2: lifetime of a molecule against its distance from a silver sphere of radius 10 nm'
+shows: >-
+  Decay rates of an electric dipole at 612 nm moving away from a 10 nm silver sphere in a medium of n = 1.5, radial and tangential.
+inputs: >-
+  Radius 10 nm, host ε = 2.25, λ = 612 nm (printed); Johnson & Christy silver (the paper prints none), which puts the dipole
+  plasmon at the paper's 3.05 eV.
+agreement: >-
+  Lifetime (the inverse of the total rate) 0.98 at kd = 1 and no oscillation beyond; tangential maximum 1.16 at kd = 0.19
+  (paper ~1.12 at ~0.2).
+perturb: 'Switch the axis to wavelength at a fixed 10 nm gap: the l = 1 plasmon appears at ~407 nm (3.05 eV).'
+script: crosscheck/classics/ruppin_1982.py
+results: crosscheck/classics/results/ruppin_1982.json
+calculator:
+  sphere:
+    shells:
+    - label: Ag
+      n: 0.06
+      k: 4.1
+      rii: Ag_Johnson
+      thickness: 0.01
+    host:
+      label: Host
+      n: 1.5
+      k: 0.0
+    start: 612
+    end: 612
+    step: 1
+  envelope:
+    kind: dipole
+    region: core
+    offset: 11
+    sweep: true
+    position_start: 11
+    position_end: 281
+    position_step: 2
+    start: 612
+    end: 612
+    step: 1
+    emitter_outputs:
+    - decay

@@ -1,0 +1,60 @@
+id: mie-1908
+kind: classic
+position: 9
+geometry: spheres
+title: Why gold sols are red, violet or blue
+cite: G. Mie, Ann. Phys. 330, 377 (1908)
+doi: 10.1002/andp.19083300302
+figure: 'Fig. 25 and its table (p. 438): light loss of colloidal gold in water, particle diameters 0–180 nm'
+shows: >-
+  Extinction efficiency of a 100 nm gold sphere in water from 420 to 650 nm, with Mie's own optical constants: the peak that
+  turns the sol violet.
+inputs: >-
+  Gold n, k at seven wavelengths from Mie's table (p. 417) as an uploaded table; water n = 1.337, from his λ′ column.
+agreement: >-
+  56 printed values, diameters 20–180 nm: all within 10%, 51 within 5%. His loss per mm is 1500·Q/d with d in nm.
+perturb: 'Shrink the radius from 50 to 10 nm: the peak returns to ~525 nm, the red of fine gold.'
+script: crosscheck/classics/mie_1908.py
+results: crosscheck/classics/results/mie_1908.json
+calculator:
+  sphere:
+    shells:
+    - label: Au (Mie 1908)
+      n: 0.6
+      k: 2.6
+      table:
+        name: Au, Mie 1908 (p. 417)
+        rows:
+        - - 0.42
+          - 1.7
+          - 1.7
+        - - 0.45
+          - 1.73
+          - 1.72
+        - - 0.5
+          - 1.1
+          - 2.02
+        - - 0.525
+          - 0.79
+          - 2.23
+        - - 0.55
+          - 0.57
+          - 2.45
+        - - 0.6
+          - 0.38
+          - 2.96
+        - - 0.65
+          - 0.41
+          - 3.54
+      thickness: 0.05
+    host:
+      label: Water
+      n: 1.337
+      k: 0.0
+    start: 420
+    end: 650
+    step: 1
+  envelope:
+    start: 420
+    end: 650
+    step: 1

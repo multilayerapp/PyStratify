@@ -1,0 +1,58 @@
+id: katsidis-2002
+kind: classic
+position: 4
+geometry: films
+title: Coherent film, incoherent wafer
+cite: C. C. Katsidis and D. I. Siapkas, Appl. Opt. 41, 3978 (2002)
+doi: 10.1364/AO.41.003978
+figure: 'Fig. 2: infrared reflectance of 2 µm SiC on a 300 µm Si wafer, finite incoherent or semi-infinite'
+shows: >-
+  Reflectance from 1.43 to 14.3 µm (7000 to 700 cm⁻¹): film fringes riding on the wafer's back-face reflection, and the SiC
+  reststrahlen band.
+inputs: >-
+  SiC from the paper's oscillator (ε∞ 6.7, Δε 3.3, ω_TO 796.5 cm⁻¹, γ 20 cm⁻¹) as an uploaded table; Si n = 3.42, 300 µm,
+  incoherent.
+agreement: >-
+  Fringe band 0.34–0.46 (incoherent wafer) and 0.09–0.30 (semi-infinite) against Fig. 2's ~0.33–0.50 and ~0.07–0.30; identical
+  in the reststrahlen band.
+perturb: >-
+  Make the wafer the substrate instead of an incoherent layer: the whole level drops except between 790 and 870 cm⁻¹.
+script: crosscheck/classics/katsidis_2002.py
+results: crosscheck/classics/results/katsidis_2002.json
+calculator:
+  film:
+    incident:
+      label: Air
+      n: 1.0
+      k: 0.0
+    layers:
+    - label: SiC
+      n: 2.6
+      k: 0.0
+      table:
+        name: SiC, single oscillator (Katsidis & Siapkas 2002)
+        lorentz:
+          from_cm1: 700
+          to_cm1: 7000
+          count: 400
+          eps_inf: 6.7
+          d_eps: 3.3
+          w_to_cm1: 796.5
+          gamma_cm1: 20.0
+      thickness: 2.0
+    - label: Si
+      n: 3.42
+      k: 0.0
+      thickness: 300.0
+      coherency: i
+    substrate:
+      label: Air
+      n: 1.0
+      k: 0.0
+    controls:
+      wavelength-start: 1.43
+      wavelength-end: 14.3
+      wavelength-step: 0.03
+    units:
+      wavelength: um
+      length: um

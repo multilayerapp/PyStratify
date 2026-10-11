@@ -1,0 +1,55 @@
+id: neyts-1998
+kind: classic
+position: 3
+geometry: films
+title: Light out of a thin-film microcavity
+cite: K. A. Neyts, J. Opt. Soc. Am. A 15, 962 (1998)
+doi: 10.1364/JOSAA.15.000962
+figure: 'Figs. 9–10: emission into air (E_appl) and total rate F of a dipole in ZnS on aluminium'
+shows: >-
+  A randomly oriented dipole swept through a 190.4 nm ZnS layer on Al at 600 nm, from the air side (depth 2 nm) to the mirror:
+  how much of its light escapes into air, how much is trapped or absorbed.
+inputs: >-
+  ZnS n = 2.3, Al n = 1 + 6i, air (printed); the optimum thickness n·d/λ = 0.73. Al is a 200 nm opaque layer, since the calculator's
+  outer media must be lossless.
+agreement: >-
+  Useful emission 0.376 and total rate 0.825 with the dipole at the air side, against the printed 0.38 and 0.817.
+perturb: Change the ZnS thickness by a quarter wave (65 nm) and watch the outcoupled fraction collapse.
+script: crosscheck/classics/neyts_1998.py
+results: crosscheck/classics/results/neyts_1998.json
+calculator:
+  film:
+    incident:
+      label: Air
+      n: 1.0
+      k: 0.0
+    layers:
+    - label: ZnS
+      n: 2.3
+      k: 0.0
+      thickness: 0.1904
+    - label: Al
+      n: 1.0
+      k: 6.0
+      thickness: 0.2
+    substrate:
+      label: Air
+      n: 1.0
+      k: 0.0
+    controls:
+      wavelength-start: 600
+      wavelength-end: 600
+  envelope:
+    kind: dipole
+    region: origin
+    offset: 2
+    sweep: true
+    position_start: 2
+    position_end: 188.4
+    position_step: 2
+    start: 600
+    end: 600
+    step: 5
+    emitter_outputs:
+    - decay
+    - efficiency

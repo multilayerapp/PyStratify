@@ -2,10 +2,10 @@
 
 Sixteen classic works on planar, cylindrical and spherical structures, each recomputed from the inputs
 the paper prints. Every script writes a CSV, a PNG and `results/<paper>.json`. That JSON records each
-check against a number printed in, or read off, the paper, with its tolerance and source. The checks come
-from the multilayer.app classics page (`multilayer_web/classics.html`), which opens the same inputs live in
-the calculator. That page's generator, `multilayer_web/tools/classics/build.py`, copies its agreement
-lines from here.
+check against a number printed in, or read off, the paper, with its tolerance and source. Each paper's
+page record (text, calculator inputs, agreement line) is `docs/classics/<id>.yaml`; `python -m
+pystratify.docs build` attaches these checks to it in `docs/manifest.json`, from which multilayer.app
+builds its classics page (`classics.html`), opening the same inputs live in the calculator.
 
 Optical constants come from the refractiveindex.info database at the commit the calculator pins
 (`a66ef88`, copied into `data/`, public domain). They are interpolated linearly, as the backend does. Where
