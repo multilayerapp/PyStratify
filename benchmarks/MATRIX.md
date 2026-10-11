@@ -57,7 +57,7 @@ blank = the reference cannot compute it.
 | Sommerfeld integrals (Chance–Prock–Silbey), written separately | method | | ● | | | | | | | |
 | plane-wave superposition / cone average | method | | | ● | | | ● | | | ● |
 | BHMIE (Bohren & Huffman) | code | | | | | | | ● | | |
-| treams | code | | | | ● | ○ | | ● | ○ | |
+| treams | code | | | | ● | ○ | | ● | ● | |
 | pyElli (2×2 and Berreman 4×4) | code | ● | | | | | | | | |
 | PyMoosh | code | ● | ● | | | | | | | |
 | tmmax | code | ○ | | | | | | | | |
@@ -211,7 +211,7 @@ blank = the reference cannot compute it.
 | two-point Green's dyadic against extended precision | precision | G(r, r′) | `tests/test_pairs.py::test_two_point_radial_form_against_extended_precision` | 1e-13 | suite |
 | quadrupole coupling against finite differences | method | rates, pattern | `tests/test_quadrupoles.py::test_quadrupole_coupling_against_finite_differences` | — | suite |
 | Casimir–Polder non-retarded limit | analytic | potential | `tests/test_casimir.py::test_non_retarded_limit_near_a_large_sphere` | 1e-12 | suite |
-| **treams** (spherical-wave expansion of a dipole) | code | total rate beside a coated sphere | to build: `benchmarks/sphere_codes.py` | 1e-10 | to build |
+| **treams** (the dipole as an l = 1 singular wave, translated through the layered sphere's T-matrix and back) | code | total rate, radial and tangential, ED and MD, beside a nanoshell 5 nm away, a matryoshka in water and a dielectric core–shell | `benchmarks/mie_codes.py` → `MIE_CODES.md` "Emitters beside layered spheres"; `tests/test_mie_codes.py::test_emitters_beside_layered_spheres_agree_with_treams` | converges geometrically in treams' l_max: 3e-8 (nanoshell, 50), 1.2e-11 (matryoshka, 50), ≤ 2.9e-15 (dielectric, ED and MD); asserted 1e-5, 1e-8 (l_max 40), 1e-13 | suite (`benchmarks` extra) |
 | Anger, Bharadwaj & Novotny 2006 | paper | quenching against distance from Au | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
 | **MNPBEM** `dipoleret` | code | total and radiative decay rates 5 nm from a 40 nm sphere (ε = −10 + i), radial and tangential | `benchmarks/mnpbem_spheres.py`; `tests/test_mnpbem_spheres.py` | converges toward PyStratify; finest mesh 1.4% (radial total), 0.04% (tangential) | suite where Octave is installed |
 | **pyGDM2** `decay_rate` | code | total decay rates 20 and 40 nm from the n = 2 and n = 2 + 0.1i spheres, radial and tangential | `benchmarks/gdm_spheres.py`; `tests/test_gdm_spheres.py` | 0.5% at 40 nm (observed ≤ 0.14%), 10% at 20 nm (observed ≤ 7.2%) | suite (`benchmarks` extra) |
@@ -266,8 +266,9 @@ blank = the reference cannot compute it.
   1e-14), where scattnlay loses up to 5e-3, and scattnlay's internal field fails toward the core of a
   10-layer sphere whose PyStratify coefficients agree with 60-digit transfer matrices. **Emitters**
   beside a sphere agree with smuthi to machine precision (2.2e-16) for dielectric spheres and to
-  5e-10 for a metal-like sphere 5 nm away, converging with smuthi's truncation; Meep (cylindrical
-  coordinates) agrees to 1.7%.
+  5e-10 for a metal-like sphere 5 nm away, converging with smuthi's truncation; beside **layered**
+  spheres (a nanoshell, a matryoshka; electric and magnetic dipoles) with treams, to 3e-15 for
+  dielectric shells and 3e-8 / 1e-11 for the metal ones; Meep (cylindrical coordinates) agrees to 1.7%.
 - **Focused beams are verified only against their own plane-wave engines.** The FT-IR papers are
   the outside check.
 - **The incoherent film path** has only the explicit phase average as an independent check. The

@@ -13,7 +13,8 @@ import pytest
 import pystratify as ps
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
-from mie_codes import EXTRA_ORDERS, WAVELENGTH, bohren_huffman_centre, compare, compare_near_fields  # noqa: E402
+from mie_codes import (EMITTER_CASES, EXTRA_ORDERS, WAVELENGTH, bohren_huffman_centre, compare,  # noqa: E402
+                       compare_emitters, compare_near_fields)
 
 
 def test_spheres_agree_with_scattnlay_and_treams():
@@ -55,3 +56,11 @@ def test_field_at_the_centre_is_bohren_huffman_d1_and_c1(radius, m):
     f = ps.near_field(sol, [0.0, -0.0], [0.0, 0.0], [0.0, -0.0])
     assert np.allclose(f.e["x"], d1, rtol=1e-13, atol=0) and np.allclose(f.h["y"], mc1, rtol=1e-13, atol=0)
     assert np.all(np.abs([f.e["y"], f.e["z"], f.h["x"], f.h["z"]]) == 0)
+
+
+def test_emitters_beside_layered_spheres_agree_with_treams():
+    pytest.importorskip("treams")
+    limits = dict(zip(EMITTER_CASES, ((40, 1e-5), (40, 1e-8), (20, 1e-13), (20, 1e-13))))
+    results = compare_emitters(tuple(limits), {name: (l,) for name, (l, _) in limits.items()})
+    for name, (exact, ((_, rates),)) in results.items():
+        assert np.max(np.abs(rates / exact - 1)) < limits[name][1], (name, rates, exact)
