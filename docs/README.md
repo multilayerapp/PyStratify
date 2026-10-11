@@ -11,6 +11,7 @@ docs/
   examples/<id>.yaml                               one setup, computed at build time
   classics/<id>.yaml                               one classic paper's page record
   materials.yaml                                   the refractiveindex.info pages the records cite
+  verification.md                                  the Verification page's introduction; rows that open an example
   manifest.json                                    generated: everything above, computed (commit it)
 ```
 
@@ -31,7 +32,7 @@ and writes `classics.html` and `learn/<geometry>/<slug>.html`. Equations are typ
 
 ## Records (manifest schema 1)
 
-Every record has `id`, `kind` (`learn` or `classic`) and `geometry`; the site's geometry switch shows a geometry's
+Every record has `id`, `kind` (`learn`, `classic` or `benchmark`) and `geometry`; the site's geometry switch shows a geometry's
 records (and `common` Learn chapters for every geometry).
 
 **Learn section** — front matter, then Markdown with `$inline$` and `$$display$$` LaTeX:
@@ -71,6 +72,13 @@ Computed so far, under a plane wave:
 **Classic** (`classics/<id>.yaml`): `id`, `position` (order on the page), `geometry`, `title`, `cite`, `doi`,
 `figure`, `shows`, `inputs`, `agreement`, `perturb`, `script` and `results` (under `crosscheck/classics/`),
 `calculator`. The build adds `checks`.
+
+**Benchmark** — one per row of the geometry tables of `benchmarks/MATRIX.md`, which stays the one place the
+matrix is written: `id` (`<geometry>-<source>-<row>`), `geometry`, `source` (`plane_wave`, `dipole`, `focused`),
+`reference`, `reference_kind` (the matrix's *kind* column), `quantity`, `script`, `tolerance`, `status` (cells keep
+their Markdown), and `example` where `verification.md` links the row to one. The matrix's legends, coverage grid and
+"What the matrix shows" travel in the manifest's `verification` block with that page's introduction. A row added to
+MATRIX.md appears on the site at the next build; `tests/test_docs_build.py` checks that every row arrives once.
 
 **Calculator setup** — exactly one of:
 

@@ -534,7 +534,7 @@ def build_manifest(root, run_classics=False, previous=None):
     learn = load_learn(root)
     earlier = {r["id"]: r for r in previous["records"] if r["kind"] == "classic"} if previous else None
     classics = load_classics(root, materials, run_classics, earlier)
-    ids = [r["id"] for r in learn + classics]
+    ids = [r["id"] for r in learn + classics]  # benchmark ids are geometry-source-row and cannot collide
     duplicate = sorted({i for i in ids if ids.count(i) > 1})
     if duplicate:
         raise ContentError(f"duplicate record ids: {duplicate}")
@@ -542,7 +542,29 @@ def build_manifest(root, run_classics=False, previous=None):
         for example_id in section["examples"]:
             if example_id not in examples:
                 raise ContentError(f"learn section {section['id']}: no example {example_id!r} in docs/examples/")
-    return {"schema": SCHEMA, "generator": f"pystratify {__version__}", "records": learn + classics, "examples": examples}
+    verification, benchmarks = load_verification(root, examples)
+    return {"schema": SCHEMA, "generator": f"pystratify {__version__}", "records": learn + classics + benchmarks,
+            "examples": examples, "verification": verification}
+
+
+def load_verification(root, examples):
+    """benchmarks/MATRIX.md's rows as `benchmark` records, and docs/verification.md's introduction."""
+    from .verification import parse_matrix
+
+    matrix = parse_matrix((root / "benchmarks" / "MATRIX.md").read_text())
+    meta, body = _front_matter((root / "docs" / "verification.md").read_text(), "docs/verification.md")
+    _require(meta, ("title", "summary"), "docs/verification.md")
+    rows = {(r["geometry"], r["source"], r["reference"]): r for r in matrix["records"]}
+    for link in meta.get("examples", []):
+        key = (link["geometry"], link["source"], link["reference"])
+        if key not in rows:
+            raise ContentError(f"docs/verification.md: no MATRIX.md row {key}")
+        if link["example"] not in examples:
+            raise ContentError(f"docs/verification.md: no example {link['example']!r} in docs/examples/")
+        rows[key]["example"] = link["example"]
+    page = {"title": meta["title"], "summary": meta["summary"], "body": body,
+            **{k: matrix[k] for k in ("kinds", "statuses", "coverage", "findings")}}
+    return page, matrix["records"]
 
 
 def dumps(manifest):

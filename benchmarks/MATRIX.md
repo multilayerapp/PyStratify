@@ -17,6 +17,10 @@ far this way: `planar_codes.py` â†’ `PLANAR_CODES.md`, `emitter_references.py` â
 its script; the rows left without one are another repository's (the backend's RCWA, the web's JavaScript
 lineage), the unmerged `non-local` branch, and WP1.4's anisotropy, still to build.
 
+**This file is multilayer.app's Verification page** (`pystratify.docs`, 2026-10-11): after editing it, run
+`python -m pystratify.docs build` and commit `docs/manifest.json` with it (`tests/test_docs_build.py` fails until
+you do). Keep each geometry's tables in the six columns below; a new row needs nothing else.
+
 ## Kinds of reference
 
 An agreement only counts as independent when the reference does not share the code under test.

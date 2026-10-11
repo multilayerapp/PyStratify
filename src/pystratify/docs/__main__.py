@@ -28,8 +28,9 @@ def main(argv=None):
         print(f"{target} is current")
         return 0
     write_manifest(manifest, target)
-    counts = {kind: sum(r["kind"] == kind for r in manifest["records"]) for kind in ("learn", "classic")}
-    print(f"wrote {target}: {counts['learn']} learn sections, {counts['classic']} classics, {len(manifest['examples'])} examples")
+    counts = {kind: sum(r["kind"] == kind for r in manifest["records"]) for kind in ("learn", "classic", "benchmark")}
+    print(f"wrote {target}: {counts['learn']} learn sections, {counts['classic']} classics, {counts['benchmark']} benchmarks, "
+          f"{len(manifest['examples'])} examples")
     return 0
 
 

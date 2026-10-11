@@ -69,3 +69,15 @@ def test_a_broken_record_is_refused(tmp_path):
     example.write_text(example.read_text().replace("  - key: md_sca", "  - key: not_a_series"))
     with pytest.raises(ContentError, match="unknown series"):
         build_manifest(tmp_path, previous=COMMITTED)
+
+
+def test_every_matrix_row_is_one_benchmark_record(manifest):
+    from pystratify.docs.verification import table_rows
+
+    rows = [r for r in manifest["records"] if r["kind"] == "benchmark"]
+    assert len(rows) == table_rows((ROOT / "benchmarks" / "MATRIX.md").read_text())
+    assert len({r["id"] for r in rows}) == len(rows)
+    assert {r["geometry"] for r in rows} == {"films", "cylinders", "spheres"}
+    assert all(r["status"] and r["reference"] for r in rows)
+    assert {r["reference_kind"] for r in rows} >= {"analytic", "precision", "method", "code", "paper", "lineage"}
+    assert sum("example" in r for r in rows) == 3  # docs/verification.md's links, each to an existing example
