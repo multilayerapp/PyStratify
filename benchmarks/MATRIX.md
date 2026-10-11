@@ -156,7 +156,7 @@ blank = the reference cannot compute it.
 |---|---|---|---|---|---|
 | homogeneous medium; independent flux budget; guided channels | analytic / method | rate channels | `benchmarks/unified_checks.py` → `UNIFIED_CHECKS.md`; `tests/test_unified.py::test_homogeneous_point_source`, `::test_absorbing_coating_independent_power_budget`, `::test_guided_point_sources_not_line_sources` | 1e-8 / 1e-5 / 1e-6 | suite |
 | grazing endpoint continuation within the error budget | method | rates of lossy cylinders | `benchmarks/unified_checks.py` → `UNIFIED_CHECKS.md`; `tests/test_unified.py::test_cylinder_grazing_uncertainty_cannot_pass_a_tighter_tolerance` | per tolerance | suite |
-| **treams** (cylindrical-wave expansion of a point source) | code | total rate beside a cylinder | to build: check that treams expands a 3D point source in cylindrical waves; else out of scope | 1e-6 | to build |
+| **treams** (cylindrical-wave expansion of a point source) | code | total rate beside a cylinder | — | — | **out of scope** (2026-10-11): treams' cylinder T-matrices are per axial wavenumber k_z (`TMatrixC`); a 3D point source needs the continuous k_z integral, which treams does not do, so the integral would be ours — PyStratify's own structure, not an independent check. Cylinder emitters are covered by Meep and NGSolve (volume methods) and the fibre's closed-form dispersion relations |
 | step-index fibre dispersion relations (TE₀₁, TM₀₁; Snyder & Love) | analytic | guided poles behind the guided channel; rates smooth through a mode's cutoff | `benchmarks/unified_checks.py` → `UNIFIED_CHECKS.md`; `tests/test_unified.py::test_cylinder_finds_every_guided_mode_near_cutoff`, `::test_cylinder_rates_are_smooth_through_a_mode_cutoff` | 1e-10 in n_eff; curvature < 2e-3 | suite |
 | **Meep**, 3D FDTD (the cylinder through the PML) | code | total rate, radial / azimuthal / axial, beside an n = 2, 150 nm fibre, 0.61–1.18 µm across the TE₀₁/TM₀₁ cutoff | `benchmarks/fdtd_meep.py` → `FDTD_MEEP.md` (20–60 px/µm, ~30 min); `tests/test_fdtd_meep.py` (20 and 30 px/µm, ~2 min) | converges toward PyStratify: worst 6.9% → 3.2% → 1.7% → **0.74%**; asserted: 30 px/µm < 5% and closer than 20 | suite where Meep is installed (conda-forge `pymeep`) |
 | **NGSolve** (3D finite elements; total field of a point dipole, Im(p·E) over the same mesh without the fibre) | code | total rate, radial / azimuthal / axial, beside the same fibre at 0.8 µm (and 0.645 µm, shown only: modes just above cutoff reach the PML) | `benchmarks/fem_ngsolve.py` → `FEM_NGSOLVE.md` (~3 min, ~3.2 GB); `tests/test_fem_ngsolve.py` (coarsest mesh, 0.8 µm) | converges toward PyStratify: worst 3.3% → **1.5%** at 97k → 126k unknowns (1.4% at 196k, ~4.1 GB); the floor is the cell's size; asserted: coarsest < 5% | suite where NGSolve is installed (`pip install ngsolve`) |
@@ -233,6 +233,14 @@ blank = the reference cannot compute it.
 | an FT-IR microspectroscopy paper on spheres (to identify; Mie scattering of a PMMA bead is the usual case) | paper | apparent absorbance of a sphere | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
 
 ## What the matrix shows
+
+- **Where the remaining `to build` rows stand (2026-10-11).** Every code comparison PyStratify can run alone is
+  built. What is left belongs elsewhere: the published-paper rows (OLED outcoupling, Davis 2010, Bohren &
+  Huffman's cylinder, a nanowire emitter, FT-IR fibres and spheres, Oldenburg nanoshells and Kerker,
+  Anger–Novotny quenching) are WP1.6 `crosscheck/` scripts, which the WP1.9 "seminal papers" plan
+  (umbrella `docs/roadmap/showcase.md`) is building; pyElli 4×4, PyMoosh `anisotropic.py` and the isotropic
+  limit wait for WP1.4's anisotropic solver; PyMoosh `non_local.py` waits for the `non-local` merge;
+  OpenSANS needs its CPC program library download.
 
 - **Films now have two independent codes** (2026-10-10): PyMoosh and pyElli agree with
   `pystratify.planar` to ≤ 1.2e-14 in R, T, r, t and per-layer A, and to ≤ 6e-13° in Ψ and Δ, including
