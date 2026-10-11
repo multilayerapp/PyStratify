@@ -1,6 +1,6 @@
 # Classic papers, recomputed
 
-Fifteen classic papers on planar, cylindrical and spherical structures, each recomputed from the inputs
+Sixteen classic works on planar, cylindrical and spherical structures, each recomputed from the inputs
 the paper prints. Every script writes a CSV, a PNG and `results/<paper>.json`. That JSON records each
 check against a number printed in, or read off, the paper, with its tolerance and source. The checks come
 from the multilayer.app classics page (`multilayer_web/classics.html`), which opens the same inputs live in
@@ -28,6 +28,7 @@ Run any script from this folder, e.g. `python mie_1908.py`, with one BLAS thread
 | `mohlenhoff_2005.py` | Mohlenhoff et al., Biophys. J. 88, 3635 | Fig. 4 | 3 / 3 | Fig. 4 is van de Hulst's formula, reproduced. Exact Mie peaks higher (4.0 vs 3.17) |
 | `anger_2006.py` | Anger, Bharadwaj & Novotny, PRL 96, 113002 | Fig. 1 | 12 / 12 | Printed gold ε. Fluorescence = plane-wave \|E_r\|² × quantum yield |
 | `ruan_fan_2010.py` | Ruan & Fan, PRL 105, 013901 | Figs. 1, 4a | 5 / 5 | Lossy case exact (1.917, 0.731). Lossless peak 7.87 vs 7.94, on a fine grid |
+| `bohren_huffman_1983.py` | Bohren & Huffman, *Absorption and Scattering of Light by Small Particles* (1983), §8.4 | Fig. 8.7 | 7 / 7 | Infinite cylinder, n = 1.55, both polarizations; maxima within 0.04 of the figure |
 | `ruppin_2001.py` | Ruppin, Opt. Commun. 190, 205 | Figs. 1, 4 (dashed) | 5 / 5 | Local (classical) curves only |
 | `davis_2011.py` | Davis, Carney & Bhargava, Anal. Chem. 83, 525 | Fig. 5 | 6 / 6 | Fig. 5's NA is not stated. NA 0.4 / obscuration 0.1 (its Fig. 2) reproduces it |
 | `kuznetsov_2012.py` | Kuznetsov et al., Sci. Rep. 2, 492 | Fig. 3(iv) | 10 / 10 | All md/ed/mq peaks within 5 nm. Green 2008 silicon |

@@ -8,7 +8,8 @@ curves can be laid over the published ones. Each writes CSV files and a PNG to
 |---|---|---|
 | `guzatov_klimov_2012.py` | D. V. Guzatov & V. V. Klimov, *New J. Phys.* **14**, 123009 (2012), [arXiv:1203.5393](https://arxiv.org/abs/1203.5393) | Figs. 3–6: radiative decay of a chiral molecule at the surface of a chiral (Drude–Born–Fedorov) sphere |
 
-`classics/` (2026-10-10) recomputes fifteen classic papers on films, cylinders and spheres: Mie 1908,
+`classics/` (2026-10-10) recomputes sixteen classic works on films, cylinders and spheres: Mie 1908, Bohren &
+Huffman 1983,
 Yeh 1977, Lukosz & Kunz 1977, Ruppin 1982 and 2001, Ford & Weber 1984, Neyts 1998, Katsidis 2002,
 Prodan 2003, Mohlenhoff 2005, Anger 2006, Ruan & Fan 2010, Davis 2011, Kuznetsov 2012 and Fu 2013. Each
 check against the paper is recorded in `classics/README.md`. These are the inputs behind
