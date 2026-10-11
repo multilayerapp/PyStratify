@@ -9,7 +9,7 @@ report live in a runnable script in `benchmarks/` (`.py` or `.ipynb`), so a read
 see the numbers for themselves; `tests/` only imports that script and asserts the tolerances. Built so
 far this way: `planar_codes.py` → `PLANAR_CODES.md`, `emitter_references.py` →
 `EMITTER_REFERENCES.md`, `mnpbem_spheres.py` → `MNPBEM_SPHERES.md`, `mie_codes.py` → `MIE_CODES.md`,
-`gdm_spheres.py` → `GDM_SPHERES.md`, `convergence.py` → `RESULTS.md`. Rows whose check exists only inside
+`gdm_spheres.py` → `GDM_SPHERES.md`, `fdtd_meep.py` → `FDTD_MEEP.md`, `convergence.py` → `RESULTS.md`. Rows whose check exists only inside
 `tests/` still owe a `benchmarks/` script; WP1.5 is not done until they have one.
 
 ## Kinds of reference
@@ -64,7 +64,7 @@ blank = the reference cannot compute it.
 | pyGDM2 (volume Green dyadic) | code | | | | | | | ● | ● | |
 | MNPBEM (boundary elements, under GNU Octave) | code | | | | | | | ● | ● | |
 | smuthi (T-matrix + Sommerfeld, dipole sources) | code | | ● | | | | | ○ | ○ | |
-| Meep (FDTD; cylindrical coordinates where the source is on axis) | code | | ○ | | ○ | ○ | | ○ | ○ | |
+| Meep (FDTD; cylindrical coordinates where the source is on axis) | code | | ○ | | ○ | ● | | ○ | ○ | |
 | NGSolve (finite elements) | code | | | | | ○ | | | ○ | |
 | OpenSANS (CPC 2023, nonlocal) | code | | | | ○ | | | ○ | | |
 | Dong 2016/2017 (nonlocal shells) | paper | | | | | | | ◐ | | |
@@ -152,7 +152,8 @@ blank = the reference cannot compute it.
 | homogeneous medium; independent flux budget; guided channels | analytic / method | rate channels | `tests/test_unified.py::test_homogeneous_point_source`, `::test_absorbing_coating_independent_power_budget`, `::test_guided_point_sources_not_line_sources` | 1e-8 / 1e-5 / 1e-6 | suite |
 | grazing endpoint continuation within the error budget | method | rates of lossy cylinders | `tests/test_unified.py::test_cylinder_grazing_uncertainty_cannot_pass_a_tighter_tolerance` | per tolerance | suite |
 | **treams** (cylindrical-wave expansion of a point source) | code | total rate beside a cylinder | to build: check that treams expands a 3D point source in cylindrical waves; else out of scope | 1e-6 | to build |
-| **Meep**, 3D FDTD (the cylinder through the PML) | code | Purcell factor beside a dielectric cylinder | to build: `benchmarks/fdtd_meep.py`; 3D, so run alone on this 8 GB Mac | ~1e-2 | to build |
+| step-index fibre dispersion relations (TE₀₁, TM₀₁; Snyder & Love) | analytic | guided poles behind the guided channel; rates smooth through a mode's cutoff | `tests/test_unified.py::test_cylinder_finds_every_guided_mode_near_cutoff`, `::test_cylinder_rates_are_smooth_through_a_mode_cutoff` | 1e-10 in n_eff; curvature < 2e-3 | suite |
+| **Meep**, 3D FDTD (the cylinder through the PML) | code | total rate, radial / azimuthal / axial, beside an n = 2, 150 nm fibre, 0.61–1.18 µm across the TE₀₁/TM₀₁ cutoff | `benchmarks/fdtd_meep.py` → `FDTD_MEEP.md` (20–60 px/µm, ~30 min); `tests/test_fdtd_meep.py` (20 and 30 px/µm, ~2 min) | converges toward PyStratify: worst 6.9% → 3.2% → 1.7% → **0.74%**; asserted: 30 px/µm < 5% and closer than 20 | suite where Meep is installed (conda-forge `pymeep`) |
 | **NGSolve** (finite elements) | code | the same, a second volume method | to build, after Meep | ~1e-3 | to build |
 | a published dipole-beside-a-nanowire paper | paper | Purcell factor against distance | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
 
@@ -238,8 +239,12 @@ blank = the reference cannot compute it.
 - **Film emitter rates now have two outside references** (2026-10-10): independently written
   Sommerfeld integrals, pinned to the image-dipole closed form, agree with `FilmSource` to ≤ 5e-12;
   smuthi agrees on lossless guides to ≤ 4.8e-7. The guide comparison **found a bug**: a source in an
-  exterior half-space lost all guided power (fixed in 0.10.3). **Cylinder emitters still have no
-  outside reference**: no closed form exists, so FDTD (Meep) or FEM (NGSolve) is the way, at ~1%.
+  exterior half-space lost all guided power (fixed in 0.10.3). **Cylinder emitters have an outside
+  reference since 2026-10-10**: Meep's 3D FDTD converges toward PyStratify (0.74% at 60 px/µm, every
+  orientation, through a mode cutoff), and its first run **found a bug**: the guided-mode search dropped
+  real modes while reporting convergence (up to 12% here, 9.5% over random cylinders; fixed in 0.10.4,
+  the found modes now equal the fibre's closed-form dispersion relations). NGSolve remains as a second
+  volume method.
 - **Volume methods (FDTD, FEM, BEM) are a different-method check at ~1%**, not a precision check:
   they test the formulation (sign conventions, normalisation, multipole bookkeeping), not the digits.
   Meep in cylindrical coordinates is cheap for a dipole on the symmetry axis (films, spheres);
