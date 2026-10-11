@@ -105,7 +105,7 @@ def report(results):
     for case, (exact, runs, seconds) in results.items():
         resolutions = sorted(runs)
         print(f"\n## {case}\n")
-        print(f"Meep run time per resolution (6 runs: 3 orientations, with and without the cylinder): "
+        print("Meep run time per resolution (6 runs: 3 orientations, with and without the cylinder): "
               + ", ".join(f"{r}: {seconds[r]:.0f} s" for r in resolutions) + ".\n")
         print("| wavelength (um) | orientation | PyStratify | " + " | ".join(f"Meep {r}" for r in resolutions) + " |")
         print("|---|---|---|" + "---|" * len(resolutions))
@@ -222,7 +222,8 @@ def report_axial(results):
 
 
 if __name__ == "__main__":
-    import atexit, os
+    import atexit
+    import os
 
     import meep  # noqa: F401  (imported first: exit handlers run last-registered first)
 
