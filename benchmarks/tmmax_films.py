@@ -15,7 +15,9 @@ characteristic-matrix product written independently give 0.0147. Every ingredien
 phases, Fresnel r and t); the defect is in ``cascaded_matmul.coh_matmul``: its matrix elements are shape-(1,)
 arrays, so ``jnp.array([[a, b], [c, d]])`` is (2, 2, 1) and ``jnp.matmul(carry, ...)`` broadcasts it as a
 stack of column vectors instead of multiplying 2 x 2 matrices; with the identity as the first carry a single
-layer survives, a second does not. ``fixed_coh_matmul`` below builds the 2 x 2 matrix from the scalar
+layer survives, a second does not. Already reported upstream (bahremsd/tmmax #45, #44) and fixed on its main
+branch on 2026-02-11 ("matmul bug fix": squeeze, then dot), but not released: PyPI's latest is still 1.1.4
+(2025-10-15), the version ``pip install tmmax`` gives. ``fixed_coh_matmul`` below builds the 2 x 2 matrix from the scalar
 elements; with it tmmax agrees with PyStratify to float32 on every stack here. The report shows tmmax as
 shipped and as fixed; the test asserts single layers as shipped and multilayers as fixed.
 """
