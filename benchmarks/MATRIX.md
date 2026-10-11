@@ -64,7 +64,7 @@ blank = the reference cannot compute it.
 | pyGDM2 (volume Green dyadic) | code | | | | | | | ● | ● | |
 | MNPBEM (boundary elements, under GNU Octave) | code | | | | | | | ● | ● | |
 | smuthi (T-matrix + Sommerfeld, dipole sources) | code | | ● | | | | | ○ | ○ | |
-| Meep (FDTD; cylindrical coordinates where the source is on axis) | code | | ○ | | ○ | ● | | ○ | ○ | |
+| Meep (FDTD; cylindrical coordinates where the source is on axis) | code | | ● | | ○ | ● | | ○ | ● | |
 | NGSolve (finite elements) | code | | | | | ○ | | | ○ | |
 | OpenSANS (CPC 2023, nonlocal) | code | | | | ○ | | | ○ | | |
 | Dong 2016/2017 (nonlocal shells) | paper | | | | | | | ◐ | | |
@@ -120,7 +120,7 @@ blank = the reference cannot compute it.
 | three-layer slab dispersion, κd = mπ + atan(ρ₁γ₁/κ) + atan(ρ₃γ₃/κ) | analytic | the same guided n_eff | `tests/test_planar_codes.py`; `benchmarks/planar_codes.py` | 1e-12; observed ≤ 6.6e-14 | suite (`benchmarks` extra) |
 | **PyMoosh** `green` | code | — | out of scope: a 2D TE line source on a periodic window, not a 3D point dipole | — | out of scope |
 | **smuthi** `DipoleSource.dissipated_power` | code | total rate 30 and 100 nm above two lossless guides (its own deflected Sommerfeld contour) | `benchmarks/emitter_references.py`; `tests/test_planar_emission_references.py::test_lossless_guide_against_smuthi` | 5e-6; observed ≤ 4.8e-7 (smuthi's contour resolution) | suite where smuthi is installed (Python ≤ 3.10; see the script's docstring for the build) |
-| **Meep**, cylindrical coordinates, dipole on the axis (m = 0 perpendicular, m = ±1 parallel) | code | Purcell factor above a film; a different method (FDTD), so it also checks the Sommerfeld formulation | to build: `benchmarks/fdtd_meep.py`; conda-forge `pymeep` | ~1e-2 (grid, PML) | to build |
+| **Meep**, cylindrical coordinates, dipole on the axis (m = 0 perpendicular, m = 1 parallel) | code | total rate 100 nm above 200 nm of n = 2.3 on glass (a guide), 0.61–1.18 µm; a different method, so it also checks the Sommerfeld formulation | `benchmarks/fdtd_meep.py` → `FDTD_MEEP.md` "Dipoles on an axis"; `tests/test_fdtd_meep.py::test_meep_on_an_axis_converges_to_pystratify_for_a_sphere_and_a_film` | converges at about first order: worst 16.9% → 7.4% → **3.7%** at 25–100 px/µm; asserted: < 5% at 100 and closer than 25 | suite where Meep is installed |
 | OLED outcoupling papers (e.g. Furno et al. 2012; Neyts 1998) | paper | outcoupled / guided / absorbed fractions against ETL thickness | to build: `crosscheck/` script per paper (WP1.6/1.8) | plotting precision | to build |
 
 ### Focused beam
@@ -214,7 +214,7 @@ blank = the reference cannot compute it.
 | Anger, Bharadwaj & Novotny 2006 | paper | quenching against distance from Au | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
 | **MNPBEM** `dipoleret` | code | total and radiative decay rates 5 nm from a 40 nm sphere (ε = −10 + i), radial and tangential | `benchmarks/mnpbem_spheres.py`; `tests/test_mnpbem_spheres.py` | converges toward PyStratify; finest mesh 1.4% (radial total), 0.04% (tangential) | suite where Octave is installed |
 | **pyGDM2** `decay_rate` | code | total decay rates 20 and 40 nm from the n = 2 and n = 2 + 0.1i spheres, radial and tangential | `benchmarks/gdm_spheres.py`; `tests/test_gdm_spheres.py` | 0.5% at 40 nm (observed ≤ 0.14%), 10% at 20 nm (observed ≤ 7.2%) | suite (`benchmarks` extra) |
-| **Meep**, cylindrical coordinates (dipole on the axis through the sphere) | code | Purcell factor beside a dielectric and a Drude sphere; Q_ext | to build: `benchmarks/fdtd_meep.py` | ~1e-2 | to build |
+| **Meep**, cylindrical coordinates (dipole on the axis through the sphere) | code | total rate, radial and tangential, 100 nm from an n = 2, 150 nm sphere, 0.61–1.18 µm | `benchmarks/fdtd_meep.py` → `FDTD_MEEP.md` "Dipoles on an axis"; `tests/test_fdtd_meep.py::test_meep_on_an_axis_converges_to_pystratify_for_a_sphere_and_a_film` | worst 5.5% → 1.6% → **1.7%** at 25–100 px/µm (a curved surface converges in an oscillating way); asserted: < 3% at 100 and closer than 25. A Drude sphere and Q_ext still to build | suite where Meep is installed |
 | **smuthi** (dipole source and a sphere, by Mie T-matrix) | code | total rate | to build: extend `benchmarks/emitter_references.py` or a sphere script | 1e-6 | to build |
 
 ### Focused beam
@@ -247,8 +247,11 @@ blank = the reference cannot compute it.
   volume method.
 - **Volume methods (FDTD, FEM, BEM) are a different-method check at ~1%**, not a precision check:
   they test the formulation (sign conventions, normalisation, multipole bookkeeping), not the digits.
-  Meep in cylindrical coordinates is cheap for a dipole on the symmetry axis (films, spheres);
-  off-axis sources and cylinders need 3D runs, one at a time on this 8 GB Mac.
+  Meep in cylindrical coordinates is cheap for a dipole on the symmetry axis: since 2026-10-10 a sphere
+  agrees to 1.7% and a guiding film to 3.7% at 100 px/µm (2D, under a minute each); off-axis sources and
+  cylinders need 3D runs, one at a time on this 8 GB Mac. At 200 px/µm Meep's E_z (m = 0) runs jump at the
+  band's lowest frequency (+9% sphere, +12% film) while everything else keeps converging — Meep-side,
+  noted in the report, not yet explained.
 - **Spheres are the best covered**: precision, BHMIE, five papers, and since 2026-10-10 two Mie codes run
   publicly (scattnlay and treams agree with PyStratify to ≤ 1.8e-11 once 20 orders beyond Wiscombe's
   truncation are kept; at the default truncation, what a user gets, to ≤ 3.7e-8) and a

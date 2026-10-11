@@ -41,4 +41,68 @@ Meep run time per resolution (6 runs: 3 orientations, with and without the cylin
 
 Worst |Meep / PyStratify - 1| over wavelengths and orientations: 20 px/um: 6.94%, 30 px/um: 3.18%, 40 px/um: 1.69%, 60 px/um: 0.74%.
 
-Elapsed run time = 1826.2968 s
+
+# Dipoles on an axis: a sphere and a film against Meep in cylindrical coordinates
+
+Same script and method, 2D: a dipole along the axis is E_z at r = 0 (m = 0), one across it E_r at r = 0
+(m = 1); 1 um of PML; the film's layers and substrate are infinite in r (the cell reaches
+3 um). PyStratify's sphere rates are pinned to a 60-digit Mie reference and its film rates to
+written-out Sommerfeld integrals and smuthi, so the differences here are Meep's discretisation: a curved
+surface converges in an oscillating way, and the film (5 to 20 pixels thick) at about first order. Not
+shown: at 200 px/um the lowest frequency of the E_z (m = 0) runs jumps, +9% for the sphere and +12% for
+the film, while every other value keeps converging (within 1.8%); unchanged by run length and cell size.
+
+## sphere n = 2, R = 150 nm, dipole 100 nm outside on its axis
+
+Meep run time per resolution (4 runs): 25: 1 s, 50: 4 s, 100: 32 s.
+
+| wavelength (um) | orientation | PyStratify | Meep 25 | Meep 50 | Meep 100 |
+|---|---|---|---|---|---|
+| 1.176 | radial | 1.74858 | +3.89% | -1.29% | +1.72% |
+| 1.053 | radial | 1.72797 | +4.29% | -1.49% | +0.98% |
+| 0.952 | radial | 1.66850 | +5.08% | -1.14% | +1.21% |
+| 0.870 | radial | 1.57389 | +5.01% | -1.35% | +1.15% |
+| 0.800 | radial | 1.45968 | +4.96% | -1.62% | +0.84% |
+| 0.741 | radial | 1.34868 | +5.31% | -1.49% | +0.92% |
+| 0.690 | radial | 1.26114 | +5.45% | -1.45% | +1.01% |
+| 0.645 | radial | 1.20698 | +5.45% | -1.52% | +0.99% |
+| 0.606 | radial | 1.18437 | +5.50% | -1.57% | +0.97% |
+| 1.176 | tangential | 0.84943 | +1.51% | +0.15% | +0.38% |
+| 1.053 | tangential | 0.85494 | +1.36% | -0.03% | +0.08% |
+| 0.952 | tangential | 0.87830 | +1.43% | -0.00% | +0.17% |
+| 0.870 | tangential | 0.93007 | +1.77% | +0.23% | +0.36% |
+| 0.800 | tangential | 1.00837 | +1.85% | +0.22% | +0.37% |
+| 0.741 | tangential | 1.07630 | +1.37% | -0.01% | +0.29% |
+| 0.690 | tangential | 1.03861 | -0.79% | -0.61% | +0.18% |
+| 0.645 | tangential | 0.86687 | -3.32% | -1.12% | -0.02% |
+| 0.606 | tangential | 0.78970 | -0.43% | -0.13% | +0.10% |
+
+Worst |Meep / PyStratify - 1|: 25 px/um: 5.50%, 50 px/um: 1.62%, 100 px/um: 1.72%.
+
+## film: dipole 100 nm above 200 nm of n = 2.3 on glass
+
+Meep run time per resolution (4 runs): 25: 1 s, 50: 7 s, 100: 61 s.
+
+| wavelength (um) | orientation | PyStratify | Meep 25 | Meep 50 | Meep 100 |
+|---|---|---|---|---|---|
+| 1.176 | perpendicular | 2.19996 | +5.69% | -1.94% | +0.47% |
+| 1.053 | perpendicular | 2.05087 | +4.55% | -4.13% | -1.96% |
+| 0.952 | perpendicular | 1.88254 | +4.71% | -4.90% | -2.78% |
+| 0.870 | perpendicular | 1.73375 | +5.90% | -4.03% | -2.12% |
+| 0.800 | perpendicular | 1.62619 | +7.04% | -2.68% | -1.56% |
+| 0.741 | perpendicular | 1.55865 | +7.92% | -1.32% | -0.93% |
+| 0.690 | perpendicular | 1.51724 | +8.08% | -0.49% | -0.38% |
+| 0.645 | perpendicular | 1.48653 | +7.38% | -0.38% | -0.22% |
+| 0.606 | perpendicular | 1.45481 | +6.05% | -0.88% | -0.46% |
+| 1.176 | parallel | 1.07471 | +16.41% | +4.12% | +1.98% |
+| 1.053 | parallel | 1.10263 | +16.67% | +2.45% | +1.48% |
+| 0.952 | parallel | 1.10213 | +16.94% | -1.22% | -0.24% |
+| 0.870 | parallel | 1.06153 | +16.93% | -5.22% | -2.30% |
+| 0.800 | parallel | 0.99477 | +16.32% | -7.40% | -3.57% |
+| 0.741 | parallel | 0.93075 | +14.66% | -7.16% | -3.69% |
+| 0.690 | parallel | 0.89300 | +12.38% | -5.01% | -2.79% |
+| 0.645 | parallel | 0.88985 | +10.26% | -2.19% | -1.47% |
+| 0.606 | parallel | 0.91671 | +8.86% | -0.10% | -0.38% |
+
+Worst |Meep / PyStratify - 1|: 25 px/um: 16.94%, 50 px/um: 7.40%, 100 px/um: 3.69%.
+
