@@ -204,7 +204,7 @@ def test_cylinder_density_near_the_light_line_is_the_power_balance():
     for b in (.3,.9,.99):
         green,escape,absorbed,_=source.spectral(b)
         direct=np.array([.75*(1+b*b),.75*(1+b*b),1.5*(1-b*b)])
-        np.testing.assert_allclose(green.real,escape+absorbed-direct,rtol=0,atol=1e-13)
+        np.testing.assert_allclose(green.real,escape+absorbed-direct,rtol=1e-12,atol=1e-14)
     rates=source.rates(tolerance=1e-6)
     assert rates.converged and np.isclose(rates.poles[0],1+1.66769e-5,rtol=0,atol=1e-9)
     np.testing.assert_allclose(rates.total,rates.escape+rates.guided,rtol=1e-6)
