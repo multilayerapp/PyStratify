@@ -224,6 +224,8 @@ def report_axial(results):
 if __name__ == "__main__":
     import atexit, os
 
+    import meep  # noqa: F401  (imported first: exit handlers run last-registered first)
+
     atexit.register(lambda: (sys.stdout.flush(), os.dup2(os.open(os.devnull, os.O_WRONLY), 1)))  # Meep's exit line
     if sys.argv[1:] == ["axial"]:
         report_axial(compare_axial())
