@@ -15,7 +15,7 @@ plot:
   - {key: R_s, label: R_s}
   - {key: R_p, label: R_p}
 params:
-- {id: arc, label: Si₃N₄, unit: nm, target: film.layers.0.thickness, scale: 0.001, min: 10, max: 160, step: 1, value: 75}
+- {id: arc, label: Si₃N₄, unit: nm, target: film.layers.0.thickness, scale: 0.001, min: 10, max: 160, step: 5, value: 75}
 readouts:
 - {label: "R at the first facet, 54.75°", measure: {at: [R, 54.75]}}
 - {label: "R at the second facet, 15.75°", measure: {at: [R, 15.75]}}

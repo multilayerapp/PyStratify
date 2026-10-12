@@ -9,27 +9,33 @@ part of the site.
 docs/
   learn/<geometry>/<NN-chapter>/<NN-section>.md   Markdown + LaTeX, YAML front matter    geometry: films | cylinders | spheres | common
   examples/<id>.yaml                               one setup, computed at build time
-  classics/<id>.yaml                               one classic paper's page record
+  classics/<id>.yaml                               one classic paper's page record, placed in a Learn section
   materials.yaml                                   the refractiveindex.info pages the records cite
   verification.md                                  the Verification page's introduction; rows that open an example
   data/tutorials/<name>.yml                        n,k tables the former multilayer.app tutorials used (provenance in each)
   manifest.json                                    generated: everything above, computed (commit it)
+  sweeps/<id>.json                                 generated: every slider position of an example, computed (commit them)
 ```
+
+`common` sections (the Foundations chapter) show for every geometry; a classic paper lives in exactly one Learn
+section, placed with a line `::: classic <id>` (the site has no separate classics page since 2026-10-12).
 
 Build, from the repository root:
 
 ```bash
 pip install -e ".[docs]"
-python -m pystratify.docs build                  # writes docs/manifest.json
+python -m pystratify.docs build                  # writes docs/manifest.json and docs/sweeps/*.json (about a minute)
 python -m pystratify.docs build --run-classics   # re-runs crosscheck/classics/ first (minutes)
-python -m pystratify.docs build --check          # exit 1 if docs/manifest.json is stale
+python -m pystratify.docs build --check          # exit 1 if docs/manifest.json or a sweep file is stale
 ```
 
 The classics' checks come from `crosscheck/classics/results/<script>.json` (git-ignored; run the scripts, or
 `--run-classics`). `tests/test_docs_build.py` fails when `docs/` and `docs/manifest.json` disagree.
 
-The website (`multilayer_web/tools/content/build-content.py`) reads `docs/manifest.json` at a commit it pins
-and writes `classics.html` and `learn/<geometry>/<slug>.html`. Equations are typeset there, at build time.
+The website (`multilayer_web/tools/content/build-content.py`) reads `docs/manifest.json` and `docs/sweeps/` at a
+commit it pins and writes `learn/index.html`, `learn/<geometry>/<slug>.html` (with each classic's card inside its
+section), `learn/data/<id>.json`, `verification.html` (the tested rows of the matrix only) and `verification/<id>.html`.
+Equations are typeset there, at build time.
 
 ## Records (manifest schema 1)
 
@@ -44,6 +50,7 @@ records (and `common` Learn chapters for every geometry).
 | `chapter` | the chapter's title (default: from the folder name) |
 | `topic`, `sources` | e.g. `mie`; `[plane_wave, dipole, focused]` |
 | `examples` | ids under `examples/`, each placed with a line `::: example <id>` |
+| `classics` | ids under `classics/`, each placed with a line `::: classic <id>`; every classic must be placed in exactly one section |
 | `references` | list of `{cite, doi}` or `{cite, url}` |
 | `status` | `published` (default) or `draft`: deployed, but not indexed or linked until reviewed |
 
@@ -66,10 +73,23 @@ Measures: `peak: <series>` and `minimum: <series>` (the x of the extremum, optio
 the level) and `balance: true` (films: the largest |1 − R − T − Σ A_j|, Poynting's theorem). `readouts` are
 `{label, measure, unit?}` shown under the figure; the page recomputes them from each live answer.
 
+**Sweeps.** An example with `params` has every slider position computed in advance: the build walks the product of
+the sliders' positions (min to max in steps, as the HTML range input moves) and writes `docs/sweeps/<id>.json`
+(`axes`, `shape`, `x`, `series[key][flat index]`, row-major over the axes); the manifest's example carries
+`sweep: {axes, shape, points, file, sha256}` and `live` (whether the API can also recompute it: films and spheres
+yes, cylinders no, their jobs taking minutes). The site reads a slider move from this grid, so no reader waits for
+the API and no physics runs in the browser; `tests/test_docs_build.py` checks a grid slice against a fresh build at
+that value, and the site's `tests/learn.mjs` checks the grid against the API's answer. A sweep may hold at most
+`SWEEP_BUDGET` numbers (60 000, about half a megabyte): coarsen a slider's step to stay under it, or set
+`sweep: false` on a film or sphere example to leave it to the API.
+
 Computed so far, under a plane wave:
 
 - spheres: `q_ext`, `q_sca`, `q_abs` and the multipole parts of `q_sca`, `md_sca`/`ed_sca` (dipoles) and
   `mq_sca`/`eq_sca` (quadrupoles), against wavelength;
+- cylinders: `q_ext`, `q_sca`, `q_abs` (unpolarized), `q_ext_e`, `q_sca_e`, `q_abs_e` (E along the axis) and
+  `q_ext_m`, `q_sca_m`, `q_abs_m` (H along the axis) at normal incidence, against wavelength (`start`, `end`, `step`
+  in nm on the `cylinder` block), with `pystratify.solve_cylinder` and `cross_widths`;
 - films: `R`, `T`, `A` (unpolarized), `R_s`, `R_p`, `T_s`, `T_p` and `A_<i>`, the absorptance of layer *i* (1-based,
   repeats expanded), against wavelength (`axis: wavelength`, the default, at `controls.angle-deg`; `units:
   {wavelength: um}` for µm controls) or angle (`axis: angle`, at `controls.wavelength-start`; at most 181 angles,
@@ -84,7 +104,8 @@ outside a database page or a table is refused, as the API refuses it.
 `calculator`. The build adds `checks`.
 
 **Benchmark** — one per row of the geometry tables of `benchmarks/MATRIX.md`, which stays the one place the
-matrix is written: `id` (`<geometry>-<source>-<row>`), `geometry`, `source` (`plane_wave`, `dipole`, `focused`),
+matrix is written (the site shows the rows that are tested: a status of `to build`, `out of scope` or `branch`
+keeps a row in the matrix and off the public page, and the plan clauses of a tested row's cells are stripped there): `id` (`<geometry>-<source>-<row>`), `geometry`, `source` (`plane_wave`, `dipole`, `focused`),
 `reference`, `reference_kind` (the matrix's *kind* column), `quantity`, `script`, `tolerance`, `status` (cells keep
 their Markdown), and `example` where `verification.md` links the row to one. The matrix's legends, coverage grid and
 "What the matrix shows" travel in the manifest's `verification` block with that page's introduction. A row added to
@@ -94,7 +115,7 @@ MATRIX.md appears on the site at the next build; `tests/test_docs_build.py` chec
 
 - `film: {incident, layers, substrate, controls?, toggles?, view?, units?}`
 - `sphere: {shells, host, start, end, step, changes?}` (shells inside out; `changes` overrides the sphere setup)
-- `cylinder: {shells, host}`
+- `cylinder: {shells, host, start?, end?, step?}` (an example's spectral axis in nm; the envelope carries the calculator's)
 
 and optionally `envelope: {…}`, the source and analysis settings of the calculator's v7 share envelope
 (`kind`, `start`, `end`, `step`, `multipoles`, …; anything not given keeps the calculator's default). A medium

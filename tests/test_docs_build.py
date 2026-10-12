@@ -32,7 +32,64 @@ def test_manifest_is_current(manifest):
             np.testing.assert_allclose(ours["data"]["series"][key], ys, rtol=1e-5, atol=1e-9)
         assert {k: v for k, v in ours.items() if k != "data"} == {k: v for k, v in example.items() if k != "data"}
     built.pop("examples"), committed.pop("examples")
+    built = {k: v for k, v in built.items() if not k.startswith("_")}  # the sweeps' data is written beside the manifest
     assert built == committed, "docs/ changed: run `python -m pystratify.docs build` and commit docs/manifest.json"
+
+
+def test_sweep_files_are_current(manifest):
+    """Every example with sliders has its grid in docs/sweeps/<id>.json, byte for byte what a build writes."""
+    from pystratify.docs.build import sweep_files
+
+    files = sweep_files(manifest)
+    with_params = {name for name, e in manifest["examples"].items() if e.get("params")}
+    assert {Path(f).stem for f in files} == with_params
+    for name, text in files.items():
+        assert (ROOT / name).read_text() == text + "\n", f"{name} is stale: run `python -m pystratify.docs build`"
+        meta = manifest["examples"][Path(name).stem]["sweep"]
+        data = json.loads(text)
+        assert data["shape"] == meta["shape"] == [len(a["values"]) for a in data["axes"]]
+        assert all(len(ys) == meta["points"] for ys in data["series"].values())
+    assert set(p.name for p in (ROOT / "docs" / "sweeps").glob("*.json")) == {Path(f).name for f in files}
+
+
+def test_a_sweep_point_is_a_fresh_computation(manifest):
+    """The grid's slice at a slider position equals the example rebuilt with that value: the page's sliders read
+    exactly what PyStratify computes for the setup they describe."""
+    from pystratify.docs.build import Materials, build_example, load_yaml
+
+    materials = Materials(ROOT)
+    for name in ("bragg-mirror", "si-sphere-mie", "glass-cylinder"):
+        example = load_yaml(ROOT / "docs" / "examples" / f"{name}.yaml")
+        grid = json.loads(manifest["_sweeps"][name])
+        axis, i = grid["axes"][0], -1  # the slider's last position
+        value = axis["values"][i]
+        param = example["params"][0]
+        param["value"] = value
+        targets = [param["target"]] if isinstance(param["target"], str) else param["target"]
+        for target in targets:
+            node = example["calculator"]
+            keys = target.split(".")
+            for key in keys[:-1]:
+                node = node[int(key)] if isinstance(node, list) else node[key]
+            node[keys[-1]] = value * param["scale"]
+        fresh = build_example(example, materials)
+        assert fresh["data"]["x"] == grid["x"]
+        for key, ys in fresh["data"]["series"].items():
+            np.testing.assert_allclose(grid["series"][key][i], ys, rtol=1e-5, atol=1e-9)
+
+
+def test_cylinder_example_is_a_plain_pystratify_solve(manifest):
+    example = manifest["examples"]["glass-cylinder"]
+    lam = np.asarray(example["data"]["x"]) * 1e-3
+    q = [ps.cross_widths(ps.solve_cylinder([0.25], [1.55, 1.0], wl), "axial-magnetic")["efficiency_scattering"] for wl in lam]
+    np.testing.assert_allclose(example["data"]["series"]["q_sca_m"], q, rtol=1e-5)
+    assert example["live"] is False  # a cylinder job takes minutes on the API: the page reads the sweep only
+
+
+def test_every_classic_is_placed_in_one_learn_section(manifest):
+    sections = [r for r in manifest["records"] if r["kind"] == "learn"]
+    placed = [c for s in sections for c in s["classics"]]
+    assert sorted(placed) == sorted(r["id"] for r in manifest["records"] if r["kind"] == "classic")
 
 
 def test_every_example_check_passes(manifest):

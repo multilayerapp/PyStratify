@@ -23,7 +23,12 @@ AXES = ("wavelength", "angle")
 SERIES = {
     ("spheres", "plane_wave"): ("q_ext", "q_sca", "q_abs", "md_sca", "ed_sca", "mq_sca", "eq_sca"),
     ("films", "plane_wave"): ("R", "T", "A", "R_s", "R_p", "T_s", "T_p"),
+    # cylinders at normal incidence: unpolarized, E along the axis (_e; Bohren & Huffman's case I) and H along it (_m)
+    ("cylinders", "plane_wave"): ("q_ext", "q_sca", "q_abs", "q_ext_e", "q_sca_e", "q_abs_e", "q_ext_m", "q_sca_m", "q_abs_m"),
 }
+# A sweep precomputes every slider position (the page reads the grid instead of calling the API): at most this
+# many numbers per example, about half a megabyte of JSON. Coarsen a slider's step, or set `sweep: false`, to get under it.
+SWEEP_BUDGET = 60_000
 LAYER_SERIES = re.compile(r"^A_(\d+)$")  # films: the unpolarized absorptance of layer i (1-based, repeats expanded)
 MAX_L = 1500  # the API's ceiling on the multipole order (multilayer backend/spheres.py)
 
@@ -387,8 +392,67 @@ def _film_plane_wave_code(example):
     return "\n".join(lines) + "\n"
 
 
-COMPUTE = {("spheres", "plane_wave"): _sphere_plane_wave, ("films", "plane_wave"): _film_plane_wave}
-CODE = {("spheres", "plane_wave"): _sphere_plane_wave_code, ("films", "plane_wave"): _film_plane_wave_code}
+def _cylinder_axis(example):
+    cylinder = example["calculator"]["cylinder"]
+    for key in ("start", "end", "step"):
+        if key not in cylinder:
+            raise ContentError(f"example {example['id']}: a cylinder example sets start, end and step (nm) on its cylinder block")
+    start, end, step = cylinder["start"] / 1000, cylinder["end"] / 1000, cylinder["step"] / 1000
+    count = int(np.floor((end - start) / step + 1e-9))
+    return start + np.arange(count + 1) * step
+
+
+def _cylinder_plane_wave(example, materials):
+    """Efficiencies of an infinite cylinder under a plane wave at normal incidence (pystratify.solve_cylinder, the
+    engine the API's cylinder jobs run), unpolarized and for each polarization."""
+    import pystratify as ps
+
+    cylinder = example["calculator"]["cylinder"]
+    lam = _cylinder_axis(example)
+    shells = cylinder["shells"]
+    if any("repeat" in s for s in shells):
+        raise ContentError(f"example {example['id']}: cylinder shells do not repeat")
+    radii = np.cumsum([s["thickness"] for s in shells])
+    ref = np.column_stack([materials.index(s, lam) for s in shells] + [materials.index(cylinder["host"], lam)])
+    curves = {k: np.empty(lam.size) for k in SERIES[("cylinders", "plane_wave")]}
+    for w, wavelength in enumerate(lam):
+        sol = ps.solve_cylinder(radii, ref[w], wavelength)
+        for suffix, polarization in (("", "unpolarized"), ("_e", "axial-electric"), ("_m", "axial-magnetic")):
+            widths = ps.cross_widths(sol, polarization)
+            curves["q_ext" + suffix][w] = widths["efficiency_extinction"]
+            curves["q_sca" + suffix][w] = widths["efficiency_scattering"]
+            curves["q_abs" + suffix][w] = widths["efficiency_absorption"]
+    return lam * 1000, curves
+
+
+def _cylinder_plane_wave_code(example):
+    """The example as a PyStratify script, run from the repository root (database pages are paths in it)."""
+    cylinder = example["calculator"]["cylinder"]
+    shells = cylinder["shells"]
+    radii = ", ".join(repr(round(float(r), 9)) for r in np.cumsum([s["thickness"] for s in shells]))
+    columns = ", ".join(_medium_code(m, f"example {example['id']}") for m in shells + [cylinder["host"]])
+    count = _cylinder_axis(example).size
+    lines = [
+        "import numpy as np",
+        "import pystratify as ps",
+        "from pystratify.docs import material  # n + ik of a refractiveindex.info page",
+        "",
+        f"lam = ({cylinder['start']} + {cylinder['step']} * np.arange({count})) * 1e-3  # wavelength, µm",
+        f"N = np.column_stack([{columns}])  # n + ik: core{', shells' if len(shells) > 1 else ''}, then the host",
+        f"radii = [{radii}]  # outer radii, µm",
+        "q_ext = {pol: np.array([ps.cross_widths(ps.solve_cylinder(radii, N[i], wl), pol)['efficiency_extinction']",
+        "                        for i, wl in enumerate(lam)]) for pol in ('unpolarized', 'axial-electric', 'axial-magnetic')}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+COMPUTE = {("spheres", "plane_wave"): _sphere_plane_wave, ("films", "plane_wave"): _film_plane_wave,
+           ("cylinders", "plane_wave"): _cylinder_plane_wave}
+CODE = {("spheres", "plane_wave"): _sphere_plane_wave_code, ("films", "plane_wave"): _film_plane_wave_code,
+        ("cylinders", "plane_wave"): _cylinder_plane_wave_code}
+# Examples the live page can also recompute on the API (films and spheres answer at once; a cylinder is a job of
+# minutes on the optics service, so cylinder examples are precomputed only).
+LIVE = {("spheres", "plane_wave"), ("films", "plane_wave")}
 
 
 def _measure(measure, x, curves, where):
@@ -466,6 +530,10 @@ def build_example(example, materials):
                 raise ContentError(f"{where}: param {p['id']} sets an index the medium takes from a database or table")
     x, curves = compute(out, materials)
     out["data"] = {"x": [_sig(v) for v in x], "series": {k: [_sig(v) for v in curves[k]] for k in keys}}
+    out["live"] = (example["geometry"], example["source"]) in LIVE
+    out["sweep"], sweep_data = _sweep(out, x, keys, compute, materials, where)
+    if sweep_data is not None:
+        out["_sweep_data"] = sweep_data
     readouts = []
     for r in example.get("readouts", []):
         _require(r, ("label", "measure"), f"{where} readout")
@@ -485,6 +553,58 @@ def build_example(example, materials):
     out["checks"] = checks
     out["code"] = CODE[(example["geometry"], example["source"])](out)
     return out
+
+
+def _grid(param, where):
+    """A slider's positions, min to max in steps (the HTML range input's positions), as the slider prints them."""
+    count = int(round((param["max"] - param["min"]) / param["step"]))
+    if count < 1 or abs(param["min"] + count * param["step"] - param["max"]) > 1e-9 * max(1.0, abs(param["max"])):
+        raise ContentError(f"{where}: param {param['id']} runs {param['min']}..{param['max']} in steps of {param['step']}, "
+                           "which does not land on max")
+    decimals = max(0, -int(np.floor(np.log10(param["step"]))) + 2)
+    return [float(round(param["min"] + i * param["step"], decimals)) for i in range(count + 1)]
+
+
+def _set_paths(block, paths, value, where):
+    for path in paths:
+        head, _, key = path.rpartition(".")
+        node = _get(block, head, where)
+        node[int(key) if isinstance(node, list) else key] = value
+
+
+def _sweep(out, x, keys, compute, materials, where):
+    """Every slider position computed in advance: (the manifest's sweep block, the grid's data) or (None, None).
+
+    The page reads a slider move from this grid, so a reader never waits for the API and the site needs no physics at
+    run time. The grid is the product of the sliders' positions; its data goes to docs/sweeps/<id>.json, and the
+    manifest carries the axes and the file's SHA-256 (the site cache-busts with it). `sweep: false` on an example
+    leaves it to the API (a film or sphere example only)."""
+    params = out.get("params", [])
+    if not params or out.get("sweep") is False:
+        if not params or out["live"]:
+            return None, None
+        raise ContentError(f"{where}: a {out['geometry']} example cannot recompute on the API; drop `sweep: false`")
+    axes = [{"id": p["id"], "values": _grid(p, where)} for p in params]
+    shape = [len(a["values"]) for a in axes]
+    total = int(np.prod(shape)) * len(x) * len(keys)
+    if total > SWEEP_BUDGET:
+        raise ContentError(f"{where}: the sweep holds {total} numbers, over the budget of {SWEEP_BUDGET}; "
+                           "coarsen a slider's step, narrow its range, or plot fewer series")
+    series = {k: [] for k in keys}
+    for index in np.ndindex(*shape):
+        setup = copy.deepcopy(out["calculator"])
+        for p, a, i in zip(params, axes, index):
+            _set_paths(setup, [p["target"]] if isinstance(p["target"], str) else p["target"], a["values"][i] * p["scale"], where)
+        x_i, curves = compute(dict(out, calculator=setup), materials)
+        if x_i.shape != x.shape or np.max(np.abs(x_i - x)) > 1e-9:
+            raise ContentError(f"{where}: the sweep moved the x grid (a slider may not set the axis)")
+        for k in keys:
+            series[k].append([_sig(v) for v in curves[k]])
+    data = {"id": out["id"], "axes": axes, "shape": shape, "x": out["data"]["x"], "series": series}
+    text = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    digest = __import__("hashlib").sha256(text.encode("utf-8")).hexdigest()
+    meta = {"axes": axes, "shape": shape, "points": int(np.prod(shape)), "file": f"docs/sweeps/{out['id']}.json", "sha256": digest}
+    return meta, text
 
 
 # --- records -------------------------------------------------------------------------------------
@@ -520,9 +640,13 @@ def load_learn(root):
             "chapter": meta.get("chapter", chapter_slug.replace("-", " ").capitalize()), "chapter_order": chapter_order,
             "order": order, "slug": slug, "url": f"learn/{geometry}/{slug}.html",
             "topic": meta.get("topic", chapter_slug), "sources": meta.get("sources", []),
-            "examples": meta.get("examples", []), "references": meta["references"],
+            "examples": meta.get("examples", []), "classics": meta.get("classics", []), "references": meta["references"],
             "status": meta.get("status", "published"), "body": body,
         })
+        for kind, listed in (("example", sections[-1]["examples"]), ("classic", sections[-1]["classics"])):
+            placed = re.findall(rf"^::: {kind} (\S+)\s*$", body, flags=re.M)
+            if sorted(placed) != sorted(listed):
+                raise ContentError(f"{where}: front matter lists {kind}s {listed} but the text places {placed}")
         if sections[-1]["status"] not in ("draft", "published"):
             raise ContentError(f"{where}: status is draft or published")
     sections.sort(key=lambda s: (LEARN_GEOMETRIES.index(s["geometry"]), s["chapter_order"], s["order"]))
@@ -580,12 +704,14 @@ def build_manifest(root, run_classics=False, previous=None):
     for key, ref in materials.rii.items():
         if not (root / ref["file"]).exists():
             raise ContentError(f"docs/materials.yaml: {key} names a missing file {ref['file']}")
-    examples = {}
+    examples, sweeps = {}, {}
     for path in sorted((root / "docs" / "examples").glob("*.yaml")):
         example = load_yaml(path)
         if example.get("id") != path.stem:
             raise ContentError(f"{path.relative_to(root)}: the id must be the file name")
         examples[example["id"]] = build_example(example, materials)
+        if "_sweep_data" in examples[example["id"]]:
+            sweeps[example["id"]] = examples[example["id"]].pop("_sweep_data")
     learn = load_learn(root)
     earlier = {r["id"]: r for r in previous["records"] if r["kind"] == "classic"} if previous else None
     classics = load_classics(root, materials, run_classics, earlier)
@@ -597,9 +723,22 @@ def build_manifest(root, run_classics=False, previous=None):
         for example_id in section["examples"]:
             if example_id not in examples:
                 raise ContentError(f"learn section {section['id']}: no example {example_id!r} in docs/examples/")
+    placed = {c for section in learn for c in section["classics"]}
+    unplaced = [c["id"] for c in classics if c["id"] not in placed]
+    if unplaced:
+        raise ContentError(f"classics not placed in any Learn section (`::: classic <id>`): {unplaced}")
+    for section in learn:
+        for classic_id in section["classics"]:
+            if classic_id not in {c["id"] for c in classics}:
+                raise ContentError(f"learn section {section['id']}: no classic {classic_id!r} in docs/classics/")
     verification, benchmarks = load_verification(root, examples)
     return {"schema": SCHEMA, "generator": f"pystratify {__version__}", "records": learn + classics + benchmarks,
-            "examples": examples, "verification": verification}
+            "examples": examples, "verification": verification, "_sweeps": sweeps}
+
+
+def sweep_files(manifest):
+    """{docs-relative path: JSON text} of the sweeps a build computed (written beside the manifest)."""
+    return {manifest["examples"][i]["sweep"]["file"]: text for i, text in manifest.get("_sweeps", {}).items()}
 
 
 def load_verification(root, examples):
@@ -623,8 +762,33 @@ def load_verification(root, examples):
 
 
 def dumps(manifest):
-    return json.dumps(manifest, indent=1, ensure_ascii=False) + "\n"
+    return json.dumps({k: v for k, v in manifest.items() if not k.startswith("_")}, indent=1, ensure_ascii=False) + "\n"
 
 
 def write_manifest(manifest, path):
-    Path(path).write_text(dumps(manifest))
+    """docs/manifest.json and, beside it, docs/sweeps/<id>.json for every precomputed sweep (stale files removed)."""
+    path = Path(path)
+    path.write_text(dumps(manifest))
+    folder = path.parent / "sweeps"
+    folder.mkdir(exist_ok=True)
+    wanted = {Path(name).name: text for name, text in sweep_files(manifest).items()}
+    for stale in folder.glob("*.json"):
+        if stale.name not in wanted:
+            stale.unlink()
+    for name, text in wanted.items():
+        (folder / name).write_text(text + "\n")
+
+
+def stale(manifest, path):
+    """What `write_manifest` would change: the manifest and sweep files whose content differs (for --check)."""
+    path = Path(path)
+    out = []
+    if (path.read_text() if path.exists() else "") != dumps(manifest):
+        out.append(str(path))
+    folder = path.parent / "sweeps"
+    wanted = {Path(name).name: text + "\n" for name, text in sweep_files(manifest).items()}
+    for name, text in wanted.items():
+        if not (folder / name).exists() or (folder / name).read_text() != text:
+            out.append(str(folder / name))
+    out += [str(f) for f in (folder.glob("*.json") if folder.exists() else []) if f.name not in wanted]
+    return out

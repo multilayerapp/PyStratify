@@ -25,9 +25,9 @@ params:
   unit: nm
   target: sphere.shells.0.thickness
   scale: 0.001
-  min: 50
+  min: 51
   max: 135
-  step: 1
+  step: 4
   value: 91
 checks:
 - check: electric-dipole peak, diameter 182 nm (nm)

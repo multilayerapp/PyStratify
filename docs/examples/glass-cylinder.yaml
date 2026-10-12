@@ -1,0 +1,62 @@
+id: glass-cylinder
+geometry: cylinders
+source: plane_wave
+title: A glass cylinder under a plane wave, both polarizations
+caption: >-
+  Scattering efficiency of an infinite non-absorbing cylinder (n = 1.55, in air) at normal incidence, with the electric
+  field along the axis (case I) and across it (case II). Change the radius: the interference ripple and the
+  resonances of the two polarizations move apart, the textbook difference of Bohren & Huffman's Fig. 8.7.
+plot:
+  x_label: λ [nm]
+  y_label: Q_sca
+  series:
+  - key: q_sca_e
+    label: Q_sca, E along the axis
+  - key: q_sca_m
+    label: Q_sca, H along the axis
+  - key: q_sca
+    label: Q_sca, unpolarized
+params:
+- id: radius
+  label: Radius
+  unit: nm
+  target: cylinder.shells.0.thickness
+  scale: 0.001
+  min: 50
+  max: 400
+  step: 10
+  value: 250
+readouts:
+- label: Q_sca at 632.8 nm, E along the axis
+  measure:
+    at: [q_sca_e, 632]
+- label: Q_sca at 632.8 nm, H along the axis
+  measure:
+    at: [q_sca_m, 632]
+checks:
+- check: Q_sca, H along the axis, radius 250 nm at 632 nm (Fig. 8.7 reads C_sca/V ≈ 8.0×10⁴ cm⁻¹ at its maximum, d = 0.50 µm; Q = C_sca/V · πd/4)
+  reference: 3.14
+  tolerance: 0.1
+  source: Bohren & Huffman (1983), Fig. 8.7, read; crosscheck/classics/bohren_huffman_1983.py
+  measure:
+    at: [q_sca_m, 632]
+calculator:
+  cylinder:
+    shells:
+    - label: n = 1.55
+      n: 1.55
+      k: 0.0
+      thickness: 0.25
+    host:
+      label: Air
+      n: 1.0
+      k: 0.0
+    start: 400
+    end: 1000
+    step: 4
+  envelope:
+    start: 400
+    end: 1000
+    step: 4
+    angle: 90
+    spectra_polarization: axial-electric

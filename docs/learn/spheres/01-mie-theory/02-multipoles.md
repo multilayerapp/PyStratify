@@ -8,6 +8,7 @@ sources: [plane_wave]
 summary: >-
   Reading a spectrum by its electric and magnetic multipoles: each order's share of the scattering, how a magnetic
   dipole arises in a dielectric, and how two multipoles interfering in phase cancel the backscattering.
+classics: [kuznetsov-2012, fu-2013]
 examples: [si-sphere-multipoles]
 references:
 - cite: C. F. Bohren and D. R. Huffman, Absorption and Scattering of Light by Small Particles (Wiley, 1983), ch. 4
@@ -57,6 +58,8 @@ Move the radius and watch the order: magnetic dipole first, then electric dipole
 together, then the electric quadrupole. The electric dipole is broad because it also radiates from the particle's
 polarization outside the resonance; the magnetic modes, confined inside the sphere, are narrower.
 
+::: classic kuznetsov-2012
+
 ## Forward and backward
 
 The far field in the forward and backward directions follows from the same coefficients:
@@ -74,8 +77,7 @@ curves cross on the long-wavelength side of the magnetic resonance, and scatters
 2013). The **second Kerker condition**, $a_1 = -b_1$, minimises forward scattering, but cannot null it: the optical
 theorem ties forward scattering to the extinction, which is never zero.
 
-[Classics](classics.html#fu-2013) opens Fu et al.'s 150 nm silicon sphere with its scattering pattern; pick 660 nm to
-see the forward lobe.
+::: classic fu-2013
 
 ## Beyond the dipoles
 

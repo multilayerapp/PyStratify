@@ -8,6 +8,7 @@ sources: [plane_wave]
 summary: >-
   A quarter-wave stack of two materials reflects almost perfectly over a band of wavelengths: the peak reflectance
   from the admittance, the stop band from the Bloch condition, and how contrast and period count set both.
+classics: [yeh-1977]
 examples: [bragg-mirror]
 references:
 - cite: P. Yeh, A. Yariv and C.-S. Hong, J. Opt. Soc. Am. 67, 423 (1977)
@@ -58,8 +59,12 @@ $\lambda_0/3$, $\lambda_0/5$, …, where the layers are three or five quarter wa
 ::: example bragg-mirror
 
 Outside the band the stack is nearly transparent, with ripples, one fewer minimum between bands than there are
-periods. [Classics](classics.html#yeh-1977) opens Yeh, Yariv and Hong's 15-period GaAs/AlGaAs stack, where the 14
-zeros and the closing of the TM gap at the Brewster angle can be counted.
+periods. Yeh, Yariv and Hong's 1977 paper treats the periodic stack as a one-dimensional crystal: the eigenvalues
+of the unit cell's transfer matrix give the Bloch wavenumber, real in the pass bands and complex in the stop bands,
+and the band edges, the number of zeros and the closing of the TM gap at the Brewster angle all follow from one
+dispersion relation.
+
+::: classic yeh-1977
 
 ## At oblique incidence
 

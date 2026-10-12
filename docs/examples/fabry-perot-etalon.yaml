@@ -13,7 +13,7 @@ plot:
   - {key: T, label: T}
   - {key: R, label: R}
 params:
-- {id: cavity, label: Cavity, unit: nm, target: film.layers.1.thickness, scale: 0.001, min: 80, max: 400, step: 2, value: 200}
+- {id: cavity, label: Cavity, unit: nm, target: film.layers.1.thickness, scale: 0.001, min: 80, max: 400, step: 5, value: 200}
 readouts:
 - {label: "strongest transmission peak", measure: {peak: T}, unit: nm}
 - {label: "its transmittance", measure: {max: T}}

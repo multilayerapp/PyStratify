@@ -12,7 +12,7 @@ plot:
   series:
   - {key: T, label: T}
 params:
-- {id: spacer, label: Spacer, unit: nm, target: film.layers.1.thickness, scale: 0.001, min: 120, max: 260, step: 1, value: 188}
+- {id: spacer, label: Spacer, unit: nm, target: film.layers.1.thickness, scale: 0.001, min: 120, max: 260, step: 2, value: 188}
 readouts:
 - {label: "passband centre", measure: {peak: T, within: [480, 620]}, unit: nm}
 - {label: "peak transmittance", measure: {max: T}}

@@ -8,6 +8,7 @@ sources: [plane_wave]
 summary: >-
   How a plane wave scatters off a homogeneous sphere: the multipole expansion, the coefficients a_ℓ and b_ℓ from
   two boundary conditions per order, the efficiencies, and where the series can stop.
+classics: [mie-1908, mohlenhoff-2005]
 examples: [si-sphere-mie]
 references:
 - cite: G. Mie, Ann. Phys. 330, 377 (1908)
@@ -32,6 +33,8 @@ $$
 Gustav Mie solved this problem exactly in 1908, to explain why colloidal gold is red, violet or blue depending on the
 size of its particles. The same solution describes a raindrop, a silicon nanoparticle and a biological cell under an
 infrared microscope.
+
+::: classic mie-1908
 
 ## Fields as a sum of multipoles
 
@@ -112,4 +115,9 @@ $$
 Rayleigh's $\lambda^{-4}$ law. For a metal the denominator vanishes near $\varepsilon_s = -2\varepsilon_h$: that is the
 localized surface plasmon of a small gold or silver particle. For a sphere much larger than the wavelength,
 $Q_\mathrm{ext} \to 2$: the sphere removes twice the light that falls on its cross section, half by absorption or
-reflection and half by diffraction around its edge.
+reflection and half by diffraction around its edge. Between the two limits a weakly refracting sphere ($m \to 1$,
+$x \gg 1$) follows van de Hulst's anomalous-diffraction approximation, $Q_\mathrm{ext} \approx 2 - \frac{4}{\rho}\sin\rho
++ \frac{4}{\rho^2}(1 - \cos\rho)$ with the phase lag $\rho = 2x(m-1)$: a slow oscillation in wavelength that a cell
+or a nucleus of a few micrometres imprints on its infrared spectrum, and which is routinely mistaken for a baseline.
+
+::: classic mohlenhoff-2005

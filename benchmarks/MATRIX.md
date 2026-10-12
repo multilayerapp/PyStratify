@@ -19,7 +19,10 @@ branch, and WP1.4's anisotropy, still to build.
 
 **This file is multilayer.app's Verification page** (`pystratify.docs`, 2026-10-11): after editing it, run
 `python -m pystratify.docs build` and commit `docs/manifest.json` with it (`tests/test_docs_build.py` fails until
-you do). Keep each geometry's tables in the six columns below; a new row needs nothing else.
+you do). Keep each geometry's tables in the six columns below; a new row needs nothing else. **The public page shows
+what is tested** (2026-10-12): rows whose status is `to build`, `out of scope` or `branch` stay here and off the site,
+and a tested row's clauses that name something to build are dropped there; each public row gets a page of its own
+with its script's docstring, how to run it and its report.
 
 ## Kinds of reference
 

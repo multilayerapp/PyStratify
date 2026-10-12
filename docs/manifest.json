@@ -21,6 +21,7 @@
     "fresnel-air-glass",
     "fresnel-glass-air"
    ],
+   "classics": [],
    "references": [
     {
      "cite": "M. Born and E. Wolf, Principles of Optics, 7th ed. (Cambridge University Press, 1999), §1.5",
@@ -57,6 +58,7 @@
    "examples": [
     "quarter-wave-ar"
    ],
+   "classics": [],
    "references": [
     {
      "cite": "F. Abelès, Ann. Phys. (Paris) 12, 596 (1950)",
@@ -75,7 +77,7 @@
     }
    ],
    "status": "published",
-   "body": "Between two interfaces a wave travels back and forth, picking up phase on each pass, and every reflection spawns\nanother. Summing those multiple reflections term by term is possible for one layer, but impractical for twenty. The\ntransfer matrix does the bookkeeping instead: in each layer the field is a forward and a backward wave, and a $2\\times\n2$ matrix carries the two amplitudes, or the tangential fields, from one side of the layer to the other.\n\n## The characteristic matrix of a layer\n\nIn layer $j$, of index $n_j$ and thickness $d_j$, the phase thickness at vacuum wavelength $\\lambda$ is\n\n$$\n\\delta_j = \\frac{2\\pi}{\\lambda}\\, n_j d_j \\cos\\theta_j ,\n$$\n\nwith $\\theta_j$ from Snell's law. The tangential electric and magnetic fields at the layer's two faces are related by\nAbelès' characteristic matrix\n\n$$\n\\begin{pmatrix} E \\\\ H \\end{pmatrix}_{\\text{front}} =\n\\begin{pmatrix} \\cos\\delta_j & \\dfrac{i}{\\eta_j}\\sin\\delta_j \\\\[4pt] i\\,\\eta_j \\sin\\delta_j & \\cos\\delta_j \\end{pmatrix}\n\\begin{pmatrix} E \\\\ H \\end{pmatrix}_{\\text{back}},\n$$\n\nwhere $\\eta_j$ is the layer's tilted admittance, in units of the admittance of free space:\n$\\eta_j = n_j\\cos\\theta_j$ for s polarization and $\\eta_j = n_j/\\cos\\theta_j$ for p.\n\n## A stack and its admittance\n\nBecause the tangential fields are continuous at every interface, the matrices of successive layers simply multiply.\nFor $q$ layers on a substrate of admittance $\\eta_s$,\n\n$$\n\\begin{pmatrix} B \\\\ C \\end{pmatrix} = \\left(\\prod_{j=1}^{q} M_j\\right) \\begin{pmatrix} 1 \\\\ \\eta_s \\end{pmatrix},\n\\qquad Y = \\frac{C}{B},\n$$\n\nand the whole stack behaves like a single surface of admittance $Y$ seen from the incident medium $\\eta_0$:\n\n$$\nr = \\frac{\\eta_0 - Y}{\\eta_0 + Y}, \\qquad R = |r|^2, \\qquad\nT = \\frac{4\\,\\eta_0\\,\\mathrm{Re}\\,\\eta_s}{|\\eta_0 B + C|^2}.\n$$\n\nPyStratify's planar engine uses the equivalent form in amplitudes (an interface matrix and a propagation matrix per\nlayer, after Byrnes 2016), which also returns the fields inside the stack and the power absorbed in each layer.\n\n## Quarter waves and half waves\n\nTwo thicknesses make the matrix trivial at the design wavelength $\\lambda_0$, at normal incidence:\n\n- a **half-wave** layer ($n d = \\lambda_0/2$, $\\delta = \\pi$) has $M = -I$: it is *absent*, and the stack reflects\n  as if it were not there;\n- a **quarter-wave** layer ($n d = \\lambda_0/4$, $\\delta = \\pi/2$) turns an admittance $Y$ into $n^2/Y$.\n\nA single quarter-wave layer of index $n_1$ on a substrate $n_s$ therefore gives\n\n$$\nR = \\left(\\frac{n_0 n_s - n_1^2}{n_0 n_s + n_1^2}\\right)^2 ,\n$$\n\nwhich vanishes for $n_1 = \\sqrt{n_0 n_s}$, 1.23 for glass in air. No durable material has so low an index; magnesium\nfluoride (1.38) comes closest, and leaves about 1.3 % instead of 4 %.\n\n::: example quarter-wave-ar\n\nThe minimum sits at $\\lambda_0 = 4 n_1 d$ and is broad, because $\\delta$ changes slowly with $\\lambda$. Two or three\nlayers (the V-coat and the quarter–half–quarter design) broaden it further; the\n[tutorials](tutorials.html) build several such coatings.\n\n## Oblique incidence and absorbing layers\n\nNothing above assumes normal incidence or real indices: at an angle, $\\cos\\theta_j$ shortens each layer's phase\nthickness and the admittances differ between s and p. In an absorbing layer $\\delta_j$ is complex and the wave decays\nacross it. For a thick metal or an evanescent layer the growing exponential in the matrix elements can exceed floating\npoint range; amplitude formulations that propagate decaying waves only avoid that.\n",
+   "body": "Between two interfaces a wave travels back and forth, picking up phase on each pass, and every reflection spawns\nanother. Summing those multiple reflections term by term is possible for one layer, but impractical for twenty. The\ntransfer matrix does the bookkeeping instead: in each layer the field is a forward and a backward wave, and a $2\\times\n2$ matrix carries the two amplitudes, or the tangential fields, from one side of the layer to the other.\n\n## The characteristic matrix of a layer\n\nIn layer $j$, of index $n_j$ and thickness $d_j$, the phase thickness at vacuum wavelength $\\lambda$ is\n\n$$\n\\delta_j = \\frac{2\\pi}{\\lambda}\\, n_j d_j \\cos\\theta_j ,\n$$\n\nwith $\\theta_j$ from Snell's law. The tangential electric and magnetic fields at the layer's two faces are related by\nAbelès' characteristic matrix\n\n$$\n\\begin{pmatrix} E \\\\ H \\end{pmatrix}_{\\text{front}} =\n\\begin{pmatrix} \\cos\\delta_j & \\dfrac{i}{\\eta_j}\\sin\\delta_j \\\\[4pt] i\\,\\eta_j \\sin\\delta_j & \\cos\\delta_j \\end{pmatrix}\n\\begin{pmatrix} E \\\\ H \\end{pmatrix}_{\\text{back}},\n$$\n\nwhere $\\eta_j$ is the layer's tilted admittance, in units of the admittance of free space:\n$\\eta_j = n_j\\cos\\theta_j$ for s polarization and $\\eta_j = n_j/\\cos\\theta_j$ for p.\n\n## A stack and its admittance\n\nBecause the tangential fields are continuous at every interface, the matrices of successive layers simply multiply.\nFor $q$ layers on a substrate of admittance $\\eta_s$,\n\n$$\n\\begin{pmatrix} B \\\\ C \\end{pmatrix} = \\left(\\prod_{j=1}^{q} M_j\\right) \\begin{pmatrix} 1 \\\\ \\eta_s \\end{pmatrix},\n\\qquad Y = \\frac{C}{B},\n$$\n\nand the whole stack behaves like a single surface of admittance $Y$ seen from the incident medium $\\eta_0$:\n\n$$\nr = \\frac{\\eta_0 - Y}{\\eta_0 + Y}, \\qquad R = |r|^2, \\qquad\nT = \\frac{4\\,\\eta_0\\,\\mathrm{Re}\\,\\eta_s}{|\\eta_0 B + C|^2}.\n$$\n\nPyStratify's planar engine uses the equivalent form in amplitudes (an interface matrix and a propagation matrix per\nlayer, after Byrnes 2016), which also returns the fields inside the stack and the power absorbed in each layer.\n\n## Quarter waves and half waves\n\nTwo thicknesses make the matrix trivial at the design wavelength $\\lambda_0$, at normal incidence:\n\n- a **half-wave** layer ($n d = \\lambda_0/2$, $\\delta = \\pi$) has $M = -I$: it is *absent*, and the stack reflects\n  as if it were not there;\n- a **quarter-wave** layer ($n d = \\lambda_0/4$, $\\delta = \\pi/2$) turns an admittance $Y$ into $n^2/Y$.\n\nA single quarter-wave layer of index $n_1$ on a substrate $n_s$ therefore gives\n\n$$\nR = \\left(\\frac{n_0 n_s - n_1^2}{n_0 n_s + n_1^2}\\right)^2 ,\n$$\n\nwhich vanishes for $n_1 = \\sqrt{n_0 n_s}$, 1.23 for glass in air. No durable material has so low an index; magnesium\nfluoride (1.38) comes closest, and leaves about 1.3 % instead of 4 %.\n\n::: example quarter-wave-ar\n\nThe minimum sits at $\\lambda_0 = 4 n_1 d$ and is broad, because $\\delta$ changes slowly with $\\lambda$. Two or three\nlayers (the V-coat and the quarter–half–quarter design) broaden it further, and a graded index takes the idea to its\nlimit in the [moth-eye antireflection](learn/films/moth-eye-antireflection.html) section.\n\n## Oblique incidence and absorbing layers\n\nNothing above assumes normal incidence or real indices: at an angle, $\\cos\\theta_j$ shortens each layer's phase\nthickness and the admittances differ between s and p. In an absorbing layer $\\delta_j$ is complex and the wave decays\nacross it. For a thick metal or an evanescent layer the growing exponential in the matrix elements can exceed floating\npoint range; amplitude formulations that propagate decaying waves only avoid that.\n",
    "prev": "fresnel-equations",
    "next": "coherence-and-thick-substrates"
   },
@@ -97,6 +99,9 @@
    "examples": [
     "film-on-thick-glass"
    ],
+   "classics": [
+    "katsidis-2002"
+   ],
    "references": [
     {
      "cite": "C. C. Katsidis and D. I. Siapkas, Appl. Opt. 41, 3978 (2002)",
@@ -112,7 +117,7 @@
     }
    ],
    "status": "published",
-   "body": "The transfer matrix adds amplitudes: every reflected wave interferes with every other. That is right for a film a few\nhundred nanometres thick, and wrong for the glass it sits on. A 1 mm plate in a spectrometer shows no fringes, though\nthe matrix predicts them.\n\n## Fringes too fine to see\n\nTwo reflections that differ by a path $2 n d \\cos\\theta$ interfere only if the light stays coherent over that path.\nA source of bandwidth $\\Delta\\lambda$ has a coherence length\n\n$$\n\\ell_c \\approx \\frac{\\lambda^2}{\\Delta\\lambda}.\n$$\n\nPut the other way, the fringes of a slab are spaced by\n\n$$\n\\Delta\\lambda_\\text{fringe} = \\frac{\\lambda^2}{2 n d \\cos\\theta},\n$$\n\nwhich for 1 mm of glass at 600 nm is 0.12 nm. Any instrument with a coarser resolution, nearly all of them, averages\nover many fringes and records their mean. Real plates also vary in thickness by more than a wavelength across the beam,\nwhich averages the phase just as well.\n\n## Adding intensities\n\nWhen the phase is averaged out, the multiply reflected waves add in power, not amplitude. For a bare, non-absorbing\nplate with face reflectance $R_0 = \\left(\\frac{n - 1}{n + 1}\\right)^2$, the geometric series gives\n\n$$\nR = R_0 + \\frac{(1 - R_0)^2 R_0}{1 - R_0^2} = \\frac{2R_0}{1 + R_0}, \\qquad T = \\frac{1 - R_0}{1 + R_0} ,\n$$\n\n8.2 % and 91.8 % for glass: twice the single-surface loss, less a little.\n\n## Coherent films on incoherent plates\n\nKatsidis and Siapkas (2002) generalised this to any stack: the layers are grouped into coherent sub-stacks, each\nsolved with the transfer matrix of amplitudes, and joined through incoherent layers by $2 \\times 2$ matrices of\nintensities. A thin film on a thick substrate is then exact for both: the film's fringes survive, and the substrate\ncontributes its two faces in power. PyStratify's planar engine implements this scheme; in the calculator each layer\ncarries a coherence flag (*c* or *i*), and the substrate behind the last layer is semi-infinite.\n\n::: example film-on-thick-glass\n\nAt the film's half-wave wavelength it is absent, and the reflectance returns to the bare plate's $2R_0/(1 + R_0)$.\nBetween those points the film's fringes ride on the plate's incoherent\nbackground, which is what a measured spectrum looks like.\n\n## Partial coherence\n\nBetween the two limits sit rough interfaces, thickness gradients and finite spectral resolution, which damp fringes\nwithout removing them. Katsidis and Siapkas treat these as phase averaging within a layer;\n[Classics](classics.html#katsidis-2002) opens their coherent and incoherent wafer of Fig. 2 in the calculator.\n",
+   "body": "The transfer matrix adds amplitudes: every reflected wave interferes with every other. That is right for a film a few\nhundred nanometres thick, and wrong for the glass it sits on. A 1 mm plate in a spectrometer shows no fringes, though\nthe matrix predicts them.\n\n## Fringes too fine to see\n\nTwo reflections that differ by a path $2 n d \\cos\\theta$ interfere only if the light stays coherent over that path.\nA source of bandwidth $\\Delta\\lambda$ has a coherence length\n\n$$\n\\ell_c \\approx \\frac{\\lambda^2}{\\Delta\\lambda}.\n$$\n\nPut the other way, the fringes of a slab are spaced by\n\n$$\n\\Delta\\lambda_\\text{fringe} = \\frac{\\lambda^2}{2 n d \\cos\\theta},\n$$\n\nwhich for 1 mm of glass at 600 nm is 0.12 nm. Any instrument with a coarser resolution, nearly all of them, averages\nover many fringes and records their mean. Real plates also vary in thickness by more than a wavelength across the beam,\nwhich averages the phase just as well.\n\n## Adding intensities\n\nWhen the phase is averaged out, the multiply reflected waves add in power, not amplitude. For a bare, non-absorbing\nplate with face reflectance $R_0 = \\left(\\frac{n - 1}{n + 1}\\right)^2$, the geometric series gives\n\n$$\nR = R_0 + \\frac{(1 - R_0)^2 R_0}{1 - R_0^2} = \\frac{2R_0}{1 + R_0}, \\qquad T = \\frac{1 - R_0}{1 + R_0} ,\n$$\n\n8.2 % and 91.8 % for glass: twice the single-surface loss, less a little.\n\n## Coherent films on incoherent plates\n\nKatsidis and Siapkas (2002) generalised this to any stack: the layers are grouped into coherent sub-stacks, each\nsolved with the transfer matrix of amplitudes, and joined through incoherent layers by $2 \\times 2$ matrices of\nintensities. A thin film on a thick substrate is then exact for both: the film's fringes survive, and the substrate\ncontributes its two faces in power. PyStratify's planar engine implements this scheme; in the calculator each layer\ncarries a coherence flag (*c* or *i*), and the substrate behind the last layer is semi-infinite.\n\n::: example film-on-thick-glass\n\nAt the film's half-wave wavelength it is absent, and the reflectance returns to the bare plate's $2R_0/(1 + R_0)$.\nBetween those points the film's fringes ride on the plate's incoherent\nbackground, which is what a measured spectrum looks like.\n\n## Partial coherence\n\nBetween the two limits sit rough interfaces, thickness gradients and finite spectral resolution, which damp fringes\nwithout removing them. Katsidis and Siapkas treat these as phase averaging within a layer, and their infrared\nreflectance of a thin film on a thick wafer is the textbook case of fringes riding on an incoherent background.\n\n::: classic katsidis-2002\n",
    "prev": "transfer-matrix",
    "next": "bragg-mirrors"
   },
@@ -134,6 +139,9 @@
    "examples": [
     "bragg-mirror"
    ],
+   "classics": [
+    "yeh-1977"
+   ],
    "references": [
     {
      "cite": "P. Yeh, A. Yariv and C.-S. Hong, J. Opt. Soc. Am. 67, 423 (1977)",
@@ -152,7 +160,7 @@
     }
    ],
    "status": "published",
-   "body": "Alternate a high index $n_H$ and a low index $n_L$, each a quarter wave thick at $\\lambda_0$, and the reflections from\nevery interface return in phase. With enough periods the stack reflects nearly everything over a band around\n$\\lambda_0$: a dielectric mirror with no absorption, the basis of laser mirrors, distributed Bragg reflectors in\nVCSELs and the one-dimensional photonic crystal.\n\n## The peak: quarter waves in series\n\nAt $\\lambda_0$ each quarter-wave layer maps an admittance $Y$ onto $n^2/Y$ (see\n[the transfer matrix](learn/films/transfer-matrix.html)). Starting from the substrate $n_s$, a pair L then H\nmultiplies it by $(n_H/n_L)^2$, so $N$ pairs, high index outermost, present\n\n$$\nY = \\left(\\frac{n_H}{n_L}\\right)^{2N} n_s ,\n\\qquad\nR(\\lambda_0) = \\left(\\frac{n_0 - Y}{n_0 + Y}\\right)^2 .\n$$\n\n$Y$ grows geometrically with $N$, so $1 - R$ falls geometrically: eight pairs of TiO₂-like and SiO₂-like layers\n(2.3 and 1.45) already reach 99.84 %.\n\n## The band: Bloch waves\n\nAn infinite periodic stack is solved by Bloch's theorem. With $M$ the characteristic matrix of one period, a wave\npropagates through the crystal when $|\\tfrac{1}{2}\\,\\mathrm{Tr}\\,M| \\le 1$ and decays when\n$|\\tfrac{1}{2}\\,\\mathrm{Tr}\\,M| > 1$: there the Bloch wave is evanescent and a thick enough stack reflects it\ncompletely. For a quarter-wave stack at normal incidence the decaying range, the **stop band**, has a full width in\nthe relative wavenumber $g = \\lambda_0/\\lambda$ of\n\n$$\n\\Delta g = \\frac{4}{\\pi}\\arcsin\\!\\left(\\frac{n_H - n_L}{n_H + n_L}\\right),\n$$\n\nabout 0.29 for 2.3/1.45, or 524–702 nm around 600 nm. The width depends on the index contrast alone; the period count\nonly decides how close to 1 the reflectance gets inside it and how sharp its edges are. The same band repeats at\n$\\lambda_0/3$, $\\lambda_0/5$, …, where the layers are three or five quarter waves thick.\n\n::: example bragg-mirror\n\nOutside the band the stack is nearly transparent, with ripples, one fewer minimum between bands than there are\nperiods. [Classics](classics.html#yeh-1977) opens Yeh, Yariv and Hong's 15-period GaAs/AlGaAs stack, where the 14\nzeros and the closing of the TM gap at the Brewster angle can be counted.\n\n## At oblique incidence\n\nTilting the beam shortens every layer's phase thickness, so the band moves to shorter wavelengths, and splits by\npolarization: the p band narrows and closes at the Brewster angle of the H/L interface. Fink et al. (1998) showed that\nwith enough contrast a stop band survives for every angle and both polarizations, an omnidirectional reflector built\nfrom dielectrics alone.\n",
+   "body": "Alternate a high index $n_H$ and a low index $n_L$, each a quarter wave thick at $\\lambda_0$, and the reflections from\nevery interface return in phase. With enough periods the stack reflects nearly everything over a band around\n$\\lambda_0$: a dielectric mirror with no absorption, the basis of laser mirrors, distributed Bragg reflectors in\nVCSELs and the one-dimensional photonic crystal.\n\n## The peak: quarter waves in series\n\nAt $\\lambda_0$ each quarter-wave layer maps an admittance $Y$ onto $n^2/Y$ (see\n[the transfer matrix](learn/films/transfer-matrix.html)). Starting from the substrate $n_s$, a pair L then H\nmultiplies it by $(n_H/n_L)^2$, so $N$ pairs, high index outermost, present\n\n$$\nY = \\left(\\frac{n_H}{n_L}\\right)^{2N} n_s ,\n\\qquad\nR(\\lambda_0) = \\left(\\frac{n_0 - Y}{n_0 + Y}\\right)^2 .\n$$\n\n$Y$ grows geometrically with $N$, so $1 - R$ falls geometrically: eight pairs of TiO₂-like and SiO₂-like layers\n(2.3 and 1.45) already reach 99.84 %.\n\n## The band: Bloch waves\n\nAn infinite periodic stack is solved by Bloch's theorem. With $M$ the characteristic matrix of one period, a wave\npropagates through the crystal when $|\\tfrac{1}{2}\\,\\mathrm{Tr}\\,M| \\le 1$ and decays when\n$|\\tfrac{1}{2}\\,\\mathrm{Tr}\\,M| > 1$: there the Bloch wave is evanescent and a thick enough stack reflects it\ncompletely. For a quarter-wave stack at normal incidence the decaying range, the **stop band**, has a full width in\nthe relative wavenumber $g = \\lambda_0/\\lambda$ of\n\n$$\n\\Delta g = \\frac{4}{\\pi}\\arcsin\\!\\left(\\frac{n_H - n_L}{n_H + n_L}\\right),\n$$\n\nabout 0.29 for 2.3/1.45, or 524–702 nm around 600 nm. The width depends on the index contrast alone; the period count\nonly decides how close to 1 the reflectance gets inside it and how sharp its edges are. The same band repeats at\n$\\lambda_0/3$, $\\lambda_0/5$, …, where the layers are three or five quarter waves thick.\n\n::: example bragg-mirror\n\nOutside the band the stack is nearly transparent, with ripples, one fewer minimum between bands than there are\nperiods. Yeh, Yariv and Hong's 1977 paper treats the periodic stack as a one-dimensional crystal: the eigenvalues\nof the unit cell's transfer matrix give the Bloch wavenumber, real in the pass bands and complex in the stop bands,\nand the band edges, the number of zeros and the closing of the TM gap at the Brewster angle all follow from one\ndispersion relation.\n\n::: classic yeh-1977\n\n## At oblique incidence\n\nTilting the beam shortens every layer's phase thickness, so the band moves to shorter wavelengths, and splits by\npolarization: the p band narrows and closes at the Brewster angle of the H/L interface. Fink et al. (1998) showed that\nwith enough contrast a stop band survives for every angle and both polarizations, an omnidirectional reflector built\nfrom dielectrics alone.\n",
    "prev": "coherence-and-thick-substrates",
    "next": "fabry-perot-etalons"
   },
@@ -174,6 +182,7 @@
    "examples": [
     "fabry-perot-etalon"
    ],
+   "classics": [],
    "references": [
     {
      "cite": "M. Born and E. Wolf, Principles of Optics, 7th ed. (Cambridge University Press, 1999), §7.6",
@@ -209,6 +218,7 @@
    "examples": [
     "bandpass-filter"
    ],
+   "classics": [],
    "references": [
     {
      "cite": "H. A. Macleod, Thin-Film Optical Filters, 3rd ed. (Institute of Physics Publishing, 2001), ch. 7"
@@ -240,6 +250,7 @@
    "examples": [
     "metal-beam-splitter"
    ],
+   "classics": [],
    "references": [
     {
      "cite": "H. A. Macleod, Thin-Film Optical Filters, 3rd ed. (Institute of Physics Publishing, 2001), ch. 4 and 9"
@@ -276,6 +287,7 @@
    "examples": [
     "low-e-coating"
    ],
+   "classics": [],
    "references": [
     {
      "cite": "R. J. Martín-Palma et al., Sol. Energy Mater. Sol. Cells (1998), silver-based low-emissivity coatings for architectural windows",
@@ -312,6 +324,7 @@
    "examples": [
     "kretschmann-spr"
    ],
+   "classics": [],
    "references": [
     {
      "cite": "E. Kretschmann and H. Raether, Z. Naturforsch. A 23, 2135 (1968)",
@@ -353,6 +366,7 @@
    "examples": [
     "moth-eye-taper"
    ],
+   "classics": [],
    "references": [
     {
      "cite": "P. B. Clapham and M. C. Hutley, Nature 244, 281 (1973)",
@@ -390,6 +404,7 @@
    "examples": [
     "pyramid-facet"
    ],
+   "classics": [],
    "references": [
     {
      "cite": "P. Campbell and M. A. Green, J. Appl. Phys. 62, 243 (1987)",
@@ -427,6 +442,7 @@
    "examples": [
     "grating-effective-film"
    ],
+   "classics": [],
    "references": [
     {
      "cite": "M. G. Moharam and T. K. Gaylord, J. Opt. Soc. Am. 71, 811 (1981)",
@@ -462,6 +478,7 @@
    "examples": [
     "perovskite-cell"
    ],
+   "classics": [],
    "references": [
     {
      "cite": "L. A. A. Pettersson, L. S. Roman and O. Inganäs, J. Appl. Phys. 86, 487 (1999)",
@@ -499,6 +516,7 @@
    "examples": [
     "radiative-cooler"
    ],
+   "classics": [],
    "references": [
     {
      "cite": "A. P. Raman, M. A. Anoma, L. Zhu, E. Rephaeli and S. Fan, Nature 515, 540 (2014)",
@@ -516,6 +534,161 @@
    "status": "published",
    "body": "The atmosphere is nearly transparent between 8 and 13 µm, where the room-temperature black-body spectrum peaks. A\nsurface that emits strongly in that window radiates heat straight to the cold of space; if it also reflects sunlight,\nit cools below the ambient air even in daylight (Raman et al., 2014).\n\n## Emissivity from a film calculation\n\nBy Kirchhoff's law a surface's spectral emissivity equals its absorptance at the same wavelength and direction. On an\nopaque mirror nothing is transmitted, so\n\n$$\n\\varepsilon(\\lambda) = A(\\lambda) = 1 - R(\\lambda),\n\\qquad\n\\bar\\varepsilon_{8\\text{–}13} = \\langle A \\rangle_{8\\text{–}13\\,\\mu\\mathrm{m}} ,\n$$\n\nand designing an emitter is designing a reflectance spectrum: low in the window, high everywhere the sun shines.\n\n## Phonon bands and a mirror\n\nSilica and silicon nitride absorb strongly in the window through their lattice vibrations (the Si–O stretch near\n9.3 µm, Si–N near 11.5 µm), and are transparent in the visible. A layer of either on silver emits in the window, while\nthe silver, seen through the transparent layer, reflects most of the solar spectrum. Silica alone leaves a gap in the\nwindow where it reflects (its reststrahlen band); stacking it with silicon nitride, or using several thinner layers,\nfills it. Selective emitters of this kind go back to silicon-monoxide films on aluminium (Granqvist and Hjortsberg,\n1981).\n\n::: example radiative-cooler\n\nThe window average depends on thickness: a micron of silica begins to emit across the band, while too thick a layer\npushes the reststrahlen reflection back up. Mid-infrared constants are from Kischkat et al. (2012); silver from\nCiesielski et al. (2017), both via refractiveindex.info.\n",
    "prev": "solar-cell-absorption",
+   "next": "dipole-near-an-interface"
+  },
+  {
+   "id": "dipole-near-an-interface",
+   "kind": "learn",
+   "geometry": "films",
+   "title": "A dipole near a plane interface: emitters in thin films",
+   "summary": "How a molecule, a quantum dot or an OLED emitter radiates when it sits in a stratified medium: the plane-wave expansion of a dipole field, the Chance–Prock–Silbey integrals for its decay rate, the channels its power goes to (escaping light, substrate modes, guided modes, absorption), quenching near a metal and the microcavity effect that OLED design is built on.",
+   "chapter": "Emitters in films",
+   "chapter_order": 8,
+   "order": 1,
+   "slug": "dipole-near-an-interface",
+   "url": "learn/films/dipole-near-an-interface.html",
+   "topic": "emitters",
+   "sources": [
+    "dipole"
+   ],
+   "examples": [],
+   "classics": [
+    "lukosz-kunz-1977",
+    "neyts-1998"
+   ],
+   "references": [
+    {
+     "cite": "W. Lukosz and R. E. Kunz, J. Opt. Soc. Am. 67, 1607 (1977)",
+     "doi": "10.1364/JOSA.67.001607"
+    },
+    {
+     "cite": "R. R. Chance, A. Prock and R. Silbey, Adv. Chem. Phys. 37, 1 (1978)",
+     "doi": "10.1002/9780470142561.ch1"
+    },
+    {
+     "cite": "G. W. Ford and W. H. Weber, Phys. Rep. 113, 195 (1984)",
+     "doi": "10.1016/0370-1573(84)90098-X"
+    },
+    {
+     "cite": "W. L. Barnes, J. Mod. Opt. 45, 661 (1998)",
+     "doi": "10.1080/09500349808230614"
+    },
+    {
+     "cite": "K. A. Neyts, J. Opt. Soc. Am. A 15, 962 (1998)",
+     "doi": "10.1364/JOSAA.15.000962"
+    },
+    {
+     "cite": "L. Novotny and B. Hecht, Principles of Nano-Optics, 2nd ed. (Cambridge University Press, 2012), ch. 10",
+     "doi": "10.1017/CBO9780511794193"
+    },
+    {
+     "cite": "M. Furno, R. Meerheim, S. Hofmann, B. Lüssem and K. Leo, Phys. Rev. B 85, 115205 (2012)",
+     "doi": "10.1103/PhysRevB.85.115205"
+    }
+   ],
+   "status": "published",
+   "body": "An excited molecule is, to classical electrodynamics, an oscillating point dipole. In free space it radiates the\npower $P_0$ and decays at the rate $\\Gamma_0$. Put the same dipole a few hundred nanometres from a glass surface, inside\nan organic layer on a mirror, or on top of a metal film, and both change: the field it radiates comes back to it,\nreflected by every interface, and does work on it. This is Purcell's observation applied to a planar structure, and\nit is the physics of OLED outcoupling, of surface-enhanced fluorescence and of the quenching that kills emission next\nto a metal. It is computed with the same transfer matrix as a plane-wave spectrum, applied to a different source.\n\n## A dipole as a sum of plane waves\n\nThe field of a dipole at height $z_0$ above a stack, in a medium of index $n_1$ and wavenumber $k_1 = n_1 k_0$, can be\nwritten as a superposition of plane waves with every in-plane wavenumber $k_\\parallel$, including $k_\\parallel > k_1$,\nfor which $k_z = \\sqrt{k_1^2 - k_\\parallel^2}$ is imaginary and the wave is evanescent. Each plane wave meets the stack\nbelow and returns multiplied by the stack's reflection coefficient $r^s(k_\\parallel)$ or $r^p(k_\\parallel)$, the\nquantities the [transfer matrix](learn/films/transfer-matrix.html) already computes, now evaluated at complex angles.\nSumming the reflected waves at the dipole's own position gives the reflected field there, and the work it does on the\ndipole is the change in radiated power. With $s = k_\\parallel / k_1$ and $s_z = \\sqrt{1 - s^2}$, the result for a\ndipole perpendicular and parallel to the interface is (Chance, Prock and Silbey; Lukosz and Kunz)\n\n$$\n\\frac{P_\\perp}{P_0} = 1 + \\frac{3}{2}\\,\\mathrm{Re}\\int_0^\\infty \\frac{s^3}{s_z}\\, r^p(s)\\, e^{2 i k_1 z_0 s_z}\\,\\mathrm{d}s,\n\\qquad\n\\frac{P_\\parallel}{P_0} = 1 + \\frac{3}{4}\\,\\mathrm{Re}\\int_0^\\infty \\frac{s}{s_z}\\left[r^s(s) - s_z^2\\, r^p(s)\\right] e^{2 i k_1 z_0 s_z}\\,\\mathrm{d}s .\n$$\n\nAn emitter with intrinsic quantum yield $q_0 < 1$ also decays non-radiatively inside itself, so its total rate is\n$\\Gamma/\\Gamma_0 = (1 - q_0) + q_0\\, P/P_0$; a randomly oriented ensemble averages one perpendicular and two parallel\ndipoles. The same integrals, with the transmission coefficients in place of $r$, give the power that crosses the\nstack into the substrate. Everything about the structure enters through $r^s$ and $r^p$ as functions of $s$, which\nis why a dipole calculation costs little more than an angle-resolved reflectance.\n\n## Reading the integrand: where the power goes\n\nThe integration variable $s$ sorts the dipole's power into channels, and the calculator reports them separately:\n\n- $0 \\le s < 1$: plane waves that propagate in the dipole's own medium. Part escapes (into air above an OLED, into\n  the objective of a microscope); the rest is reflected and interferes with the direct wave, which makes the rate\n  **oscillate with $z_0$** with a period of half a wavelength in the medium. That oscillation is Lukosz and Kunz's\n  curve, and Drexhage's 1970 experiment with europium layers above a silver mirror.\n- $1 \\le s < n_\\mathrm{sub}/n_1$: evanescent in the emitter's medium but propagating in a denser substrate: light\n  that enters the glass beyond its critical angle and is **trapped in the substrate** by total internal reflection\n  unless the substrate is thin or textured.\n- Discrete values of $s$ at which $r^s$ or $r^p$ has a pole: the **guided modes** of the stack (and the surface\n  plasmon of a metal film), which take power without radiating it. In a lossless structure these are sharp poles on\n  the real axis and PyStratify integrates around them analytically, which is why its guided fraction is exact and not\n  a matter of grid resolution.\n- $s \\gg 1$: deeply evanescent waves that reach only a few nanometres. Against an absorbing medium they deposit the\n  dipole's energy directly in it. For a dipole at distance $d$ from a metal this term grows like $(k_1 d)^{-3}$, the\n  quasi-static image-dipole law, with the perpendicular dipole quenched twice as strongly as the parallel one: this\n  is **quenching**, and it dominates below about 10 nm.\n\nThe sum of the four channels is the total rate; the escaping part divided by the total is the outcoupling efficiency\nof an OLED or the collection efficiency of a single-molecule experiment.\n\n::: classic lukosz-kunz-1977\n\n## The microcavity effect and OLED design\n\nIn a thin-film light-emitting diode the emitter sits in an organic layer a fraction of a wavelength thick, between a\nmetal cathode and a transparent anode on glass. The cathode's reflection coefficient is close to $-1$, so the\nreflected wave returns with a phase set almost entirely by the round-trip distance $2 n z_0 k_0$. At the distance where\nit returns in phase the dipole radiates more, mostly towards the surface normal; a quarter wave away it radiates less,\nand what it radiates goes sideways into guided modes. Neyts computed the two numbers an OLED engineer needs as the\nemitter moves through the layer: the fraction of power that reaches air, and the total rate $F$ (the Purcell factor),\nwhose product with the intrinsic quantum yield is the effective yield. Furno and co-workers turned the same integrals\ninto the loss budget of a complete device, with each loss channel (substrate, waveguide, surface plasmon, absorption)\nagainst the thickness of every layer, the analysis PyStratify's film emission reproduces.\n\n::: classic neyts-1998\n\nTwo practical rules follow from the integrals. First, the optimum emitter position is **not** at the antinode of the\nplane-wave standing wave but slightly closer to the mirror, because the evanescent channels grow monotonically as the\nemitter approaches it. Second, a thick transparent substrate is a trap: without outcoupling structures roughly half of\nwhat leaves the organic layers is lost in it, which is why the [coherence and thick substrate](learn/films/coherence.html)\nsection's incoherent treatment matters for devices and why textured surfaces appear in the\n[graded and textured surfaces](learn/films/textured-surfaces.html) chapter.\n\n## Limits of the model\n\nThe emitter is a classical point dipole with a fixed frequency: linewidths, saturation and the modification of the\nemission *spectrum* by a strongly dispersive cavity are outside it, though the rates it gives are exactly what a\nquantum treatment yields for a two-level system at weak coupling. The media are local and the interfaces sharp: at\ndistances below one or two nanometres from a metal, the electron gas's nonlocal response and the atomic structure of\nthe surface change the quenching law, which is why computed rates at contact are a limit rather than a prediction. The\ncalculator refuses an absorbing medium *around* the emitter (its power would not be defined without a cavity around\nthe point source); a metal electrode is therefore an opaque layer rather than a half-space, which changes nothing in\nthe physics once the layer is thicker than its skin depth.\n",
+   "prev": "radiative-cooling",
+   "next": null
+  },
+  {
+   "id": "infinite-cylinder",
+   "kind": "learn",
+   "geometry": "cylinders",
+   "title": "Scattering by an infinite cylinder: two polarizations",
+   "summary": "The plane-wave solution for an infinitely long circular cylinder: cylindrical waves, the two decoupled polarizations at normal incidence and their coefficients, efficiencies per unit length, the thin-wire limit with its ε = −1 resonance, coated cylinders by the same recursion, oblique incidence, and the single-channel bound that superscattering beats.",
+   "chapter": "Scattering",
+   "chapter_order": 1,
+   "order": 1,
+   "slug": "infinite-cylinder",
+   "url": "learn/cylinders/infinite-cylinder.html",
+   "topic": "cylinder",
+   "sources": [
+    "plane_wave"
+   ],
+   "examples": [
+    "glass-cylinder"
+   ],
+   "classics": [
+    "bohren-huffman-1983",
+    "ruan-fan-2010"
+   ],
+   "references": [
+    {
+     "cite": "Lord Rayleigh, Phil. Mag. 36, 365 (1918)",
+     "doi": "10.1080/14786441108635843"
+    },
+    {
+     "cite": "C. F. Bohren and D. R. Huffman, Absorption and Scattering of Light by Small Particles (Wiley, 1983), ch. 8",
+     "doi": "10.1002/9783527618156"
+    },
+    {
+     "cite": "M. Kerker, The Scattering of Light and Other Electromagnetic Radiation (Academic Press, 1969), ch. 6"
+    },
+    {
+     "cite": "Z. Ruan and S. Fan, Phys. Rev. Lett. 105, 013901 (2010)",
+     "doi": "10.1103/PhysRevLett.105.013901"
+    },
+    {
+     "cite": "L. Cao et al., Nat. Mater. 8, 643 (2009)",
+     "doi": "10.1038/nmat2477"
+    }
+   ],
+   "status": "published",
+   "body": "A cylinder is the two-dimensional cousin of a sphere, and it keeps a feature the sphere loses by symmetry: it tells the\ntwo polarizations of the incident light apart. Rayleigh solved the problem for a dielectric cylinder at normal\nincidence in 1918; Bohren and Huffman's chapter 8 is the standard modern account and the source of the notation\nbelow. Everything on this page is for an infinitely long circular cylinder of radius $a$ in a host of index $n_h$,\nlit by a plane wave of vacuum wavelength $\\lambda$. The size parameter and relative index are as for a sphere,\n\n$$\nx = \\frac{2\\pi n_h a}{\\lambda} = k a, \\qquad m = \\frac{n_c}{n_h}.\n$$\n\n## Cylindrical waves and the two cases\n\nIn cylindrical coordinates $(\\rho, \\varphi, z)$ the vector Helmholtz equation separates into modes $e^{i m\\varphi}\\,\ne^{i k_z z}$ whose radial dependence obeys Bessel's equation (the [Foundations](learn/common/maxwell-and-boundary-conditions.html)\ntable). The regular solution is $J_m(q\\rho)$ and the outgoing one $H^{(1)}_m(q\\rho)$, with $q = \\sqrt{k^2 - k_z^2}$ the\nradial wavenumber. At **normal incidence**, $k_z = 0$, $q = k$, and the problem splits into two independent cases,\nnamed after the field component along the axis:\n\n- **Case I**: the incident electric field is parallel to the cylinder axis (TM with respect to the axis; the\n  calculator's *E along the axis*). The axial component $E_z$ is the scalar field; $\\mathbf{H}$ lies in the cross\n  section.\n- **Case II**: the incident magnetic field is parallel to the axis (TE; *H along the axis*). Now $H_z$ is the scalar,\n  and $\\mathbf{E}$ lies in the cross section.\n\nFor each order $m$ the two boundary conditions, continuity of the tangential $\\mathbf{E}$ and $\\mathbf{H}$ at\n$\\rho = a$, fix one scattering coefficient per case, exactly as for the [transfer matrix](learn/common/why-transfer-matrices.html)\nof any stratified geometry. Bohren and Huffman's results for a non-magnetic cylinder are\n\n$$\nb_m^{\\mathrm{I}} = \\frac{m\\,J_m(mx)\\,J_m'(x) - J_m(x)\\,J_m'(mx)}{m\\,J_m(mx)\\,H_m^{(1)\\prime}(x) - H_m^{(1)}(x)\\,J_m'(mx)},\n\\qquad\na_m^{\\mathrm{II}} = \\frac{J_m(mx)\\,J_m'(x) - m\\,J_m(x)\\,J_m'(mx)}{J_m(mx)\\,H_m^{(1)\\prime}(x) - m\\,H_m^{(1)}(x)\\,J_m'(mx)},\n$$\n\nthe relative index $m$ in the two expressions sitting where the sphere's $a_\\ell$ and $b_\\ell$ have it, swapped\nbetween the cases. The resonances are the near-zeros of the denominators: for a dielectric they are the whispering-gallery\nor **leaky modes** of the rod, which make a silicon nanowire of a given diameter absorb one colour preferentially\n(Cao et al. 2009); for a metal they are the surface plasmons of the wire.\n\n## Efficiencies per unit length\n\nAn infinite cylinder has no cross-sectional area to normalise with, so one works per unit length. The scattering\nand extinction *widths* $C_\\mathrm{sca}$, $C_\\mathrm{ext}$ (a length) divided by the geometric width $2a$ give the\nefficiencies\n\n$$\nQ_\\mathrm{sca}^{\\mathrm{I}} = \\frac{2}{x}\\left[|b_0^{\\mathrm{I}}|^2 + 2\\sum_{m=1}^{\\infty} |b_m^{\\mathrm{I}}|^2\\right],\n\\qquad\nQ_\\mathrm{ext}^{\\mathrm{I}} = \\frac{2}{x}\\,\\mathrm{Re}\\left[b_0^{\\mathrm{I}} + 2\\sum_{m=1}^{\\infty} b_m^{\\mathrm{I}}\\right],\n$$\n\nand the same with $a_m^{\\mathrm{II}}$ for case II; $Q_\\mathrm{abs} = Q_\\mathrm{ext} - Q_\\mathrm{sca}$, and\nunpolarized light averages the two cases. The orders $\\pm m$ give equal contributions, hence the factor 2. The series\nstops a few orders beyond $x$, as Mie's does. Bohren and Huffman plot instead the scattering per unit *volume*,\n$C_\\mathrm{sca}/V = 4 Q_\\mathrm{sca}/(\\pi d)$ with $d = 2a$, which tends to the geometric-optics asymptote $8/(\\pi d)$\nas $Q \\to 2$: the quantity a chemist measuring turbidity cares about.\n\n::: example glass-cylinder\n\nThe two polarizations differ most strongly at a few hundred nanometres of radius, where case I rises first and case\nII lags: a resonance of case I at a given order $m$ needs the electric field to fit along the axis, that of case II\nneeds the magnetic field to, and for $m > 1$ these fall at different sizes. At large $x$ both tend to 2 with a\ndecaying ripple, and the polarization dependence fades.\n\n::: classic bohren-huffman-1983\n\n## The thin wire\n\nFor $x \\ll 1$ the two cases behave very differently, and the difference is the whole story of metal nanowires. In\ncase I the field along the axis induces a current along the wire with no charges at any surface; the response is\nproportional to $(m^2 - 1)$ and the scattering efficiency grows like $x^3$, with no resonance. In case II the field\nacross the wire polarises it like a two-dimensional dipole, and the leading coefficient is\n\n$$\na_1^{\\mathrm{II}} \\approx -\\frac{i\\pi x^2}{4}\\,\\frac{m^2 - 1}{m^2 + 1} = -\\frac{i\\pi x^2}{4}\\,\\frac{\\varepsilon - \\varepsilon_h}{\\varepsilon + \\varepsilon_h}.\n$$\n\nThe denominator is the two-dimensional analogue of the sphere's $\\varepsilon + 2\\varepsilon_h$: a metal wire in\nvacuum resonates where $\\varepsilon = -1$, which for a Drude metal is $\\omega = \\omega_p/\\sqrt{2}$ rather than the\nsphere's $\\omega_p/\\sqrt{3}$. Embedding the wire in a medium of permittivity $\\varepsilon_h$ moves the resonance to\n$\\varepsilon = -\\varepsilon_h$. The [wires and fibres](learn/cylinders/wires-and-fibres.html) section follows this\nresonance down to a wire one nanometre thick, where the local description reaches its limit.\n\n## Coated cylinders and oblique incidence\n\nA cylinder with shells is solved by the same $2\\times 2$ recursion as a multilayered sphere: one transfer matrix per\ninterface and per order $m$, multiplied inward from the host. PyStratify's cylinder solver does this for any number of\nshells, with the amplitudes carried in logarithmic form so that a thick absorbing shell or a high order never\noverflows. At **oblique incidence** $k_z = k\\cos\\zeta$ is no longer zero: $q$ shrinks, every Bessel argument changes,\nand, except for $m = 0$, the two polarizations **couple** at each interface, so the transfer matrix becomes $4\\times 4$\nper order and a case-I wave scatters partly into case-II light. The calculator's incidence angle for cylinders is this\n$\\zeta$ (90° is normal incidence); the hybrid modes it then finds are the ones that guide light along an optical\nfibre, which is the subject of the [wires and fibres](learn/cylinders/wires-and-fibres.html) section.\n\n## How much can one channel scatter? Superscattering\n\nEach order $m$ is a separate channel, and for a lossless cylinder its coefficient can at most reach the value that\nmakes $|b_m|^2$ (or $|a_m|^2$) equal to 1: the contribution of a single channel to the scattering width is bounded by\n$2\\lambda/\\pi$ (counting $\\pm m$ together). A subwavelength object that resonates in one channel can therefore never\nscatter more than this, no matter how strong the resonance; it is the two-dimensional analogue of the\nsingle-channel limit of a sphere. Ruan and Fan noticed that nothing stops *several* channels from resonating at the\nsame wavelength if the structure has enough free parameters, and designed a three-layer plasmonic rod whose $m = 1,\n2, 3, 4$ resonances coincide, so that the scattering width exceeds the single-channel bound several times over:\n**superscattering**. The design is sensitive by construction, because four resonances have to be tuned onto each\nother.\n\n::: classic ruan-fan-2010\n",
+   "prev": null,
+   "next": "wires-and-fibres"
+  },
+  {
+   "id": "wires-and-fibres",
+   "kind": "learn",
+   "geometry": "cylinders",
+   "title": "Wires and fibres: emitters beside a cylinder and beams through it",
+   "summary": "A point dipole next to a nanowire or an optical fibre: the continuous spectrum of axial wavenumbers, the guided modes as poles, and how the radiated, guided and absorbed powers are separated. The thin metal wire's plasmon at the local limit. And a fibre under an infrared microscope's Cassegrain: why a fibre that absorbs nothing shows a spectrum.",
+   "chapter": "Emitters and beams",
+   "chapter_order": 2,
+   "order": 1,
+   "slug": "wires-and-fibres",
+   "url": "learn/cylinders/wires-and-fibres.html",
+   "topic": "cylinder-emitters",
+   "sources": [
+    "dipole",
+    "focused"
+   ],
+   "examples": [],
+   "classics": [
+    "ruppin-2001",
+    "davis-2011"
+   ],
+   "references": [
+    {
+     "cite": "V. V. Klimov and M. Ducloy, Phys. Rev. A 69, 013812 (2004)",
+     "doi": "10.1103/PhysRevA.69.013812"
+    },
+    {
+     "cite": "A. W. Snyder and J. D. Love, Optical Waveguide Theory (Chapman and Hall, 1983), ch. 12–13",
+     "doi": "10.1007/978-1-4613-2813-1"
+    },
+    {
+     "cite": "R. Ruppin, Opt. Commun. 190, 205 (2001)",
+     "doi": "10.1016/S0030-4018(01)01063-X"
+    },
+    {
+     "cite": "B. J. Davis, P. S. Carney and R. Bhargava, Anal. Chem. 82, 3474 (2010)",
+     "doi": "10.1021/ac902067p"
+    },
+    {
+     "cite": "B. J. Davis, P. S. Carney and R. Bhargava, Anal. Chem. 83, 525 (2011)",
+     "doi": "10.1021/ac102239b"
+    },
+    {
+     "cite": "C. F. Bohren and D. R. Huffman, Absorption and Scattering of Light by Small Particles (Wiley, 1983), ch. 8",
+     "doi": "10.1002/9783527618156"
+    }
+   ],
+   "status": "published",
+   "body": "The plane-wave problem of the [previous section](learn/cylinders/infinite-cylinder.html) has a single axial\nwavenumber, fixed by the angle of incidence. Two other sources the calculator offers break that simplicity in\ninstructive ways. A **point dipole** radiates in every direction at once, so its field contains every axial\nwavenumber $k_z$ and every order $m$; the cylinder's response must be integrated over $k_z$, and the poles of that\nintegrand are the guided modes of the wire or fibre. A **focused beam** is a bundle of plane waves filling a cone, and\na cylinder under an infrared microscope answers each of them differently; the spectrum the instrument records is the\ncone average.\n\n## A dipole beside a cylinder\n\nExpand the dipole's field in cylindrical waves $e^{im\\varphi} e^{ik_z z} H^{(1)}_m(q\\rho)$: unlike the plane wave,\nwhich has one $k_z$, the dipole needs all of them, with $q = \\sqrt{k^2 - k_z^2}$ passing from real (waves that\npropagate away from the axis) to imaginary (waves bound to it) as $|k_z|$ grows past $k$. For each $(m, k_z)$ the\ncylinder's transfer matrices give the reflected cylindrical wave at the dipole's position, with the two polarizations\ncoupled whenever $k_z \\ne 0$. The power the dipole radiates, relative to free space, is an integral over $k_z$ and a\nsum over $m$ of the work the reflected field does on the dipole, the direct analogue of the Chance–Prock–Silbey\nintegral for a [dipole near a plane](learn/films/dipole-near-an-interface.html) (Klimov and Ducloy give the complete\nformulas for an atom beside a nanofibre).\n\nThe integrand has three kinds of contribution, and PyStratify separates them because they are what an experiment\nsees separately:\n\n- $|k_z| < k_h$ in the host: cylindrical waves that **radiate** away to the far field;\n- **poles** of the reflected amplitude at real $k_z = n_\\mathrm{eff} k_0 > k_h$: the guided modes of the fibre\n  (HE$_{11}$ first, which has no cutoff, then TE$_{01}$, TM$_{01}$, HE$_{21}$, … as the fibre grows), each taking a\n  share of the dipole's power that then travels along the fibre without radiating. In a lossless fibre these poles sit\n  on the real axis and the residues are taken analytically, so the guided fraction does not depend on a quadrature\n  grid; PyStratify checks the modes it finds against the fibre's closed-form dispersion relations (Snyder and Love);\n- the rest of the evanescent range, which against an absorbing wire deposits power in the metal (the quenching\n  channel) and against a lossless one contributes nothing to the total but shapes the near field.\n\nA dipole oriented radially, azimuthally or axially couples to different orders $m$ and different modes, so the three\norientations have different rates, and an isotropic ensemble averages them. Close to a metal wire the quenching rises\nas $d^{-3}$, as it does near a plane, but the enhancement at the wire's plasmon is sharper, because a thin wire is a\nnearly one-dimensional resonator.\n\n## The thin metal wire, and where the local model stops\n\nThe case-II resonance of a thin wire sits where $\\varepsilon(\\omega) = -\\varepsilon_h$, that is at $\\omega_p/\\sqrt{2}$\nfor a Drude metal in vacuum and $\\omega_p/\\sqrt{3}$ in a host of $\\varepsilon_h = 2$. Ruppin computed the extinction of\na sodium wire one nanometre in radius in two ways: with the local Drude permittivity, which gives exactly this\nresonance, and with a hydrodynamic (nonlocal) electron gas, in which the pressure of the electron fluid pushes the\nresonance to higher frequency and lets longitudinal bulk plasmons appear above $\\omega_p$. The calculator reproduces\nthe local curve; the nonlocal correction is a different constitutive relation, and it matters only when a dimension\nshrinks to a few nanometres or an emitter approaches a surface that closely. For gold and silver particles above\nabout 10 nm the local model is quantitatively right, and the local curve is the one to compare an experiment with\nfirst.\n\n::: classic ruppin-2001\n\n## A fibre under a Cassegrain\n\nAn infrared microscope illuminates its sample through a Cassegrain objective: a cone of plane waves between an inner\nobscuration and the outer numerical aperture, each arriving at a different angle $\\zeta$ to a fibre lying in the\nfocal plane. For every angle the oblique-incidence solution of the [previous section](learn/cylinders/infinite-cylinder.html)\ngives the field transmitted towards the detector; the instrument's reading is the incoherent average over the cone of\nthe power collected within its own aperture, and dividing by the empty-field reading gives an apparent absorbance.\nDavis, Carney and Bhargava showed that this apparent absorbance of a fibre that **absorbs nothing** is far from zero:\nlight is refracted and scattered out of the collection cone in a way that depends on wavelength through the size\nparameter, so a textile fibre or a hair shows a broad, oscillating baseline with dips where the fibre acts as a lens.\nReal absorption bands ride on this baseline, and a quantitative spectrum needs the baseline computed and removed, not\nfitted by a polynomial. This is the physics the calculator's focused (Cassegrain) source implements for films,\ncylinders and spheres; the sphere version is the Mie-type scattering that distorts the infrared spectra of cells, met\nin the [Mie theory](learn/spheres/mie-scattering.html) section.\n\n::: classic davis-2011\n\nTwo parameters of the instrument matter and are often left out of a paper's caption: the numerical aperture, which\nsets the widest angle in the cone, and the central obscuration of the Cassegrain, which removes the near-normal rays.\nBoth change the baseline's shape; Davis's Fig. 5 is reproduced with the aperture of the same paper's Fig. 2. The\ncalculator exposes both, together with the fibre's radius, so the three can be varied against a measured spectrum.\n",
+   "prev": "infinite-cylinder",
    "next": null
   },
   {
@@ -535,6 +708,10 @@
    ],
    "examples": [
     "si-sphere-mie"
+   ],
+   "classics": [
+    "mie-1908",
+    "mohlenhoff-2005"
    ],
    "references": [
     {
@@ -559,7 +736,7 @@
     }
    ],
    "status": "published",
-   "body": "A sphere of radius $a$ and refractive index $n_s$ sits in a host of index $n_h$, lit by a plane wave of vacuum\nwavelength $\\lambda$. Two numbers decide everything that follows: the **size parameter** and the **relative index**,\n\n$$\nx = \\frac{2\\pi n_h a}{\\lambda}, \\qquad m = \\frac{n_s}{n_h}.\n$$\n\nGustav Mie solved this problem exactly in 1908, to explain why colloidal gold is red, violet or blue depending on the\nsize of its particles. The same solution describes a raindrop, a silicon nanoparticle and a biological cell under an\ninfrared microscope.\n\n## Fields as a sum of multipoles\n\nIn spherical coordinates the vector wave equation separates. The fields inside and outside the sphere become sums of\nvector spherical harmonics, each labelled by an angular order $\\ell = 1, 2, \\dots$ (dipole, quadrupole, …) and by its\ncharacter: **electric** (transverse magnetic, TM) or **magnetic** (transverse electric, TE). The radial dependence of\nevery term obeys the spherical Bessel equation, a second-order linear equation, so in each region it is a combination\nof two independent solutions. We use the Riccati–Bessel functions\n\n$$\n\\psi_\\ell(\\rho) = \\rho\\, j_\\ell(\\rho), \\qquad \\xi_\\ell(\\rho) = \\rho\\, h^{(1)}_\\ell(\\rho),\n$$\n\nregular at the centre and outgoing at infinity respectively.\n\n## Two boundary conditions per order\n\nAt $r = a$ the tangential components of $\\mathbf{E}$ and $\\mathbf{H}$ are continuous. For each order $\\ell$ and each\ncharacter this gives two linear equations in two unknowns, the same $2\\times 2$ structure as a single interface of a\nthin film. Solving them gives the scattering coefficients of a non-magnetic sphere (time dependence\n$e^{-i\\omega t}$):\n\n$$\na_\\ell = \\frac{m\\,\\psi_\\ell(mx)\\,\\psi_\\ell'(x) - \\psi_\\ell(x)\\,\\psi_\\ell'(mx)}{m\\,\\psi_\\ell(mx)\\,\\xi_\\ell'(x) - \\xi_\\ell(x)\\,\\psi_\\ell'(mx)},\n\\qquad\nb_\\ell = \\frac{\\psi_\\ell(mx)\\,\\psi_\\ell'(x) - m\\,\\psi_\\ell(x)\\,\\psi_\\ell'(mx)}{\\psi_\\ell(mx)\\,\\xi_\\ell'(x) - m\\,\\xi_\\ell(x)\\,\\psi_\\ell'(mx)}.\n$$\n\n$a_\\ell$ is the electric multipole of order $\\ell$, $b_\\ell$ the magnetic one. The resonances of the sphere live in the\ndenominators: where one nearly vanishes, its coefficient peaks and the sphere radiates strongly in that multipole. Add\nshells and each interface contributes one more $2\\times 2$ matrix; that is the transfer-matrix solution of the\nmultilayered sphere, and what PyStratify computes for any number of layers.\n\n## Efficiencies\n\nDividing the cross sections by the geometric area $\\pi a^2$ gives the efficiencies:\n\n$$\nQ_\\mathrm{sca} = \\frac{2}{x^2}\\sum_{\\ell=1}^{\\infty}(2\\ell+1)\\left(|a_\\ell|^2 + |b_\\ell|^2\\right),\n\\qquad\nQ_\\mathrm{ext} = \\frac{2}{x^2}\\sum_{\\ell=1}^{\\infty}(2\\ell+1)\\,\\mathrm{Re}\\,(a_\\ell + b_\\ell),\n$$\n\nand $Q_\\mathrm{abs} = Q_\\mathrm{ext} - Q_\\mathrm{sca}$. Each term of the sums is the share of one multipole, which is\nhow the calculator splits a spectrum into its electric and magnetic orders.\n\n## A silicon sphere\n\nSilicon has an index near 4 across the visible. Inside so dense a particle the wavelength shrinks to $\\lambda/n_s$, and\nwhen it becomes comparable to the diameter the field inside circulates: a loop of displacement current, the\n**magnetic dipole** $b_1$. It is the lowest resonance of a high-index sphere, longer in wavelength than the electric\ndipole $a_1$ that follows it, and it gives such particles their colours (Kuznetsov et al., 2012).\n\n::: example si-sphere-mie\n\nMove the radius from 50 to 135 nm and the magnetic dipole walks across the visible spectrum; the electric dipole and\nthen the magnetic quadrupole follow it at shorter wavelengths.\n\n## Where the series stops\n\nThe sums converge once $\\ell$ exceeds the size parameter by a few terms. Wiscombe's rule\n\n$$\n\\ell_\\mathrm{max} = x + 4x^{1/3} + 2\n$$\n\nis accurate for far-field quantities. For a high-index core the internal size parameter $|m|x$ matters as well, so\nPyStratify, and the calculator through it, take the larger of the two.\n\n## Two limits worth knowing\n\nFor a sphere much smaller than the wavelength ($x \\ll 1$) only $a_1$ survives, and\n\n$$\nQ_\\mathrm{sca} \\approx \\frac{8}{3}\\,x^4 \\left|\\frac{m^2 - 1}{m^2 + 2}\\right|^2,\n$$\n\nRayleigh's $\\lambda^{-4}$ law. For a metal the denominator vanishes near $\\varepsilon_s = -2\\varepsilon_h$: that is the\nlocalized surface plasmon of a small gold or silver particle. For a sphere much larger than the wavelength,\n$Q_\\mathrm{ext} \\to 2$: the sphere removes twice the light that falls on its cross section, half by absorption or\nreflection and half by diffraction around its edge.\n",
+   "body": "A sphere of radius $a$ and refractive index $n_s$ sits in a host of index $n_h$, lit by a plane wave of vacuum\nwavelength $\\lambda$. Two numbers decide everything that follows: the **size parameter** and the **relative index**,\n\n$$\nx = \\frac{2\\pi n_h a}{\\lambda}, \\qquad m = \\frac{n_s}{n_h}.\n$$\n\nGustav Mie solved this problem exactly in 1908, to explain why colloidal gold is red, violet or blue depending on the\nsize of its particles. The same solution describes a raindrop, a silicon nanoparticle and a biological cell under an\ninfrared microscope.\n\n::: classic mie-1908\n\n## Fields as a sum of multipoles\n\nIn spherical coordinates the vector wave equation separates. The fields inside and outside the sphere become sums of\nvector spherical harmonics, each labelled by an angular order $\\ell = 1, 2, \\dots$ (dipole, quadrupole, …) and by its\ncharacter: **electric** (transverse magnetic, TM) or **magnetic** (transverse electric, TE). The radial dependence of\nevery term obeys the spherical Bessel equation, a second-order linear equation, so in each region it is a combination\nof two independent solutions. We use the Riccati–Bessel functions\n\n$$\n\\psi_\\ell(\\rho) = \\rho\\, j_\\ell(\\rho), \\qquad \\xi_\\ell(\\rho) = \\rho\\, h^{(1)}_\\ell(\\rho),\n$$\n\nregular at the centre and outgoing at infinity respectively.\n\n## Two boundary conditions per order\n\nAt $r = a$ the tangential components of $\\mathbf{E}$ and $\\mathbf{H}$ are continuous. For each order $\\ell$ and each\ncharacter this gives two linear equations in two unknowns, the same $2\\times 2$ structure as a single interface of a\nthin film. Solving them gives the scattering coefficients of a non-magnetic sphere (time dependence\n$e^{-i\\omega t}$):\n\n$$\na_\\ell = \\frac{m\\,\\psi_\\ell(mx)\\,\\psi_\\ell'(x) - \\psi_\\ell(x)\\,\\psi_\\ell'(mx)}{m\\,\\psi_\\ell(mx)\\,\\xi_\\ell'(x) - \\xi_\\ell(x)\\,\\psi_\\ell'(mx)},\n\\qquad\nb_\\ell = \\frac{\\psi_\\ell(mx)\\,\\psi_\\ell'(x) - m\\,\\psi_\\ell(x)\\,\\psi_\\ell'(mx)}{\\psi_\\ell(mx)\\,\\xi_\\ell'(x) - m\\,\\xi_\\ell(x)\\,\\psi_\\ell'(mx)}.\n$$\n\n$a_\\ell$ is the electric multipole of order $\\ell$, $b_\\ell$ the magnetic one. The resonances of the sphere live in the\ndenominators: where one nearly vanishes, its coefficient peaks and the sphere radiates strongly in that multipole. Add\nshells and each interface contributes one more $2\\times 2$ matrix; that is the transfer-matrix solution of the\nmultilayered sphere, and what PyStratify computes for any number of layers.\n\n## Efficiencies\n\nDividing the cross sections by the geometric area $\\pi a^2$ gives the efficiencies:\n\n$$\nQ_\\mathrm{sca} = \\frac{2}{x^2}\\sum_{\\ell=1}^{\\infty}(2\\ell+1)\\left(|a_\\ell|^2 + |b_\\ell|^2\\right),\n\\qquad\nQ_\\mathrm{ext} = \\frac{2}{x^2}\\sum_{\\ell=1}^{\\infty}(2\\ell+1)\\,\\mathrm{Re}\\,(a_\\ell + b_\\ell),\n$$\n\nand $Q_\\mathrm{abs} = Q_\\mathrm{ext} - Q_\\mathrm{sca}$. Each term of the sums is the share of one multipole, which is\nhow the calculator splits a spectrum into its electric and magnetic orders.\n\n## A silicon sphere\n\nSilicon has an index near 4 across the visible. Inside so dense a particle the wavelength shrinks to $\\lambda/n_s$, and\nwhen it becomes comparable to the diameter the field inside circulates: a loop of displacement current, the\n**magnetic dipole** $b_1$. It is the lowest resonance of a high-index sphere, longer in wavelength than the electric\ndipole $a_1$ that follows it, and it gives such particles their colours (Kuznetsov et al., 2012).\n\n::: example si-sphere-mie\n\nMove the radius from 50 to 135 nm and the magnetic dipole walks across the visible spectrum; the electric dipole and\nthen the magnetic quadrupole follow it at shorter wavelengths.\n\n## Where the series stops\n\nThe sums converge once $\\ell$ exceeds the size parameter by a few terms. Wiscombe's rule\n\n$$\n\\ell_\\mathrm{max} = x + 4x^{1/3} + 2\n$$\n\nis accurate for far-field quantities. For a high-index core the internal size parameter $|m|x$ matters as well, so\nPyStratify, and the calculator through it, take the larger of the two.\n\n## Two limits worth knowing\n\nFor a sphere much smaller than the wavelength ($x \\ll 1$) only $a_1$ survives, and\n\n$$\nQ_\\mathrm{sca} \\approx \\frac{8}{3}\\,x^4 \\left|\\frac{m^2 - 1}{m^2 + 2}\\right|^2,\n$$\n\nRayleigh's $\\lambda^{-4}$ law. For a metal the denominator vanishes near $\\varepsilon_s = -2\\varepsilon_h$: that is the\nlocalized surface plasmon of a small gold or silver particle. For a sphere much larger than the wavelength,\n$Q_\\mathrm{ext} \\to 2$: the sphere removes twice the light that falls on its cross section, half by absorption or\nreflection and half by diffraction around its edge. Between the two limits a weakly refracting sphere ($m \\to 1$,\n$x \\gg 1$) follows van de Hulst's anomalous-diffraction approximation, $Q_\\mathrm{ext} \\approx 2 - \\frac{4}{\\rho}\\sin\\rho\n+ \\frac{4}{\\rho^2}(1 - \\cos\\rho)$ with the phase lag $\\rho = 2x(m-1)$: a slow oscillation in wavelength that a cell\nor a nucleus of a few micrometres imprints on its infrared spectrum, and which is routinely mistaken for a baseline.\n\n::: classic mohlenhoff-2005\n",
    "prev": null,
    "next": "multipoles-and-kerker"
   },
@@ -580,6 +757,10 @@
    ],
    "examples": [
     "si-sphere-multipoles"
+   ],
+   "classics": [
+    "kuznetsov-2012",
+    "fu-2013"
    ],
    "references": [
     {
@@ -604,8 +785,219 @@
     }
    ],
    "status": "published",
-   "body": "The Mie series is a sum over multipoles, and every term has a physical identity: $a_\\ell$ is the electric multipole\nof order $\\ell$ (dipole, quadrupole, …), $b_\\ell$ the magnetic one. Taking a spectrum apart term by term turns a\ncurve with many bumps into a short list of resonances, each with its own field pattern and its own radiation\ndiagram.\n\n## Each order's share\n\nBecause the vector spherical harmonics are orthogonal over the sphere, the scattered power is a plain sum over orders\nand types, with no cross terms:\n\n$$\nQ_\\mathrm{sca} = \\sum_{\\ell=1}^{\\infty} \\left(Q^{E}_{\\ell} + Q^{M}_{\\ell}\\right),\n\\qquad\nQ^{E}_{\\ell} = \\frac{2}{x^2}(2\\ell+1)\\,|a_\\ell|^2,\n\\qquad\nQ^{M}_{\\ell} = \\frac{2}{x^2}(2\\ell+1)\\,|b_\\ell|^2 .\n$$\n\nEach term is bounded: a single channel cannot scatter more than $\\frac{2}{x^2}(2\\ell+1)$, the limit reached when\n$|a_\\ell| = 1$. Extinction splits the same way, through $\\mathrm{Re}\\,a_\\ell$ and $\\mathrm{Re}\\,b_\\ell$.\n\n## A magnetic dipole without magnetism\n\nSilicon has $\\mu = 1$, yet a silicon sphere has a strong magnetic-dipole resonance. When the wavelength inside the\nparticle, $\\lambda/n$, is close to its diameter, the electric field inside circulates around an axis perpendicular to\nthe incident field. That loop of displacement current is a magnetic dipole, and in a high-index sphere it is the\nfirst resonance on the long-wavelength side. Kuznetsov et al. (2012) saw it move across the visible as the particles\ngrew, giving them their colours.\n\n::: example si-sphere-multipoles\n\nMove the radius and watch the order: magnetic dipole first, then electric dipole and magnetic quadrupole close\ntogether, then the electric quadrupole. The electric dipole is broad because it also radiates from the particle's\npolarization outside the resonance; the magnetic modes, confined inside the sphere, are narrower.\n\n## Forward and backward\n\nThe far field in the forward and backward directions follows from the same coefficients:\n\n$$\nQ_\\mathrm{f} = \\frac{1}{x^2}\\left|\\sum_\\ell (2\\ell+1)(a_\\ell + b_\\ell)\\right|^2,\n\\qquad\nQ_\\mathrm{b} = \\frac{1}{x^2}\\left|\\sum_\\ell (2\\ell+1)(-1)^\\ell (a_\\ell - b_\\ell)\\right|^2 .\n$$\n\nElectric and magnetic multipoles of the same order add in the forward direction and subtract backwards. If only the\ndipoles matter and $a_1 = b_1$, the backscattering vanishes: the **first Kerker condition**, found by Kerker, Wang and\nGiles (1983) for spheres with $\\varepsilon = \\mu$. A silicon sphere reaches it where its electric- and magnetic-dipole\ncurves cross on the long-wavelength side of the magnetic resonance, and scatters forward almost only (Fu et al.,\n2013). The **second Kerker condition**, $a_1 = -b_1$, minimises forward scattering, but cannot null it: the optical\ntheorem ties forward scattering to the extinction, which is never zero.\n\n[Classics](classics.html#fu-2013) opens Fu et al.'s 150 nm silicon sphere with its scattering pattern; pick 660 nm to\nsee the forward lobe.\n\n## Beyond the dipoles\n\nWhen an electric dipole and a toroidal dipole of the same strength radiate in antiphase, their far fields cancel and\nthe electric-dipole scattering nearly vanishes while the field inside stays strong: the anapole (Miroshnichenko et al.,\n2015). In the Mie picture it is simply a zero of $a_1$, visible in the decomposition as a dip of the electric dipole\nbetween resonances.\n",
+   "body": "The Mie series is a sum over multipoles, and every term has a physical identity: $a_\\ell$ is the electric multipole\nof order $\\ell$ (dipole, quadrupole, …), $b_\\ell$ the magnetic one. Taking a spectrum apart term by term turns a\ncurve with many bumps into a short list of resonances, each with its own field pattern and its own radiation\ndiagram.\n\n## Each order's share\n\nBecause the vector spherical harmonics are orthogonal over the sphere, the scattered power is a plain sum over orders\nand types, with no cross terms:\n\n$$\nQ_\\mathrm{sca} = \\sum_{\\ell=1}^{\\infty} \\left(Q^{E}_{\\ell} + Q^{M}_{\\ell}\\right),\n\\qquad\nQ^{E}_{\\ell} = \\frac{2}{x^2}(2\\ell+1)\\,|a_\\ell|^2,\n\\qquad\nQ^{M}_{\\ell} = \\frac{2}{x^2}(2\\ell+1)\\,|b_\\ell|^2 .\n$$\n\nEach term is bounded: a single channel cannot scatter more than $\\frac{2}{x^2}(2\\ell+1)$, the limit reached when\n$|a_\\ell| = 1$. Extinction splits the same way, through $\\mathrm{Re}\\,a_\\ell$ and $\\mathrm{Re}\\,b_\\ell$.\n\n## A magnetic dipole without magnetism\n\nSilicon has $\\mu = 1$, yet a silicon sphere has a strong magnetic-dipole resonance. When the wavelength inside the\nparticle, $\\lambda/n$, is close to its diameter, the electric field inside circulates around an axis perpendicular to\nthe incident field. That loop of displacement current is a magnetic dipole, and in a high-index sphere it is the\nfirst resonance on the long-wavelength side. Kuznetsov et al. (2012) saw it move across the visible as the particles\ngrew, giving them their colours.\n\n::: example si-sphere-multipoles\n\nMove the radius and watch the order: magnetic dipole first, then electric dipole and magnetic quadrupole close\ntogether, then the electric quadrupole. The electric dipole is broad because it also radiates from the particle's\npolarization outside the resonance; the magnetic modes, confined inside the sphere, are narrower.\n\n::: classic kuznetsov-2012\n\n## Forward and backward\n\nThe far field in the forward and backward directions follows from the same coefficients:\n\n$$\nQ_\\mathrm{f} = \\frac{1}{x^2}\\left|\\sum_\\ell (2\\ell+1)(a_\\ell + b_\\ell)\\right|^2,\n\\qquad\nQ_\\mathrm{b} = \\frac{1}{x^2}\\left|\\sum_\\ell (2\\ell+1)(-1)^\\ell (a_\\ell - b_\\ell)\\right|^2 .\n$$\n\nElectric and magnetic multipoles of the same order add in the forward direction and subtract backwards. If only the\ndipoles matter and $a_1 = b_1$, the backscattering vanishes: the **first Kerker condition**, found by Kerker, Wang and\nGiles (1983) for spheres with $\\varepsilon = \\mu$. A silicon sphere reaches it where its electric- and magnetic-dipole\ncurves cross on the long-wavelength side of the magnetic resonance, and scatters forward almost only (Fu et al.,\n2013). The **second Kerker condition**, $a_1 = -b_1$, minimises forward scattering, but cannot null it: the optical\ntheorem ties forward scattering to the extinction, which is never zero.\n\n::: classic fu-2013\n\n## Beyond the dipoles\n\nWhen an electric dipole and a toroidal dipole of the same strength radiate in antiphase, their far fields cancel and\nthe electric-dipole scattering nearly vanishes while the field inside stays strong: the anapole (Miroshnichenko et al.,\n2015). In the Mie picture it is simply a zero of $a_1$, visible in the decomposition as a dip of the electric dipole\nbetween resonances.\n",
    "prev": "mie-scattering",
+   "next": "recursive-transfer-matrix"
+  },
+  {
+   "id": "recursive-transfer-matrix",
+   "kind": "learn",
+   "geometry": "spheres",
+   "title": "The multilayered sphere: a recursive transfer matrix",
+   "summary": "Mie's solution extended to any number of concentric shells: the fields of each shell as regular and outgoing multipoles, the 2×2 transfer matrix of one interface written in Riccati–Bessel functions, raising and lowering through the shells, the two conditions that close the system, and the numerical discipline (logarithmic amplitudes, ratios of Bessel functions) that makes thousands of orders and nanometre shells safe. Plasmon hybridization in a nanoshell as the first application.",
+   "chapter": "The multilayered sphere",
+   "chapter_order": 2,
+   "order": 1,
+   "slug": "recursive-transfer-matrix",
+   "url": "learn/spheres/recursive-transfer-matrix.html",
+   "topic": "multilayer-sphere",
+   "sources": [
+    "plane_wave",
+    "dipole"
+   ],
+   "examples": [],
+   "classics": [
+    "prodan-2003"
+   ],
+   "references": [
+    {
+     "cite": "A. L. Aden and M. Kerker, J. Appl. Phys. 22, 1242 (1951)",
+     "doi": "10.1063/1.1699834"
+    },
+    {
+     "cite": "A. Moroz, Ann. Phys. 315, 352 (2005)",
+     "doi": "10.1016/j.aop.2004.07.002"
+    },
+    {
+     "cite": "I. L. Rasskazov, P. S. Carney and A. Moroz, OSA Continuum 3, 2290 (2020)",
+     "doi": "10.1364/OSAC.399979"
+    },
+    {
+     "cite": "W. Yang, Appl. Opt. 42, 1710 (2003)",
+     "doi": "10.1364/AO.42.001710"
+    },
+    {
+     "cite": "O. Peña and U. Pal, Comput. Phys. Commun. 180, 2348 (2009)",
+     "doi": "10.1016/j.cpc.2009.07.010"
+    },
+    {
+     "cite": "E. Prodan, C. Radloff, N. J. Halas and P. Nordlander, Science 302, 419 (2003)",
+     "doi": "10.1126/science.1089171"
+    },
+    {
+     "cite": "C. F. Bohren and D. R. Huffman, Absorption and Scattering of Light by Small Particles (Wiley, 1983), §8.1",
+     "doi": "10.1002/9783527618156"
+    }
+   ],
+   "status": "published",
+   "body": "Aden and Kerker solved the coated sphere in 1951 by writing out the boundary conditions at both interfaces and\ninverting the resulting $4\\times 4$ system. For a nanomatryoshka with four shells that route gives an $8\\times 8$\nsystem, for a graded profile sampled in a hundred steps it is hopeless, and in every case the direct inversion is\nnumerically fragile. The transfer-matrix formulation of the [Foundations](learn/common/why-transfer-matrices.html)\nchapter does better: one $2\\times 2$ matrix per interface and per channel, multiplied inward or outward, with the\nsame code for a plane wave and for a dipole inside or outside any shell. This section writes that recursion down in the\nform PyStratify implements, following Moroz (2005) and the STRATIFY paper.\n\n## The fields in each shell\n\nNumber the regions from the core outward, $n = 1, \\dots, N + 1$, the host being $N + 1$; region $n$ has index $n_n$,\nwavenumber $k_n = n_n k_0$ and permeability $\\mu_n$, and the interface between $n$ and $n + 1$ sits at $r_n$. In each\nregion the electric field is a sum over the composite angular index $L = (\\ell, m)$ and the two polarizations\n$p = M$ (magnetic, TE) and $p = E$ (electric, TM) of a regular and an outgoing multipole,\n\n$$\n\\mathbf{E}(\\mathbf{r}) = \\sum_{p, L}\\left[A_{pL}(n)\\,\\mathbf{J}_{pL}(k_n, \\mathbf{r}) + B_{pL}(n)\\,\\mathbf{H}_{pL}(k_n, \\mathbf{r})\\right],\n$$\n\nwhere $\\mathbf{J}$ and $\\mathbf{H}$ are the vector multipole fields built on $j_\\ell$ and $h^{(1)}_\\ell$ with the\nnormalised vector spherical harmonics $\\mathbf{Y}^{(m)}_L$, $\\mathbf{Y}^{(e)}_L$, $\\mathbf{Y}^{(o)}_L$ (Jackson's; Bohren\nand Huffman's $\\mathbf{M}$, $\\mathbf{N}$ give the same results). The magnetic field follows from\n$\\mathbf{H} = -i\\sqrt{\\varepsilon_n/\\mu_n}\\,\\nabla\\times\\mathbf{E}/k_n$, which swaps $\\mathbf{J}_{ML}$ and\n$\\mathbf{J}_{EL}$: the magnetic multipole's $\\mathbf{H}$ looks like an electric multipole's $\\mathbf{E}$, and vice\nversa. The amplitudes $A_{pL}(n)$, $B_{pL}(n)$ are the unknowns, two per region, per $\\ell$, per polarization. Because\nthe harmonics are orthogonal and the problem has spherical symmetry, nothing couples different $L$ or different $p$:\nevery channel $(p, \\ell)$ is a scalar problem of the Foundations type, and $m$ never appears in the matrices.\n\n## The transfer matrix of one interface\n\nContinuity of the tangential $\\mathbf{E}$ and $\\mathbf{H}$ at $r_n$ links the amplitudes on both sides. With the\nRiccati–Bessel functions $\\psi_\\ell(z) = z\\, j_\\ell(z)$, $\\zeta_\\ell(z) = z\\, h^{(1)}_\\ell(z)$, the internal size\nparameter $x_n = k_n r_n$, the external one $\\tilde{x}_n = k_{n+1} r_n$, and the relative index and permeability\n$\\tilde{\\eta}_n = n_n / n_{n+1}$, $\\tilde{\\mu}_n = \\mu_n/\\mu_{n+1}$, the **lowering** matrix that carries the outer\namplitudes to the inner ones for a magnetic multipole is\n\n$$\n\\begin{pmatrix} A_{ML}(n) \\\\ B_{ML}(n) \\end{pmatrix} = T^-_{M\\ell}(n) \\begin{pmatrix} A_{ML}(n+1) \\\\ B_{ML}(n+1) \\end{pmatrix},\n\\qquad\nT^-_{M\\ell}(n) = -i\n\\begin{pmatrix}\n\\tilde{\\eta}\\,\\zeta_\\ell'(x)\\,\\psi_\\ell(\\tilde{x}) - \\tilde{\\mu}\\,\\zeta_\\ell(x)\\,\\psi_\\ell'(\\tilde{x})\n& \\tilde{\\eta}\\,\\zeta_\\ell'(x)\\,\\zeta_\\ell(\\tilde{x}) - \\tilde{\\mu}\\,\\zeta_\\ell(x)\\,\\zeta_\\ell'(\\tilde{x}) \\\\\n-\\tilde{\\eta}\\,\\psi_\\ell'(x)\\,\\psi_\\ell(\\tilde{x}) + \\tilde{\\mu}\\,\\psi_\\ell(x)\\,\\psi_\\ell'(\\tilde{x})\n& -\\tilde{\\eta}\\,\\psi_\\ell'(x)\\,\\zeta_\\ell(\\tilde{x}) + \\tilde{\\mu}\\,\\psi_\\ell(x)\\,\\zeta_\\ell'(\\tilde{x})\n\\end{pmatrix},\n$$\n\nwith $x = x_n$, $\\tilde{x} = \\tilde{x}_n$ and the subscript $n$ dropped on $\\tilde{\\eta}$, $\\tilde{\\mu}$. The electric\nmatrix $T^-_{E\\ell}$ is the same expression with $\\tilde{\\eta}$ and $\\tilde{\\mu}$ interchanged, and the **raising**\nmatrices $T^+ = (T^-)^{-1}$ have the same shape with the roles of $x$ and $\\tilde{x}$ exchanged and $\\tilde{\\eta}$,\n$\\tilde{\\mu}$ in the denominators. The prefactor $-i$ is the inverse Wronskian $\\psi_\\ell\\zeta_\\ell' -\n\\psi_\\ell'\\zeta_\\ell = i$, which is what makes the matrix exactly invertible; $\\det T^\\pm = \\tilde{\\eta}\\tilde{\\mu}$\nup to the normalisation of the fields, never zero.\n\n## Raising, lowering, and the two closing conditions\n\nMultiplying the matrices of successive interfaces moves the pair of amplitudes through the whole onion:\n\n$$\n\\begin{pmatrix} A_{pL}(n) \\\\ B_{pL}(n) \\end{pmatrix} = \\mathcal{T}_{p\\ell}(n)\\begin{pmatrix} A_{pL}(1) \\\\ B_{pL}(1) \\end{pmatrix},\n\\quad \\mathcal{T}_{p\\ell}(n) = \\prod_{j = n-1}^{1} T^+_{p\\ell}(j);\n\\qquad\n\\begin{pmatrix} A_{pL}(n) \\\\ B_{pL}(n) \\end{pmatrix} = \\mathcal{M}_{p\\ell}(n)\\begin{pmatrix} A_{pL}(N+1) \\\\ B_{pL}(N+1) \\end{pmatrix},\n\\quad \\mathcal{M}_{p\\ell}(n) = \\prod_{j = n}^{N} T^-_{p\\ell}(j),\n$$\n\nwith $\\mathcal{M}_{p\\ell}(1) = \\mathcal{T}_{p\\ell}(N+1)^{-1}$. For $N$ interfaces these are $2N$ equations for\n$2(N+1)$ amplitudes per channel; two more conditions close the system:\n\n- **regularity at the centre**: no outgoing (singular) wave emerges from the origin unless a source sits there, so\n  $B_{pL}(1) = 0$;\n- **the source**: for a plane wave, the regular amplitude in the host is the known expansion of the incident wave,\n  $A_{pL}(N+1) = A^{\\mathrm{inc}}_{pL}$, and the outgoing amplitude $B_{pL}(N+1)$ is the scattered wave.\n\nWriting $\\mathcal{T}_{p\\ell}(N+1) = \\begin{pmatrix} \\mathcal{T}_{11} & \\mathcal{T}_{12} \\\\ \\mathcal{T}_{21} &\n\\mathcal{T}_{22}\\end{pmatrix}$ and applying both conditions gives the scattered amplitude in one line,\n\n$$\nB_{pL}(N+1) = \\frac{\\mathcal{T}_{21}}{\\mathcal{T}_{11}}\\, A_{pL}(N+1) ,\n$$\n\nso the whole multilayered sphere has been reduced to a homogeneous one with **composite Mie coefficients**\n$a_\\ell, b_\\ell = \\mathcal{T}_{21}/\\mathcal{T}_{11}$ (up to the sign convention of the outgoing wave). Every far-field\nformula of [Mie theory](learn/spheres/mie-scattering.html), the efficiencies, the scattering pattern, the\n[multipole decomposition](learn/spheres/multipoles.html), the Kerker conditions, holds unchanged with these\ncoefficients; the near field in any shell is read off from the amplitudes $\\mathcal{T}(n)$ produced on the way. A\n**dipole source** in shell $n_d$ changes only the second condition: the outgoing amplitude jumps by the dipole's own\nmultipole expansion at $r_d$, and \"no incoming wave from infinity\" replaces the plane wave; the matrices are the same.\nThat is the subject of the [next section](learn/spheres/dipole-near-a-sphere.html).\n\n## Numerical discipline\n\nThe elegance of the recursion hides two traps that have broken many published codes.\n\n**Growth of the Riccati–Bessel functions.** For complex argument $z$, $\\zeta_\\ell(z)$ grows like $e^{|\\mathrm{Im}\\,z|}$\nand $\\psi_\\ell(z)$ like $e^{|\\mathrm{Im}\\,z|}$ too, while for $|z| \\ll \\ell$ the pair behaves as $z^{\\ell+1}$ and\n$z^{-\\ell}$: inside a metal shell or at high orders, the matrix elements span hundreds of orders of magnitude and the\nproducts lose every digit or overflow. Yang's \"improved recursive algorithm\" and scattnlay avoid the worst of it with\nratios and logarithmic derivatives of the Bessel functions. PyStratify goes one step further and carries each\namplitude together with its logarithm, so that the growing factors are divided out before any product is formed and a\nsphere with a 2 nm silver shell at $\\ell = 500$ is as safe as a glass bead at $\\ell = 5$. The\n[Verification](verification.html) page compares this recursion with the same formulas evaluated in 60-digit\narithmetic, and with scattnlay and treams, down to $10^{-11}$ in the cross sections and $10^{-13}$ in the fields.\n\n**Truncation and the internal size parameter.** Wiscombe's rule for the number of orders, $\\ell_\\mathrm{max} = x +\n4x^{1/3} + 2$ with $x$ the host size parameter, is designed for the far field of a homogeneous sphere. A high-index\ncore, where the internal wavelength is short, and a dipole close to a surface both need more orders, so the engine\ntakes the largest internal $|m| x$ into account and, for emitters, continues until the rates converge. The order\ncount the calculator reports is this adaptive one.\n\n## The first application: plasmon hybridization\n\nA metal shell on a dielectric core has two surfaces, and each supports a plasmon, that of a cavity in the metal and\nthat of a sphere of metal. In a thin shell the two couple and split into a low-energy **bonding** and a high-energy\n**antibonding** mode, whose separation grows as the shell thins: the nanoshell's resonance can be tuned from the\nvisible deep into the near infrared with the shell thickness alone, which is the basis of its use in photothermal\ntherapy. Prodan, Radloff, Halas and Nordlander described this with a hybridization picture borrowed from molecular\norbital theory, and demonstrated it on a **nanomatryoshka**, a nanoshell inside a nanoshell, whose two shell plasmons\nhybridize once more when the dielectric spacer between them is thin. In the transfer-matrix language all of this is\nin the composite coefficient $a_1$: four interfaces, four matrices, and the zeros of $\\mathcal{T}_{11}$ in the complex\nfrequency plane are the hybridized modes.\n\n::: classic prodan-2003\n",
+   "prev": "multipoles-and-kerker",
+   "next": "dipole-near-a-sphere"
+  },
+  {
+   "id": "dipole-near-a-sphere",
+   "kind": "learn",
+   "geometry": "spheres",
+   "title": "A dipole near a sphere: decay rates, quenching and enhancement",
+   "summary": "A molecule or quantum dot beside, or inside, a sphere: how its field is expanded in multipoles, how the sphere's transfer matrices return it, the radiative and non-radiative decay rates that result, the quantum yield, and the competition between enhancement and quenching that fixes the best distance for enhanced fluorescence.",
+   "chapter": "Emitters near spheres",
+   "chapter_order": 3,
+   "order": 1,
+   "slug": "dipole-near-a-sphere",
+   "url": "learn/spheres/dipole-near-a-sphere.html",
+   "topic": "sphere-emitters",
+   "sources": [
+    "dipole"
+   ],
+   "examples": [],
+   "classics": [
+    "ruppin-1982",
+    "anger-2006"
+   ],
+   "references": [
+    {
+     "cite": "R. Ruppin, J. Chem. Phys. 76, 1681 (1982)",
+     "doi": "10.1063/1.443196"
+    },
+    {
+     "cite": "H. Chew, J. Chem. Phys. 87, 1355 (1987)",
+     "doi": "10.1063/1.453317"
+    },
+    {
+     "cite": "Y. S. Kim, P. T. Leung and T. F. George, Surf. Sci. 195, 1 (1988)",
+     "doi": "10.1016/0039-6028(88)90776-5"
+    },
+    {
+     "cite": "A. Moroz, Ann. Phys. 315, 352 (2005)",
+     "doi": "10.1016/j.aop.2004.07.002"
+    },
+    {
+     "cite": "R. Carminati, J.-J. Greffet, C. Henkel and J. M. Vigoureux, Opt. Commun. 261, 368 (2006)",
+     "doi": "10.1016/j.optcom.2005.12.009"
+    },
+    {
+     "cite": "P. Anger, P. Bharadwaj and L. Novotny, Phys. Rev. Lett. 96, 113002 (2006)",
+     "doi": "10.1103/PhysRevLett.96.113002"
+    },
+    {
+     "cite": "L. Novotny and B. Hecht, Principles of Nano-Optics, 2nd ed. (Cambridge University Press, 2012), ch. 8",
+     "doi": "10.1017/CBO9780511794193"
+    }
+   ],
+   "status": "published",
+   "body": "A metal nanoparticle next to a fluorescent molecule can make it brighter by an order of magnitude or switch it off\ncompletely, and the difference is a few nanometres of distance. Both effects come out of the same calculation: the\ndipole's own field, reflected by the sphere, acts back on the dipole. The sphere's response is the set of\n[transfer matrices](learn/spheres/recursive-transfer-matrix.html) already built for the plane wave; only the source\nchanges, from a wave arriving from infinity to a singular outgoing wave at the dipole's position. Ruppin's 1982 paper\ndid this for a molecule beside a small silver sphere, Chew's 1987 paper gave the closed expressions used ever since,\nand Kim, Leung and George extended them to a dipole inside a coated sphere.\n\n## The dipole's field as outgoing multipoles\n\nAn electric dipole $\\mathbf{p}$ at $\\mathbf{r}_d$ radiates the field of a point source, which, seen from the sphere's\ncentre, is a sum of outgoing multipoles $\\mathbf{H}_{pL}(k, \\mathbf{r})$ for $r > r_d$ and of regular ones for\n$r < r_d$, with known coefficients (the expansion of the free-space Green dyadic). A dipole therefore enters the\ntransfer-matrix recursion as a **jump in the amplitudes** at the radius $r_d$: between the inside and the outside of\nthe shell that contains it, $A_{pL}$ and $B_{pL}$ change by the dipole's own multipole coefficients. The two closing\nconditions are regularity at the centre, $B_{pL}(1) = 0$, and no incoming wave from infinity, $A_{pL}(N+1) = 0$. Solving\nthe $2\\times 2$ system per channel gives the field everywhere, and in particular the reflected field at the dipole,\nwhich is what decides its fate.\n\nUnlike a plane wave, which excites only $m = \\pm 1$, a dipole off the centre excites every $m$ for each $\\ell$, and\na dipole close to the surface excites high $\\ell$ strongly, because the near field of a point source is rich in\nshort-wavelength harmonics. The sums below therefore converge slowly at small distances, and the engine extends the\nnumber of orders until they do.\n\n## Radiative and non-radiative rates\n\nThe power the dipole radiates to the far field, relative to the same dipole in the unbounded host, is a sum over\norders of the squared total exterior field amplitudes at the dipole's radius. For a dipole outside a sphere at\ndistance $r_d$ from the centre, with $z = k_h r_d$ and the Riccati–Bessel functions $\\psi_\\ell$, $\\xi_\\ell$, Chew's\nresults read, for the **radial** (perpendicular) and **tangential** (parallel) orientations,\n\n$$\n\\frac{\\Gamma^\\mathrm{rad}_\\perp}{\\Gamma_0} = \\frac{3}{2 z^4}\\sum_{\\ell=1}^{\\infty} \\ell(\\ell+1)(2\\ell+1)\\,\\bigl|\\psi_\\ell(z) + a_\\ell\\,\\xi_\\ell(z)\\bigr|^2,\n\\qquad\n\\frac{\\Gamma^\\mathrm{rad}_\\parallel}{\\Gamma_0} = \\frac{3}{4 z^2}\\sum_{\\ell=1}^{\\infty} (2\\ell+1)\\left[\\bigl|\\psi_\\ell'(z) + a_\\ell\\,\\xi_\\ell'(z)\\bigr|^2 + \\bigl|\\psi_\\ell(z) + b_\\ell\\,\\xi_\\ell(z)\\bigr|^2\\right],\n$$\n\nwhere $a_\\ell$, $b_\\ell$ are the sphere's (composite) Mie coefficients in the convention in which the total exterior\nfield of order $\\ell$ is $\\psi_\\ell + a_\\ell\\xi_\\ell$. A radial dipole drives electric multipoles only; a tangential one\ndrives both. Far from the sphere ($z \\to \\infty$) the brackets oscillate about $\\psi_\\ell$ and the rates tend to\n$\\Gamma_0$ with a decaying ripple of period half a wavelength, the spherical version of Drexhage's oscillations.\n\nAn absorbing sphere also takes power that never reaches the far field: the dipole's near field drives currents in the\nmetal. The **non-radiative** rate is this absorbed power, obtained either from Poynting's theorem on a surface just\ninside the sphere, or as the total rate minus the radiative one, where the total follows from the imaginary part of the\nreflected field at the dipole, $\\Gamma^\\mathrm{tot}/\\Gamma_0 = 1 + \\tfrac{6\\pi}{k^3}\\,\\mathrm{Im}\\,[\\hat{\\mathbf{p}}\\cdot\n\\mathbf{E}_\\mathrm{refl}(\\mathbf{r}_d)]/|\\mathbf{p}|$ in the normalisation of Novotny and Hecht. PyStratify computes\nthe three rates separately and reports the total as their sum, which is a check in itself: for a lossless sphere the\nnon-radiative rate must vanish to machine precision.\n\n## Quenching, enhancement and the best distance\n\nTwo opposite trends meet at the surface of a metal sphere. The **radiative** rate is enhanced near the particle's\nplasmon resonance, because the sphere acts as an antenna that radiates the dipole's near field efficiently, and the\nenhancement reaches further out for a larger sphere. The **non-radiative** rate grows without bound as the dipole\napproaches the surface, like $d^{-3}$ in the quasi-static limit for a local metal, because the high-$\\ell$ multipoles\nthat a nearby dipole excites are dark: they store the energy in the metal and dissipate it. The quantum yield of the\ncoupled system,\n\n$$\nq = \\frac{\\Gamma^\\mathrm{rad}}{\\Gamma^\\mathrm{rad} + \\Gamma^\\mathrm{nr} + \\Gamma_0(1 - q_0)/q_0},\n$$\n\ntherefore collapses within the first few nanometres (this is quenching), rises to a maximum at a distance of the order\nof the particle's radius, and returns to the intrinsic yield $q_0$ far away. The maximum sits further out for a larger\nsphere, which Anger, Bharadwaj and Novotny measured by scanning a gold particle over a single molecule: an 80 nm\nsphere enhances the fluorescence by a factor of several at about 5 nm, a 20 nm sphere mostly quenches. Fluorescence\nis the product of two factors, the excitation rate, proportional to the local plane-wave intensity $|\\mathbf{E}|^2$ at\nthe molecule, and the quantum yield; both are sphere calculations, one with a plane wave and one with a dipole, and\nthe calculator runs them with the same inputs.\n\n::: classic anger-2006\n\n::: classic ruppin-1982\n\n## Inside a sphere, and in a shell\n\nA dipole **inside** a sphere, or in one of its shells, is handled by the same recursion with the jump placed in that\nshell; the radiative rate then involves the amplitudes transmitted to the host, and the formula gains the host's\nand the shell's indices as prefactors (Chew; Kim, Leung and George). This is the model of a dye molecule inside a\nsilica bead, of an emitter in the dielectric spacer of a nanomatryoshka, and, with the sphere of the size of a cell,\nof the autofluorescence seen through a microscope. An emitter in a lossless dielectric sphere shows no quenching at\nall, only the oscillation of the radiative rate with position and the sharp enhancements at the sphere's\nwhispering-gallery resonances, which for a large sphere of high index can reach factors of thousands over a narrow\nband: the Purcell effect in its original form.\n\n## What the model leaves out\n\nThe emitter is a point dipole of fixed frequency and the metal a local, homogeneous medium with a bulk permittivity;\nwithin a nanometre or two of the surface the electron gas's nonlocal response, electron spill-out and the discreteness of\nthe lattice change the quenching law, and the calculated rate at contact is a limit rather than a prediction. A\ndielectric host surrounding the dipole must be lossless for the free-space rate $\\Gamma_0$ to be defined. Within those\nlimits the formulas above are exact, and the [Verification](verification.html) page lists their checks against\nindependently written Sommerfeld-type integrals, against smuthi and treams, and against the finite-difference and\nfinite-element methods that know nothing about multipoles.\n",
+   "prev": "recursive-transfer-matrix",
+   "next": null
+  },
+  {
+   "id": "maxwell-and-boundary-conditions",
+   "kind": "learn",
+   "geometry": "common",
+   "title": "Maxwell's equations, boundary conditions and the wave equation",
+   "summary": "The equations every page of this site rests on: Maxwell's equations in a piecewise homogeneous medium, the time convention, the continuity of tangential E and H at an interface, and how separation of variables turns the vector problem for a film, a cylinder or a sphere into one scalar second-order equation per channel.",
+   "chapter": "Foundations",
+   "chapter_order": 1,
+   "order": 1,
+   "slug": "maxwell-and-boundary-conditions",
+   "url": "learn/common/maxwell-and-boundary-conditions.html",
+   "topic": "foundations",
+   "sources": [
+    "plane_wave",
+    "dipole",
+    "focused"
+   ],
+   "examples": [],
+   "classics": [],
+   "references": [
+    {
+     "cite": "J. D. Jackson, Classical Electrodynamics, 3rd ed. (Wiley, 1999), ch. 7 and §9.7"
+    },
+    {
+     "cite": "J. A. Stratton, Electromagnetic Theory (McGraw-Hill, 1941), ch. VI–VII and IX"
+    },
+    {
+     "cite": "M. Born and E. Wolf, Principles of Optics, 7th ed. (Cambridge University Press, 1999), §1.1–1.6",
+     "doi": "10.1017/CBO9781139644181"
+    },
+    {
+     "cite": "C. F. Bohren and D. R. Huffman, Absorption and Scattering of Light by Small Particles (Wiley, 1983), ch. 2–4 and 8",
+     "doi": "10.1002/9783527618156"
+    },
+    {
+     "cite": "A. Moroz, Ann. Phys. 315, 352 (2005)",
+     "doi": "10.1016/j.aop.2004.07.002"
+    },
+    {
+     "cite": "I. L. Rasskazov, P. S. Carney and A. Moroz, OSA Continuum 3, 2290 (2020)",
+     "doi": "10.1364/OSAC.399979"
+    }
+   ],
+   "status": "published",
+   "body": "Everything the calculator computes, for a thin-film stack, a coated cylinder or a multilayered sphere, lit by a plane\nwave, a point dipole or a focused beam, follows from the same four equations and the same two boundary conditions.\nThis section states them once, fixes the conventions used throughout the site, and shows the step that makes all\nthree geometries tractable: separation of variables, which turns the vector field problem into a scalar second-order\nordinary differential equation in one coordinate. The next section explains why that equation is solved, in every\ngeometry, by a $2\\times 2$ transfer matrix.\n\n## Maxwell's equations in a piecewise homogeneous medium\n\nThe media on this site are **linear, isotropic and piecewise homogeneous**: the stack, the cylinder and the sphere are\nmade of regions in which the relative permittivity $\\varepsilon$ and permeability $\\mu$ are constants, separated by\nsharp interfaces. Inside each region, with no free charges or currents, Maxwell's equations read\n\n$$\n\\nabla\\cdot\\mathbf{D} = 0, \\qquad \\nabla\\cdot\\mathbf{B} = 0, \\qquad\n\\nabla\\times\\mathbf{E} = -\\frac{\\partial \\mathbf{B}}{\\partial t}, \\qquad\n\\nabla\\times\\mathbf{H} = \\frac{\\partial \\mathbf{D}}{\\partial t},\n$$\n\nwith the constitutive relations $\\mathbf{D} = \\varepsilon_0\\varepsilon\\,\\mathbf{E}$ and\n$\\mathbf{B} = \\mu_0\\mu\\,\\mathbf{H}$.\n\n**The time convention.** Every field is monochromatic with the time dependence $e^{-i\\omega t}$, so a plane wave\ntravelling along $+z$ is $e^{i(kz - \\omega t)}$. With this convention an absorbing medium has a refractive index with a\n*positive* imaginary part, $n = n' + i n''$, $n'' \\ge 0$, which is how the optical-constant tables on this site list\n$n$ and $k$ (the calculator's $k$ is $n''$). Engineers often use $e^{+j\\omega t}$ instead, where the same medium has\n$n' - j n''$; results carry over by complex conjugation, and the sign of every phase and of $\\Delta$ in ellipsometry\nflips with it. For harmonic fields the curl equations become\n\n$$\n\\nabla\\times\\mathbf{E} = i\\omega\\mu_0\\mu\\,\\mathbf{H}, \\qquad\n\\nabla\\times\\mathbf{H} = -i\\omega\\varepsilon_0\\varepsilon\\,\\mathbf{E},\n$$\n\nso that $\\mathbf{H}$ is fixed by $\\mathbf{E}$ alone: $\\mathbf{H} = (i\\omega\\mu_0\\mu)^{-1}\\nabla\\times\\mathbf{E}$.\nIn each homogeneous region, taking the curl once more gives the vector Helmholtz equation\n\n$$\n\\nabla\\times\\nabla\\times\\mathbf{E} - k^2\\mathbf{E} = 0, \\qquad k = \\frac{\\omega}{c}\\,n, \\qquad n = \\sqrt{\\varepsilon\\mu},\n$$\n\nand $\\nabla\\cdot\\mathbf{E} = 0$. The vacuum wavenumber is $k_0 = \\omega/c = 2\\pi/\\lambda$, with $\\lambda$ the vacuum\nwavelength, which is the wavelength every spectrum on this site is plotted against. The wave impedance of a region,\n$Z = Z_0\\sqrt{\\mu/\\varepsilon}$, is what distinguishes a magnetic medium from a dielectric of the same $n$; for the\nnon-magnetic materials that make up almost every example here, $\\mu = 1$ and $n = \\sqrt{\\varepsilon}$.\n\n## The two boundary conditions\n\nAt an interface between two regions, integrating Faraday's and Ampère's laws over a vanishing loop that straddles it\ngives the conditions every solution must satisfy:\n\n$$\n\\hat{\\mathbf{n}}\\times(\\mathbf{E}_2 - \\mathbf{E}_1) = 0, \\qquad \\hat{\\mathbf{n}}\\times(\\mathbf{H}_2 - \\mathbf{H}_1) = 0 :\n$$\n\n**the tangential components of $\\mathbf{E}$ and of $\\mathbf{H}$ are continuous** (there are no surface currents in a\ndielectric or a metal described by a bulk $\\varepsilon$). Continuity of the normal components of $\\mathbf{D}$ and\n$\\mathbf{B}$ follows from these two together with the divergence equations and need not be imposed separately. Two\nconditions is exactly the number a second-order equation needs, and that count is the whole reason the transfer\nmatrix exists.\n\nOne exception matters on this site. A **two-dimensional sheet**, such as graphene, carries a surface current\n$\\mathbf{K} = \\sigma\\,\\mathbf{E}_\\parallel$ and makes the tangential $\\mathbf{H}$ jump by $\\hat{\\mathbf{n}}\\times\n\\mathbf{K}$; PyStratify models such sheets as a jump condition at the interface rather than as a layer of finite\nthickness. A **surface current** is also how an idealised metal is treated in the limit of a perfect conductor.\n\n## Separation of variables: one scalar equation per channel\n\nThe vector Helmholtz equation separates in exactly the coordinate systems in which the interfaces of our three\ngeometries are coordinate surfaces: planes $z = \\mathrm{const}$, cylinders $\\rho = \\mathrm{const}$ and spheres\n$r = \\mathrm{const}$. In each, the field is a superposition of modes labelled by the quantum numbers of the other two\ncoordinates, and the dependence on the coordinate normal to the interfaces is a scalar function $\\psi$ obeying a\n**second-order linear ordinary differential equation**. The three cases are:\n\n| geometry | normal coordinate | channel labels | the equation for $\\psi$ | its two independent solutions |\n|---|---|---|---|---|\n| films | $z$ | in-plane wavevector $\\mathbf{k}_\\parallel$; polarization s or p | $\\psi'' + k_z^2\\,\\psi = 0$, $k_z = \\sqrt{k^2 - k_\\parallel^2}$ | $e^{\\pm i k_z z}$ |\n| cylinders | $\\rho$ | azimuthal order $m$; axial wavenumber $k_z$ | Bessel's equation, $\\rho^2\\psi'' + \\rho\\psi' + (q^2\\rho^2 - m^2)\\psi = 0$, $q = \\sqrt{k^2 - k_z^2}$ | $J_m(q\\rho)$, $H^{(1)}_m(q\\rho)$ |\n| spheres | $r$ | angular momentum $\\ell$ (and $m$); electric or magnetic | spherical Bessel's equation, $(r\\psi)'' + \\left[k^2 - \\ell(\\ell+1)/r^2\\right] r\\psi = 0$ | $j_\\ell(kr)$, $h^{(1)}_\\ell(kr)$ |\n\nThe pattern is the same in every row. The first solution is regular (a standing or incoming wave, finite at the centre);\nthe second is outgoing and singular at the origin, where $h^{(1)}_\\ell$ and $H^{(1)}_m$ diverge. In a slab geometry the\nsame roles are played by waves running towards and away from an interface. Inside region $n$ the field of one channel\nis therefore\n\n$$\n\\psi(x) = A_n\\,\\psi_+(k_n x) + B_n\\,\\psi_-(k_n x),\n$$\n\nwith two unknown amplitudes per region and per channel. The vector field is rebuilt from $\\psi$ by the appropriate\nvector harmonics: for a film, $\\mathbf{E}$ is transverse to the plane of incidence (s, TE) or $\\mathbf{H}$ is (p, TM);\nfor a sphere, the **vector spherical harmonics** $\\mathbf{Y}^{(m)}_{\\ell m}$, $\\mathbf{Y}^{(e)}_{\\ell m}$,\n$\\mathbf{Y}^{(o)}_{\\ell m}$ of Jackson and Moroz (or Bohren and Huffman's $\\mathbf{M}_{o m \\ell}$,\n$\\mathbf{N}_{e m \\ell}$; the two notations give identical results) carry the angular dependence, and each $\\ell$\nsplits into an **electric** (TM) and a **magnetic** (TE) multipole; for a cylinder the orders $m$ carry\n$e^{im\\varphi}$, and at normal incidence the two polarizations, $\\mathbf{E}$ along the axis and $\\mathbf{H}$ along it,\ndecouple exactly as s and p do for a film. The channels are orthogonal, so **each channel is solved on its own**, and\nthe cross sections and powers are sums over channels with no cross terms.\n\nIn the boundary conditions, the continuity of tangential $\\mathbf{E}$ becomes the continuity of $\\psi$ (up to a known\nfactor) and the continuity of tangential $\\mathbf{H}$, which is proportional to $\\nabla\\times\\mathbf{E}$, becomes the\ncontinuity of a first derivative of $\\psi$ weighted by the region's admittance. At each of the $N$ interfaces, each\nchannel therefore gives **two linear equations**, exactly what is needed to pass from $(A_n, B_n)$ to\n$(A_{n+1}, B_{n+1})$.\n\n## Counting the unknowns\n\nFor $N$ interfaces there are $N + 1$ regions and $2(N+1)$ amplitudes per channel, and the interfaces supply $2N$\nequations. The two missing conditions describe the **source** and the far field:\n\n- **Regularity**: no singular outgoing wave may emerge from the centre of a sphere or the axis of a cylinder unless a\n  source sits there, so $B = 0$ in the core. For a film, the equivalent statement is that nothing travels *towards* the\n  stack from the far side of the substrate.\n- **The incident field**: a plane wave fixes the regular amplitude in the outermost region (for a film, the amplitude\n  of the wave arriving from the incident medium). A **point dipole** instead adds a known singular outgoing wave at its\n  own position, which is why a dipole problem is the same $2\\times 2$ problem with one amplitude shifted, and a\n  **focused beam** is a plane wave problem integrated over the angles the objective fills.\n\nThe reflected and transmitted waves of a film, the scattering coefficients $a_\\ell$, $b_\\ell$ of a sphere, and the\n$a_m$, $b_m$ of a cylinder are nothing but the remaining amplitudes once the system is solved. From them follow the\nfar field (reflectance and transmittance; cross sections and the scattering pattern), the near field in every region\n(the coefficients *are* the field), the power absorbed in each layer or shell by Poynting's theorem, and, for a\ndipole, the power it radiates compared with the same dipole in free space, which is its decay rate.\n\n## Conservation laws as checks\n\nBecause the medium is linear and the equations are exact, a lossless structure must satisfy $R + T = 1$ for a film\nand $Q_\\mathrm{ext} = Q_\\mathrm{sca}$ for a particle, and the reciprocity theorem relates a problem to its reverse.\nThese identities, together with the closed forms of a single interface (the Fresnel equations), a single sphere (Mie's\ncoefficients) and a single cylinder, are the first lines of the [Verification](verification.html) page: every solver on\nthis site is checked against them before it is checked against other codes and against papers.\n",
+   "prev": null,
+   "next": "why-transfer-matrices"
+  },
+  {
+   "id": "why-transfer-matrices",
+   "kind": "learn",
+   "geometry": "common",
+   "title": "Why a 2×2 transfer matrix solves every stratified geometry",
+   "summary": "The one idea behind this site's engine: a second-order wave equation has two independent solutions, so the two boundary conditions at an interface always give an invertible 2×2 matrix. Multiplying those matrices across the interfaces solves a film, a coated cylinder or a multilayered sphere with any number of layers, for plane waves and dipoles alike, and the same construction shows where the numerics bite and how PyStratify keeps them stable.",
+   "chapter": "Foundations",
+   "chapter_order": 1,
+   "order": 2,
+   "slug": "why-transfer-matrices",
+   "url": "learn/common/why-transfer-matrices.html",
+   "topic": "foundations",
+   "sources": [
+    "plane_wave",
+    "dipole",
+    "focused"
+   ],
+   "examples": [],
+   "classics": [],
+   "references": [
+    {
+     "cite": "F. Abelès, Ann. Phys. (Paris) 12, 596 (1950)",
+     "doi": "10.1051/anphys/195012050596"
+    },
+    {
+     "cite": "P. Yeh, A. Yariv and C.-S. Hong, J. Opt. Soc. Am. 67, 423 (1977)",
+     "doi": "10.1364/JOSA.67.000423"
+    },
+    {
+     "cite": "A. Moroz, Ann. Phys. 315, 352 (2005)",
+     "doi": "10.1016/j.aop.2004.07.002"
+    },
+    {
+     "cite": "I. L. Rasskazov, P. S. Carney and A. Moroz, OSA Continuum 3, 2290 (2020)",
+     "doi": "10.1364/OSAC.399979"
+    },
+    {
+     "cite": "W. Yang, Appl. Opt. 42, 1710 (2003)",
+     "doi": "10.1364/AO.42.001710"
+    },
+    {
+     "cite": "S. J. Byrnes, Multilayer optical calculations, arXiv:1603.02720 (2016)",
+     "url": "https://arxiv.org/abs/1603.02720"
+    },
+    {
+     "cite": "H. A. Macleod, Thin-Film Optical Filters, 3rd ed. (Institute of Physics Publishing, 2001), ch. 2"
+    }
+   ],
+   "status": "published",
+   "body": "The [previous section](learn/common/maxwell-and-boundary-conditions.html) reduced each geometry to a scalar equation\nof the form\n\n$$\n\\frac{\\mathrm{d}^2\\Psi}{\\mathrm{d}x^2} + k^2(x)\\,\\Psi = 0\n$$\n\n(or its Bessel cousins), with a **piecewise constant** $k$. This section is about the single consequence that makes\nthe whole site possible: such an equation is solved, in every geometry, by multiplying $2\\times 2$ matrices. The\nargument takes a paragraph, and it is worth having it clearly in mind, because every later section (the Abelès\nmatrix of a film, the Mie coefficients of a sphere, the coefficients of a coated cylinder) is one instance of it.\n\n## Two solutions, two conditions, one invertible matrix\n\nA linear second-order equation has exactly two linearly independent solutions in each region, call them $\\psi_+$ and\n$\\psi_-$ (the outgoing and incoming, or regular and singular, waves of the table in the previous section). The field\nin region $n$ is\n\n$$\n\\Psi(x) = A_n\\,\\psi_+(k_n x) + B_n\\,\\psi_-(k_n x).\n$$\n\nAt the interface $x_n$ between regions $n$ and $n+1$ the boundary conditions require continuity of $\\Psi$ and of its\n\"derivative\" $\\Psi'$ (for electromagnetic waves, of the tangential $\\mathbf{E}$ and of the tangential $\\mathbf{H}$,\nthe latter being $\\nabla\\times\\mathbf{E}$ up to an admittance). In matrix form,\n\n$$\n\\begin{pmatrix} \\psi_+(k_n x_n) & \\psi_-(k_n x_n) \\\\ \\psi_+'(k_n x_n) & \\psi_-'(k_n x_n) \\end{pmatrix}\n\\begin{pmatrix} A_n \\\\ B_n \\end{pmatrix}\n=\n\\begin{pmatrix} \\psi_+(k_{n+1} x_n) & \\psi_-(k_{n+1} x_n) \\\\ \\psi_+'(k_{n+1} x_n) & \\psi_-'(k_{n+1} x_n) \\end{pmatrix}\n\\begin{pmatrix} A_{n+1} \\\\ B_{n+1} \\end{pmatrix}.\n$$\n\nThe determinant of either matrix is the **Wronskian** $W(\\psi_+, \\psi_-) = \\psi_+\\psi_-' - \\psi_+'\\psi_-$, and the\nWronskian of two independent solutions of a second-order linear equation is never zero (for $e^{\\pm ikx}$ it is\n$-2ik$; for the Riccati–Bessel pair $\\psi_\\ell = x j_\\ell$, $\\xi_\\ell = x h^{(1)}_\\ell$ it is $i$). Both matrices are\ntherefore invertible, by nothing more than Cramer's rule for a $2\\times 2$ matrix,\n\n$$\n\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}^{-1} = \\frac{1}{ad - bc}\\begin{pmatrix} d & -b \\\\ -c & a \\end{pmatrix},\n$$\n\nand the amplitudes on one side of an interface determine those on the other side **uniquely**, in either direction:\n\n$$\n\\begin{pmatrix} A_{n+1} \\\\ B_{n+1} \\end{pmatrix} = T^+_n \\begin{pmatrix} A_n \\\\ B_n \\end{pmatrix},\n\\qquad\n\\begin{pmatrix} A_n \\\\ B_n \\end{pmatrix} = T^-_n \\begin{pmatrix} A_{n+1} \\\\ B_{n+1} \\end{pmatrix},\n\\qquad T^-_n = (T^+_n)^{-1}.\n$$\n\n$T^\\pm_n$ is the **transfer matrix** of interface $n$. Nothing in this argument depends on the geometry: the moment a\nscalar linear second-order wave equation has been identified, a $2\\times 2$ transfer-matrix description is not a\nconvenient choice but the intrinsic structure of the problem.\n\n## Composition: any number of layers for the price of a product\n\nBecause the amplitudes of region $n+1$ feed the matrix of interface $n+1$, the matrices of successive interfaces\nmultiply. **Raising** carries the core's amplitudes outward,\n\n$$\n\\begin{pmatrix} A_{n} \\\\ B_{n} \\end{pmatrix} = \\mathcal{T}(n) \\begin{pmatrix} A_1 \\\\ B_1 \\end{pmatrix},\n\\qquad \\mathcal{T}(n) = T^+_{n-1}\\,T^+_{n-2}\\cdots T^+_1,\n$$\n\nand **lowering** carries the outer medium's amplitudes inward with the inverse product. For $N$ interfaces the cost is\n$N$ matrix products per channel: linear in the number of layers, with no matrix larger than $2\\times 2$ ever formed.\nThat is why the calculator treats a 50-period Bragg mirror, a nanomatryoshka with four shells and a bare interface\nwith the same code and the same speed, and why a multilayered sphere is formally **reduced to a homogeneous one**:\nthe composite matrix $\\mathcal{T}(N+1)$ plays, for the whole onion, the role the single-interface matrix plays for\nMie's sphere, and the cross sections keep Mie's form with composite coefficients.\n\nIn the planar case the product is Abelès' 1950 construction. Written for the tangential fields rather than for\nthe amplitudes it is the **characteristic matrix** of a layer, $\\begin{pmatrix}\\cos\\delta & (i/\\eta)\\sin\\delta \\\\\ni\\eta\\sin\\delta & \\cos\\delta\\end{pmatrix}$, whose product over the layers gives the admittance of a coating; the\n[transfer-matrix section](learn/films/transfer-matrix.html) for films develops it. For a periodic stack Yeh, Yariv\nand Hong showed that the eigenvalues of the unit cell's matrix decide whether a wave propagates or is stopped, which\nis the band structure of a Bragg mirror. For spheres the same products are the recursive algorithm of the\n[multilayered sphere](learn/spheres/recursive-transfer-matrix.html); for cylinders, of the\n[coated cylinder](learn/cylinders/infinite-cylinder.html).\n\n## Closing the system: the two conditions that are not at an interface\n\nThe products relate the $2(N+1)$ amplitudes by $2N$ equations. The remaining two are the physics of the source:\n\n- **Regularity at the centre** (or no wave from beyond the substrate): $B_1 = 0$ for a sphere or cylinder with the\n  source outside. The field in the core is then a regular wave of unknown amplitude $A_1$.\n- **The incident field**: the regular amplitude in the outermost region is the known plane wave, $A_{N+1} = 1$ in the\n  natural normalisation. The outgoing amplitude $B_{N+1}$ is the scattered wave: it is what $\\mathcal{T}$ returns, and\n  it *is* the Mie coefficient of order $\\ell$ (or the Fresnel reflection coefficient, or the cylinder's $a_m$).\n\nA **point dipole** changes only this last step: it adds a known outgoing wave in the region where it sits, so the\namplitudes jump by a prescribed amount at the dipole's radius, and the two conditions become regularity at the centre\nand *no incoming wave from infinity*. The same matrices, built once for the structure, then give the fields of a plane\nwave, of a dipole anywhere inside or outside, and, by integrating plane waves over a cone, of a focused beam. The\ncalculator's three sources share one solver for exactly this reason.\n\n## What the matrix gives for free\n\nSince the amplitudes $(A_n, B_n)$ in every region are produced along the way, the transfer matrix returns not just the\nfar field but the **field everywhere**: the standing-wave pattern inside a filter, the field at the surface of a\nsphere where a molecule sits, the power dissipated in each shell (from Poynting's theorem applied region by region).\nThe channels remain separate, so each multipole's share of the scattering, each polarization's reflectance and each\nguided mode's power are read off without any further work. These are the per-layer absorptance, the multipole\ndecomposition and the emission channels the calculator displays.\n\n## Where it bites, and how PyStratify stays stable\n\nThe construction is exact in arithmetic of infinite precision. In floating point two things go wrong, and both are\nvisible in the matrices above.\n\n1. **Growing exponentials.** In an absorbing layer, or where a wave is evanescent (beyond the critical angle, inside a\n   metal, in a sphere's high-order channels where $|m|x \\gg \\ell$), one of the two solutions grows exponentially across\n   the region. The transfer matrix carries both, so its elements grow like $e^{+|k''|d}$ and overflow for a thick metal\n   or a large sphere, long before the physics does anything unusual; worse, subtracting two huge numbers to recover a\n   small reflected amplitude loses every significant digit. The remedies are all variations on one theme: never\n   propagate the growing solution explicitly. Scattering-matrix (Redheffer star-product) formulations only ever combine\n   decaying exponentials; Byrnes' planar code, which `pystratify.planar` descends from, does the same for films; for\n   spheres and cylinders PyStratify carries the amplitudes together with their **logarithms**, so that the\n   Riccati–Bessel functions of complex argument, which grow like $e^{|\\mathrm{Im}\\, z|}$, are scaled out before any\n   product is formed. The sections on the [multilayered sphere](learn/spheres/recursive-transfer-matrix.html) describe\n   the recursion that results (Moroz 2005; Yang 2003; Rasskazov, Carney and Moroz 2020).\n2. **Truncation.** The sum over channels is infinite. For spheres the series converges once $\\ell$ exceeds the size\n   parameter by a few terms (Wiscombe's $\\ell_\\mathrm{max} = x + 4x^{1/3} + 2$), but a high-index core, a thin metal\n   shell or a dipole close to the surface needs more, because the field it radiates is rich in high orders;\n   PyStratify therefore raises the order to cover the largest internal size parameter and, for emitters, until the\n   rate converges. Keeping orders is cheap; dropping them silently is how a code reproduces Mie's figures and still\n   gets a quenching curve wrong.\n\nBoth points are tested, not assumed: the [Verification](verification.html) page lists the extended-precision\nreferences (the same recursion in 60-digit arithmetic), the independent codes and the closed forms against which every\ngeometry's transfer matrices are checked.\n",
+   "prev": "maxwell-and-boundary-conditions",
    "next": null
   },
   {
@@ -10151,7 +10543,7 @@
      "scale": 0.001,
      "min": 120,
      "max": 260,
-     "step": 1,
+     "step": 2,
      "value": 188
     }
    ],
@@ -12080,6 +12472,93 @@
      ]
     }
    },
+   "live": true,
+   "sweep": {
+    "axes": [
+     {
+      "id": "spacer",
+      "values": [
+       120.0,
+       122.0,
+       124.0,
+       126.0,
+       128.0,
+       130.0,
+       132.0,
+       134.0,
+       136.0,
+       138.0,
+       140.0,
+       142.0,
+       144.0,
+       146.0,
+       148.0,
+       150.0,
+       152.0,
+       154.0,
+       156.0,
+       158.0,
+       160.0,
+       162.0,
+       164.0,
+       166.0,
+       168.0,
+       170.0,
+       172.0,
+       174.0,
+       176.0,
+       178.0,
+       180.0,
+       182.0,
+       184.0,
+       186.0,
+       188.0,
+       190.0,
+       192.0,
+       194.0,
+       196.0,
+       198.0,
+       200.0,
+       202.0,
+       204.0,
+       206.0,
+       208.0,
+       210.0,
+       212.0,
+       214.0,
+       216.0,
+       218.0,
+       220.0,
+       222.0,
+       224.0,
+       226.0,
+       228.0,
+       230.0,
+       232.0,
+       234.0,
+       236.0,
+       238.0,
+       240.0,
+       242.0,
+       244.0,
+       246.0,
+       248.0,
+       250.0,
+       252.0,
+       254.0,
+       256.0,
+       258.0,
+       260.0
+      ]
+     }
+    ],
+    "shape": [
+     71
+    ],
+    "points": 71,
+    "file": "docs/sweeps/bandpass-filter.json",
+    "sha256": "328de951d56e78005b5a2538ed2335c102567e78689e5b58050b4e2c58811d3d"
+   },
    "code": "import numpy as np\nfrom pystratify import planar\nfrom pystratify.docs import material  # n + ik of a tabulated page (refractiveindex.info format)\n\nn = lambda wl: [1.52, material('docs/data/tutorials/TiO2_Sarkar.yml', wl), material('docs/data/tutorials/SiO2_Malitson.yml', wl), material('docs/data/tutorials/TiO2_Sarkar.yml', wl), material('docs/data/tutorials/SiO2_Malitson.yml', wl), material('docs/data/tutorials/TiO2_Sarkar.yml', wl), material('docs/data/tutorials/SiO2_Malitson.yml', wl), material('docs/data/tutorials/SiO2_Malitson.yml', wl), material('docs/data/tutorials/SiO2_Malitson.yml', wl), material('docs/data/tutorials/TiO2_Sarkar.yml', wl), material('docs/data/tutorials/SiO2_Malitson.yml', wl), material('docs/data/tutorials/TiO2_Sarkar.yml', wl), material('docs/data/tutorials/SiO2_Malitson.yml', wl), material('docs/data/tutorials/TiO2_Sarkar.yml', wl), 1.0]  # incident medium, layers, substrate\nd = [np.inf, 0.063524, 0.094184, 0.063524, 0.094184, 0.063524, 0.094184, 0.188, 0.094184, 0.063524, 0.094184, 0.063524, 0.094184, 0.063524, np.inf]  # thicknesses, µm\nlam = (400 + 2 * np.arange(201)) * 1e-3  # wavelength, µm\nth = np.radians(0)\nR, T = {}, {}\nfor pol in ('s', 'p'):\n    rows = [planar.coh_tmm(pol, n(wl), d, th, wl) for wl in lam]\n    R[pol], T[pol] = np.array([r['R'] for r in rows]), np.array([r['T'] for r in rows])\nR_avg, T_avg = (R['s'] + R['p']) / 2, (T['s'] + T['p']) / 2  # unpolarized\n"
   },
   "bragg-mirror": {
@@ -13180,6 +13659,47 @@
      ]
     }
    },
+   "live": true,
+   "sweep": {
+    "axes": [
+     {
+      "id": "high",
+      "values": [
+       1.6,
+       1.65,
+       1.7,
+       1.75,
+       1.8,
+       1.85,
+       1.9,
+       1.95,
+       2.0,
+       2.05,
+       2.1,
+       2.15,
+       2.2,
+       2.25,
+       2.3,
+       2.35,
+       2.4,
+       2.45,
+       2.5,
+       2.55,
+       2.6,
+       2.65,
+       2.7,
+       2.75,
+       2.8
+      ]
+     }
+    ],
+    "shape": [
+     25
+    ],
+    "points": 25,
+    "file": "docs/sweeps/bragg-mirror.json",
+    "sha256": "8e6dd225f5bee7e011605286c59a778290960a4559617145f1753e23d8b634f1"
+   },
    "readouts": [],
    "code": "import numpy as np\nfrom pystratify import planar\n\nn = lambda wl: [1.0, 2.3, 1.45, 2.3, 1.45, 2.3, 1.45, 2.3, 1.45, 2.3, 1.45, 2.3, 1.45, 2.3, 1.45, 2.3, 1.45, 1.52]  # incident medium, layers, substrate\nd = [np.inf, 0.065217, 0.103448, 0.065217, 0.103448, 0.065217, 0.103448, 0.065217, 0.103448, 0.065217, 0.103448, 0.065217, 0.103448, 0.065217, 0.103448, 0.065217, 0.103448, np.inf]  # thicknesses, µm\nlam = (400 + 1 * np.arange(501)) * 1e-3  # wavelength, µm\nth = np.radians(0)\nR, T = {}, {}\nfor pol in ('s', 'p'):\n    rows = [planar.coh_tmm(pol, n(wl), d, th, wl) for wl in lam]\n    R[pol], T[pol] = np.array([r['R'] for r in rows]), np.array([r['T'] for r in rows])\nR_avg, T_avg = (R['s'] + R['p']) / 2, (T['s'] + T['p']) / 2  # unpolarized\n"
   },
@@ -13212,7 +13732,7 @@
      "scale": 0.001,
      "min": 80,
      "max": 400,
-     "step": 2,
+     "step": 5,
      "value": 200
     }
    ],
@@ -14576,6 +15096,87 @@
      ]
     }
    },
+   "live": true,
+   "sweep": {
+    "axes": [
+     {
+      "id": "cavity",
+      "values": [
+       80.0,
+       85.0,
+       90.0,
+       95.0,
+       100.0,
+       105.0,
+       110.0,
+       115.0,
+       120.0,
+       125.0,
+       130.0,
+       135.0,
+       140.0,
+       145.0,
+       150.0,
+       155.0,
+       160.0,
+       165.0,
+       170.0,
+       175.0,
+       180.0,
+       185.0,
+       190.0,
+       195.0,
+       200.0,
+       205.0,
+       210.0,
+       215.0,
+       220.0,
+       225.0,
+       230.0,
+       235.0,
+       240.0,
+       245.0,
+       250.0,
+       255.0,
+       260.0,
+       265.0,
+       270.0,
+       275.0,
+       280.0,
+       285.0,
+       290.0,
+       295.0,
+       300.0,
+       305.0,
+       310.0,
+       315.0,
+       320.0,
+       325.0,
+       330.0,
+       335.0,
+       340.0,
+       345.0,
+       350.0,
+       355.0,
+       360.0,
+       365.0,
+       370.0,
+       375.0,
+       380.0,
+       385.0,
+       390.0,
+       395.0,
+       400.0
+      ]
+     }
+    ],
+    "shape": [
+     65
+    ],
+    "points": 65,
+    "file": "docs/sweeps/fabry-perot-etalon.json",
+    "sha256": "6614dcd33a970c8e9cf0a021f124042a550ded11ca938ea2853edf96dc6d146b"
+   },
    "code": "import numpy as np\nfrom pystratify import planar\nfrom pystratify.docs import material  # n + ik of a tabulated page (refractiveindex.info format)\n\nn = lambda wl: [1.0, material('docs/data/tutorials/Ag_Johnson.yml', wl), material('docs/data/tutorials/SiO2_Malitson.yml', wl), material('docs/data/tutorials/Ag_Johnson.yml', wl), 1.52]  # incident medium, layers, substrate\nd = [np.inf, 0.025, 0.2, 0.025, np.inf]  # thicknesses, µm\nlam = (400 + 2 * np.arange(201)) * 1e-3  # wavelength, µm\nth = np.radians(0)\nR, T = {}, {}\nfor pol in ('s', 'p'):\n    rows = [planar.coh_tmm(pol, n(wl), d, th, wl) for wl in lam]\n    R[pol], T[pol] = np.array([r['R'] for r in rows]), np.array([r['T'] for r in rows])\nR_avg, T_avg = (R['s'] + R['p']) / 2, (T['s'] + T['p']) / 2  # unpolarized\n"
   },
   "film-on-thick-glass": {
@@ -14607,7 +15208,7 @@
      "scale": 0.001,
      "min": 50,
      "max": 250,
-     "step": 1,
+     "step": 5,
      "value": 130
     }
    ],
@@ -15271,6 +15872,63 @@
      ]
     }
    },
+   "live": true,
+   "sweep": {
+    "axes": [
+     {
+      "id": "thickness",
+      "values": [
+       50.0,
+       55.0,
+       60.0,
+       65.0,
+       70.0,
+       75.0,
+       80.0,
+       85.0,
+       90.0,
+       95.0,
+       100.0,
+       105.0,
+       110.0,
+       115.0,
+       120.0,
+       125.0,
+       130.0,
+       135.0,
+       140.0,
+       145.0,
+       150.0,
+       155.0,
+       160.0,
+       165.0,
+       170.0,
+       175.0,
+       180.0,
+       185.0,
+       190.0,
+       195.0,
+       200.0,
+       205.0,
+       210.0,
+       215.0,
+       220.0,
+       225.0,
+       230.0,
+       235.0,
+       240.0,
+       245.0,
+       250.0
+      ]
+     }
+    ],
+    "shape": [
+     41
+    ],
+    "points": 41,
+    "file": "docs/sweeps/film-on-thick-glass.json",
+    "sha256": "c2aa6d771bec291c49e9822a5a7d267d484cb24a336e9e2ef859a8903da7f47a"
+   },
    "readouts": [],
    "code": "import numpy as np\nfrom pystratify import planar\n\nn = lambda wl: [1.0, 2.3, 1.52, 1.0]  # incident medium, layers, substrate\nd = [np.inf, 0.13, 1000.0, np.inf]  # thicknesses, µm\nlam = (400 + 2 * np.arange(201)) * 1e-3  # wavelength, µm\nth = np.radians(0)\nR, T = {}, {}\nfor pol in ('s', 'p'):\n    rows = [planar.inc_tmm(pol, n(wl), d, ['i', 'c', 'i', 'i'], th, wl) for wl in lam]\n    R[pol], T[pol] = np.array([r['R'] for r in rows]), np.array([r['T'] for r in rows])\nR_avg, T_avg = (R['s'] + R['p']) / 2, (T['s'] + T['p']) / 2  # unpolarized\n"
   },
@@ -15899,6 +16557,79 @@
       0.868898
      ]
     }
+   },
+   "live": true,
+   "sweep": {
+    "axes": [
+     {
+      "id": "index",
+      "values": [
+       1.2,
+       1.25,
+       1.3,
+       1.35,
+       1.4,
+       1.45,
+       1.5,
+       1.55,
+       1.6,
+       1.65,
+       1.7,
+       1.75,
+       1.8,
+       1.85,
+       1.9,
+       1.95,
+       2.0,
+       2.05,
+       2.1,
+       2.15,
+       2.2,
+       2.25,
+       2.3,
+       2.35,
+       2.4,
+       2.45,
+       2.5,
+       2.55,
+       2.6,
+       2.65,
+       2.7,
+       2.75,
+       2.8,
+       2.85,
+       2.9,
+       2.95,
+       3.0,
+       3.05,
+       3.1,
+       3.15,
+       3.2,
+       3.25,
+       3.3,
+       3.35,
+       3.4,
+       3.45,
+       3.5,
+       3.55,
+       3.6,
+       3.65,
+       3.7,
+       3.75,
+       3.8,
+       3.85,
+       3.9,
+       3.95,
+       4.0
+      ]
+     }
+    ],
+    "shape": [
+     57
+    ],
+    "points": 57,
+    "file": "docs/sweeps/fresnel-air-glass.json",
+    "sha256": "ec39b3471d51f0eebbf5fff521f07fe8a928d5a998351f4c091f75eb41362660"
    },
    "readouts": [],
    "code": "import numpy as np\nfrom pystratify import planar\n\nn = lambda wl: [1.0, 1.5]  # incident medium, layers, substrate\nd = [np.inf, np.inf]  # thicknesses, µm\nwl = 600 * 1e-3  # wavelength, µm\nangles = 0 + 0.5 * np.arange(179)  # degrees\nR = {pol: np.array([planar.coh_tmm(pol, n(wl), d, np.radians(a), wl)['R'] for a in angles]) for pol in ('s', 'p')}\n"
@@ -16529,8 +17260,847 @@
      ]
     }
    },
+   "live": true,
+   "sweep": {
+    "axes": [
+     {
+      "id": "index",
+      "values": [
+       1.2,
+       1.25,
+       1.3,
+       1.35,
+       1.4,
+       1.45,
+       1.5,
+       1.55,
+       1.6,
+       1.65,
+       1.7,
+       1.75,
+       1.8,
+       1.85,
+       1.9,
+       1.95,
+       2.0,
+       2.05,
+       2.1,
+       2.15,
+       2.2,
+       2.25,
+       2.3,
+       2.35,
+       2.4,
+       2.45,
+       2.5,
+       2.55,
+       2.6,
+       2.65,
+       2.7,
+       2.75,
+       2.8,
+       2.85,
+       2.9,
+       2.95,
+       3.0,
+       3.05,
+       3.1,
+       3.15,
+       3.2,
+       3.25,
+       3.3,
+       3.35,
+       3.4,
+       3.45,
+       3.5,
+       3.55,
+       3.6,
+       3.65,
+       3.7,
+       3.75,
+       3.8,
+       3.85,
+       3.9,
+       3.95,
+       4.0
+      ]
+     }
+    ],
+    "shape": [
+     57
+    ],
+    "points": 57,
+    "file": "docs/sweeps/fresnel-glass-air.json",
+    "sha256": "33f61a3b200e875b52046f032bf6682949d01970ba6bca388d92aed622ee5c26"
+   },
    "readouts": [],
    "code": "import numpy as np\nfrom pystratify import planar\n\nn = lambda wl: [1.5, 1.0]  # incident medium, layers, substrate\nd = [np.inf, np.inf]  # thicknesses, µm\nwl = 600 * 1e-3  # wavelength, µm\nangles = 0 + 0.5 * np.arange(179)  # degrees\nR = {pol: np.array([planar.coh_tmm(pol, n(wl), d, np.radians(a), wl)['R'] for a in angles]) for pol in ('s', 'p')}\n"
+  },
+  "glass-cylinder": {
+   "id": "glass-cylinder",
+   "geometry": "cylinders",
+   "source": "plane_wave",
+   "title": "A glass cylinder under a plane wave, both polarizations",
+   "caption": "Scattering efficiency of an infinite non-absorbing cylinder (n = 1.55, in air) at normal incidence, with the electric field along the axis (case I) and across it (case II). Change the radius: the interference ripple and the resonances of the two polarizations move apart, the textbook difference of Bohren & Huffman's Fig. 8.7.",
+   "plot": {
+    "x_label": "λ [nm]",
+    "y_label": "Q_sca",
+    "series": [
+     {
+      "key": "q_sca_e",
+      "label": "Q_sca, E along the axis"
+     },
+     {
+      "key": "q_sca_m",
+      "label": "Q_sca, H along the axis"
+     },
+     {
+      "key": "q_sca",
+      "label": "Q_sca, unpolarized"
+     }
+    ]
+   },
+   "params": [
+    {
+     "id": "radius",
+     "label": "Radius",
+     "unit": "nm",
+     "target": "cylinder.shells.0.thickness",
+     "scale": 0.001,
+     "min": 50,
+     "max": 400,
+     "step": 10,
+     "value": 250
+    }
+   ],
+   "readouts": [
+    {
+     "label": "Q_sca at 632.8 nm, E along the axis",
+     "measure": {
+      "at": [
+       "q_sca_e",
+       632
+      ]
+     },
+     "value": 3.83022
+    },
+    {
+     "label": "Q_sca at 632.8 nm, H along the axis",
+     "measure": {
+      "at": [
+       "q_sca_m",
+       632
+      ]
+     },
+     "value": 3.13306
+    }
+   ],
+   "checks": [
+    {
+     "check": "Q_sca, H along the axis, radius 250 nm at 632 nm (Fig. 8.7 reads C_sca/V ≈ 8.0×10⁴ cm⁻¹ at its maximum, d = 0.50 µm; Q = C_sca/V · πd/4)",
+     "reference": 3.14,
+     "computed": 3.13306,
+     "tolerance": 0.1,
+     "pass": true,
+     "source": "Bohren & Huffman (1983), Fig. 8.7, read; crosscheck/classics/bohren_huffman_1983.py"
+    }
+   ],
+   "calculator": {
+    "cylinder": {
+     "shells": [
+      {
+       "label": "n = 1.55",
+       "n": 1.55,
+       "k": 0.0,
+       "thickness": 0.25
+      }
+     ],
+     "host": {
+      "label": "Air",
+      "n": 1.0,
+      "k": 0.0
+     },
+     "start": 400,
+     "end": 1000,
+     "step": 4
+    },
+    "envelope": {
+     "start": 400,
+     "end": 1000,
+     "step": 4,
+     "angle": 90,
+     "spectra_polarization": "axial-electric"
+    }
+   },
+   "data": {
+    "x": [
+     400.0,
+     404.0,
+     408.0,
+     412.0,
+     416.0,
+     420.0,
+     424.0,
+     428.0,
+     432.0,
+     436.0,
+     440.0,
+     444.0,
+     448.0,
+     452.0,
+     456.0,
+     460.0,
+     464.0,
+     468.0,
+     472.0,
+     476.0,
+     480.0,
+     484.0,
+     488.0,
+     492.0,
+     496.0,
+     500.0,
+     504.0,
+     508.0,
+     512.0,
+     516.0,
+     520.0,
+     524.0,
+     528.0,
+     532.0,
+     536.0,
+     540.0,
+     544.0,
+     548.0,
+     552.0,
+     556.0,
+     560.0,
+     564.0,
+     568.0,
+     572.0,
+     576.0,
+     580.0,
+     584.0,
+     588.0,
+     592.0,
+     596.0,
+     600.0,
+     604.0,
+     608.0,
+     612.0,
+     616.0,
+     620.0,
+     624.0,
+     628.0,
+     632.0,
+     636.0,
+     640.0,
+     644.0,
+     648.0,
+     652.0,
+     656.0,
+     660.0,
+     664.0,
+     668.0,
+     672.0,
+     676.0,
+     680.0,
+     684.0,
+     688.0,
+     692.0,
+     696.0,
+     700.0,
+     704.0,
+     708.0,
+     712.0,
+     716.0,
+     720.0,
+     724.0,
+     728.0,
+     732.0,
+     736.0,
+     740.0,
+     744.0,
+     748.0,
+     752.0,
+     756.0,
+     760.0,
+     764.0,
+     768.0,
+     772.0,
+     776.0,
+     780.0,
+     784.0,
+     788.0,
+     792.0,
+     796.0,
+     800.0,
+     804.0,
+     808.0,
+     812.0,
+     816.0,
+     820.0,
+     824.0,
+     828.0,
+     832.0,
+     836.0,
+     840.0,
+     844.0,
+     848.0,
+     852.0,
+     856.0,
+     860.0,
+     864.0,
+     868.0,
+     872.0,
+     876.0,
+     880.0,
+     884.0,
+     888.0,
+     892.0,
+     896.0,
+     900.0,
+     904.0,
+     908.0,
+     912.0,
+     916.0,
+     920.0,
+     924.0,
+     928.0,
+     932.0,
+     936.0,
+     940.0,
+     944.0,
+     948.0,
+     952.0,
+     956.0,
+     960.0,
+     964.0,
+     968.0,
+     972.0,
+     976.0,
+     980.0,
+     984.0,
+     988.0,
+     992.0,
+     996.0,
+     1000.0
+    ],
+    "series": {
+     "q_sca_e": [
+      3.88662,
+      3.95144,
+      3.99827,
+      4.02355,
+      4.02708,
+      4.01293,
+      3.98851,
+      3.96235,
+      3.94158,
+      3.93061,
+      3.93105,
+      3.94235,
+      3.9628,
+      3.9902,
+      4.02241,
+      4.05753,
+      4.09399,
+      4.13054,
+      4.16615,
+      4.19995,
+      4.23109,
+      4.25876,
+      4.28212,
+      4.30027,
+      4.31236,
+      4.3176,
+      4.3154,
+      4.3054,
+      4.28765,
+      4.26259,
+      4.23111,
+      4.19446,
+      4.15419,
+      4.11197,
+      4.06945,
+      4.02814,
+      3.98931,
+      3.9539,
+      3.92256,
+      3.89564,
+      3.87323,
+      3.85521,
+      3.8413,
+      3.83114,
+      3.82426,
+      3.82021,
+      3.81848,
+      3.81859,
+      3.82007,
+      3.8225,
+      3.82546,
+      3.82859,
+      3.83153,
+      3.83399,
+      3.83568,
+      3.83636,
+      3.8358,
+      3.83382,
+      3.83022,
+      3.82487,
+      3.81763,
+      3.8084,
+      3.7971,
+      3.78365,
+      3.76802,
+      3.7502,
+      3.7302,
+      3.70808,
+      3.68388,
+      3.65772,
+      3.62971,
+      3.6,
+      3.56876,
+      3.53619,
+      3.50249,
+      3.46787,
+      3.43256,
+      3.39679,
+      3.36078,
+      3.32476,
+      3.28893,
+      3.25348,
+      3.2186,
+      3.18446,
+      3.15118,
+      3.1189,
+      3.08771,
+      3.0577,
+      3.02893,
+      3.00144,
+      2.97527,
+      2.95041,
+      2.92688,
+      2.90465,
+      2.88371,
+      2.86401,
+      2.84553,
+      2.8282,
+      2.81198,
+      2.79681,
+      2.78265,
+      2.76941,
+      2.75706,
+      2.74551,
+      2.73472,
+      2.72462,
+      2.71516,
+      2.70627,
+      2.6979,
+      2.69,
+      2.6825,
+      2.67537,
+      2.66854,
+      2.66198,
+      2.65563,
+      2.64946,
+      2.64343,
+      2.63748,
+      2.6316,
+      2.62573,
+      2.61986,
+      2.61394,
+      2.60796,
+      2.60187,
+      2.59565,
+      2.58929,
+      2.58276,
+      2.57603,
+      2.56909,
+      2.56191,
+      2.5545,
+      2.54682,
+      2.53887,
+      2.53063,
+      2.5221,
+      2.51327,
+      2.50412,
+      2.49466,
+      2.48488,
+      2.47477,
+      2.46434,
+      2.45358,
+      2.4425,
+      2.43109,
+      2.41936,
+      2.40731,
+      2.39495,
+      2.38229,
+      2.36933,
+      2.35608,
+      2.34254
+     ],
+     "q_sca_m": [
+      3.60817,
+      3.62516,
+      3.64113,
+      3.65693,
+      3.67319,
+      3.69031,
+      3.70844,
+      3.72747,
+      3.74714,
+      3.76697,
+      3.78642,
+      3.80488,
+      3.82176,
+      3.8365,
+      3.84865,
+      3.85789,
+      3.86396,
+      3.86677,
+      3.86628,
+      3.86255,
+      3.8557,
+      3.84592,
+      3.83341,
+      3.81845,
+      3.80129,
+      3.78225,
+      3.76162,
+      3.73971,
+      3.71681,
+      3.69323,
+      3.66923,
+      3.64506,
+      3.62093,
+      3.59706,
+      3.57359,
+      3.55066,
+      3.52837,
+      3.50679,
+      3.48597,
+      3.46591,
+      3.44661,
+      3.42804,
+      3.41014,
+      3.39283,
+      3.37604,
+      3.35967,
+      3.3436,
+      3.32772,
+      3.31191,
+      3.29604,
+      3.28001,
+      3.26368,
+      3.24695,
+      3.22971,
+      3.21188,
+      3.19335,
+      3.17408,
+      3.15399,
+      3.13306,
+      3.11125,
+      3.08857,
+      3.065,
+      3.04059,
+      3.01535,
+      2.98934,
+      2.96262,
+      2.93525,
+      2.9073,
+      2.87886,
+      2.85,
+      2.82082,
+      2.7914,
+      2.76182,
+      2.73216,
+      2.70251,
+      2.67293,
+      2.64351,
+      2.6143,
+      2.58537,
+      2.55676,
+      2.52853,
+      2.50071,
+      2.47335,
+      2.44646,
+      2.42009,
+      2.39424,
+      2.36893,
+      2.34417,
+      2.31997,
+      2.29633,
+      2.27325,
+      2.25074,
+      2.22877,
+      2.20736,
+      2.18647,
+      2.16612,
+      2.14627,
+      2.12693,
+      2.10806,
+      2.08966,
+      2.07172,
+      2.0542,
+      2.0371,
+      2.0204,
+      2.00408,
+      1.98812,
+      1.9725,
+      1.9572,
+      1.94221,
+      1.92751,
+      1.91308,
+      1.8989,
+      1.88496,
+      1.87123,
+      1.85771,
+      1.84437,
+      1.8312,
+      1.81819,
+      1.80531,
+      1.79256,
+      1.77992,
+      1.76738,
+      1.75492,
+      1.74253,
+      1.7302,
+      1.71791,
+      1.70566,
+      1.69344,
+      1.68124,
+      1.66904,
+      1.65684,
+      1.64463,
+      1.6324,
+      1.62015,
+      1.60787,
+      1.59555,
+      1.58319,
+      1.57079,
+      1.55834,
+      1.54583,
+      1.53327,
+      1.52065,
+      1.50798,
+      1.49524,
+      1.48244,
+      1.46959,
+      1.45667,
+      1.4437,
+      1.43067,
+      1.41759,
+      1.40446
+     ],
+     "q_sca": [
+      3.74739,
+      3.7883,
+      3.8197,
+      3.84024,
+      3.85014,
+      3.85162,
+      3.84848,
+      3.84491,
+      3.84436,
+      3.84879,
+      3.85874,
+      3.87362,
+      3.89228,
+      3.91335,
+      3.93553,
+      3.95771,
+      3.97898,
+      3.99865,
+      4.01622,
+      4.03125,
+      4.0434,
+      4.05234,
+      4.05777,
+      4.05936,
+      4.05683,
+      4.04993,
+      4.03851,
+      4.02255,
+      4.00223,
+      3.97791,
+      3.95017,
+      3.91976,
+      3.88756,
+      3.85451,
+      3.82152,
+      3.7894,
+      3.75884,
+      3.73034,
+      3.70426,
+      3.68078,
+      3.65992,
+      3.64162,
+      3.62572,
+      3.61198,
+      3.60015,
+      3.58994,
+      3.58104,
+      3.57315,
+      3.56599,
+      3.55927,
+      3.55274,
+      3.54613,
+      3.53924,
+      3.53185,
+      3.52378,
+      3.51486,
+      3.50494,
+      3.4939,
+      3.48164,
+      3.46806,
+      3.4531,
+      3.4367,
+      3.41884,
+      3.3995,
+      3.37868,
+      3.35641,
+      3.33273,
+      3.30769,
+      3.28137,
+      3.25386,
+      3.22526,
+      3.1957,
+      3.16529,
+      3.13417,
+      3.1025,
+      3.0704,
+      3.03804,
+      3.00555,
+      2.97308,
+      2.94076,
+      2.90873,
+      2.8771,
+      2.84598,
+      2.81546,
+      2.78563,
+      2.75657,
+      2.72832,
+      2.70093,
+      2.67445,
+      2.64889,
+      2.62426,
+      2.60058,
+      2.57783,
+      2.556,
+      2.53509,
+      2.51507,
+      2.4959,
+      2.47756,
+      2.46002,
+      2.44324,
+      2.42718,
+      2.41181,
+      2.39708,
+      2.38296,
+      2.3694,
+      2.35637,
+      2.34383,
+      2.33174,
+      2.32006,
+      2.30875,
+      2.29779,
+      2.28713,
+      2.27675,
+      2.26661,
+      2.25667,
+      2.24692,
+      2.23731,
+      2.22784,
+      2.21846,
+      2.20915,
+      2.19989,
+      2.19066,
+      2.18144,
+      2.1722,
+      2.16293,
+      2.1536,
+      2.14421,
+      2.13474,
+      2.12516,
+      2.11548,
+      2.10567,
+      2.09573,
+      2.08564,
+      2.07539,
+      2.06499,
+      2.05441,
+      2.04366,
+      2.03273,
+      2.02161,
+      2.0103,
+      1.99881,
+      1.98712,
+      1.97524,
+      1.96316,
+      1.9509,
+      1.93845,
+      1.92581,
+      1.913,
+      1.9,
+      1.88683,
+      1.8735
+     ]
+    }
+   },
+   "live": false,
+   "sweep": {
+    "axes": [
+     {
+      "id": "radius",
+      "values": [
+       50.0,
+       60.0,
+       70.0,
+       80.0,
+       90.0,
+       100.0,
+       110.0,
+       120.0,
+       130.0,
+       140.0,
+       150.0,
+       160.0,
+       170.0,
+       180.0,
+       190.0,
+       200.0,
+       210.0,
+       220.0,
+       230.0,
+       240.0,
+       250.0,
+       260.0,
+       270.0,
+       280.0,
+       290.0,
+       300.0,
+       310.0,
+       320.0,
+       330.0,
+       340.0,
+       350.0,
+       360.0,
+       370.0,
+       380.0,
+       390.0,
+       400.0
+      ]
+     }
+    ],
+    "shape": [
+     36
+    ],
+    "points": 36,
+    "file": "docs/sweeps/glass-cylinder.json",
+    "sha256": "6790898560ecb80a2a12018001d5ef9c42627c9b8b244ec860c49001ff4bc741"
+   },
+   "code": "import numpy as np\nimport pystratify as ps\nfrom pystratify.docs import material  # n + ik of a refractiveindex.info page\n\nlam = (400 + 4 * np.arange(151)) * 1e-3  # wavelength, µm\nN = np.column_stack([np.full(lam.shape, (1.55+0j)), np.full(lam.shape, (1+0j))])  # n + ik: core, then the host\nradii = [0.25]  # outer radii, µm\nq_ext = {pol: np.array([ps.cross_widths(ps.solve_cylinder(radii, N[i], wl), pol)['efficiency_extinction']\n                        for i, wl in enumerate(lam)]) for pol in ('unpolarized', 'axial-electric', 'axial-magnetic')}\n"
   },
   "grating-effective-film": {
    "id": "grating-effective-film",
@@ -16870,6 +18440,139 @@
       0.087821
      ]
     }
+   },
+   "live": true,
+   "sweep": {
+    "axes": [
+     {
+      "id": "depth",
+      "values": [
+       20.0,
+       25.0,
+       30.0,
+       35.0,
+       40.0,
+       45.0,
+       50.0,
+       55.0,
+       60.0,
+       65.0,
+       70.0,
+       75.0,
+       80.0,
+       85.0,
+       90.0,
+       95.0,
+       100.0,
+       105.0,
+       110.0,
+       115.0,
+       120.0,
+       125.0,
+       130.0,
+       135.0,
+       140.0,
+       145.0,
+       150.0,
+       155.0,
+       160.0,
+       165.0,
+       170.0,
+       175.0,
+       180.0,
+       185.0,
+       190.0,
+       195.0,
+       200.0,
+       205.0,
+       210.0,
+       215.0,
+       220.0,
+       225.0,
+       230.0,
+       235.0,
+       240.0,
+       245.0,
+       250.0,
+       255.0,
+       260.0,
+       265.0,
+       270.0,
+       275.0,
+       280.0,
+       285.0,
+       290.0,
+       295.0,
+       300.0,
+       305.0,
+       310.0,
+       315.0,
+       320.0,
+       325.0,
+       330.0,
+       335.0,
+       340.0,
+       345.0,
+       350.0,
+       355.0,
+       360.0,
+       365.0,
+       370.0,
+       375.0,
+       380.0,
+       385.0,
+       390.0,
+       395.0,
+       400.0,
+       405.0,
+       410.0,
+       415.0,
+       420.0,
+       425.0,
+       430.0,
+       435.0,
+       440.0,
+       445.0,
+       450.0,
+       455.0,
+       460.0,
+       465.0,
+       470.0,
+       475.0,
+       480.0,
+       485.0,
+       490.0,
+       495.0,
+       500.0,
+       505.0,
+       510.0,
+       515.0,
+       520.0,
+       525.0,
+       530.0,
+       535.0,
+       540.0,
+       545.0,
+       550.0,
+       555.0,
+       560.0,
+       565.0,
+       570.0,
+       575.0,
+       580.0,
+       585.0,
+       590.0,
+       595.0,
+       600.0
+      ]
+     }
+    ],
+    "shape": [
+     117
+    ],
+    "points": 117,
+    "file": "docs/sweeps/grating-effective-film.json",
+    "sha256": "31dfad93e90a9f343040bd99374a462c5817801d649bd042695c1173e05e515b"
    },
    "code": "import numpy as np\nfrom pystratify import planar\n\nn = lambda wl: [1.0, 1.686013, 1.52]  # incident medium, layers, substrate\nd = [np.inf, 0.12, np.inf]  # thicknesses, µm\nlam = (380 + 5 * np.arange(125)) * 1e-3  # wavelength, µm\nth = np.radians(0)\nR, T = {}, {}\nfor pol in ('s', 'p'):\n    rows = [planar.coh_tmm(pol, n(wl), d, th, wl) for wl in lam]\n    R[pol], T[pol] = np.array([r['R'] for r in rows]), np.array([r['T'] for r in rows])\nR_avg, T_avg = (R['s'] + R['p']) / 2, (T['s'] + T['p']) / 2  # unpolarized\n"
   },
@@ -17608,6 +19311,47 @@
       0.985431
      ]
     }
+   },
+   "live": true,
+   "sweep": {
+    "axes": [
+     {
+      "id": "analyte",
+      "values": [
+       1.3,
+       1.305,
+       1.31,
+       1.315,
+       1.32,
+       1.325,
+       1.33,
+       1.335,
+       1.34,
+       1.345,
+       1.35,
+       1.355,
+       1.36,
+       1.365,
+       1.37,
+       1.375,
+       1.38,
+       1.385,
+       1.39,
+       1.395,
+       1.4,
+       1.405,
+       1.41,
+       1.415,
+       1.42
+      ]
+     }
+    ],
+    "shape": [
+     25
+    ],
+    "points": 25,
+    "file": "docs/sweeps/kretschmann-spr.json",
+    "sha256": "60940efb6fdff71f0ac41119a8602318eb0b3b5865e45858a044267bfeb64900"
    },
    "code": "import numpy as np\nfrom pystratify import planar\nfrom pystratify.docs import material  # n + ik of a tabulated page (refractiveindex.info format)\n\nn = lambda wl: [1.515, material('docs/data/tutorials/Au_Johnson.yml', wl), 1.33]  # incident medium, layers, substrate\nd = [np.inf, 0.048, np.inf]  # thicknesses, µm\nwl = 633 * 1e-3  # wavelength, µm\nangles = 40 + 0.25 * np.arange(161)  # degrees\nR = {pol: np.array([planar.coh_tmm(pol, n(wl), d, np.radians(a), wl)['R'] for a in angles]) for pol in ('s', 'p')}\n"
   },
@@ -18935,6 +20679,55 @@
      ]
     }
    },
+   "live": true,
+   "sweep": {
+    "axes": [
+     {
+      "id": "silver",
+      "values": [
+       6.0,
+       6.5,
+       7.0,
+       7.5,
+       8.0,
+       8.5,
+       9.0,
+       9.5,
+       10.0,
+       10.5,
+       11.0,
+       11.5,
+       12.0,
+       12.5,
+       13.0,
+       13.5,
+       14.0,
+       14.5,
+       15.0,
+       15.5,
+       16.0,
+       16.5,
+       17.0,
+       17.5,
+       18.0,
+       18.5,
+       19.0,
+       19.5,
+       20.0,
+       20.5,
+       21.0,
+       21.5,
+       22.0
+      ]
+     }
+    ],
+    "shape": [
+     33
+    ],
+    "points": 33,
+    "file": "docs/sweeps/low-e-coating.json",
+    "sha256": "a475c63aff9ffc5ec5ec0b578e8881f96f8468b699fe2397982df97b5d15915e"
+   },
    "code": "import numpy as np\nfrom pystratify import planar\nfrom pystratify.docs import material  # n + ik of a tabulated page (refractiveindex.info format)\n\nn = lambda wl: [1.0, material('docs/data/tutorials/ZnO_Aguilar.yml', wl), material('docs/data/tutorials/Ag_Ciesielski.yml', wl), material('docs/data/tutorials/ZnO_Aguilar.yml', wl), 1.52]  # incident medium, layers, substrate\nd = [np.inf, 0.04, 0.012, 0.04, np.inf]  # thicknesses, µm\nlam = (300 + 20 * np.arange(111)) * 1e-3  # wavelength, µm\nth = np.radians(0)\nR, T = {}, {}\nfor pol in ('s', 'p'):\n    rows = [planar.coh_tmm(pol, n(wl), d, th, wl) for wl in lam]\n    R[pol], T[pol] = np.array([r['R'] for r in rows]), np.array([r['T'] for r in rows])\nR_avg, T_avg = (R['s'] + R['p']) / 2, (T['s'] + T['p']) / 2  # unpolarized\n"
   },
   "metal-beam-splitter": {
@@ -19604,6 +21397,75 @@
      ]
     }
    },
+   "live": true,
+   "sweep": {
+    "axes": [
+     {
+      "id": "silver",
+      "values": [
+       4.0,
+       4.5,
+       5.0,
+       5.5,
+       6.0,
+       6.5,
+       7.0,
+       7.5,
+       8.0,
+       8.5,
+       9.0,
+       9.5,
+       10.0,
+       10.5,
+       11.0,
+       11.5,
+       12.0,
+       12.5,
+       13.0,
+       13.5,
+       14.0,
+       14.5,
+       15.0,
+       15.5,
+       16.0,
+       16.5,
+       17.0,
+       17.5,
+       18.0,
+       18.5,
+       19.0,
+       19.5,
+       20.0,
+       20.5,
+       21.0,
+       21.5,
+       22.0,
+       22.5,
+       23.0,
+       23.5,
+       24.0,
+       24.5,
+       25.0,
+       25.5,
+       26.0,
+       26.5,
+       27.0,
+       27.5,
+       28.0,
+       28.5,
+       29.0,
+       29.5,
+       30.0
+      ]
+     }
+    ],
+    "shape": [
+     53
+    ],
+    "points": 53,
+    "file": "docs/sweeps/metal-beam-splitter.json",
+    "sha256": "8392b077a4f074bd1f6dc0c32295b575ed7fdb2ee20240567f09a8ccf494ffcc"
+   },
    "code": "import numpy as np\nfrom pystratify import planar\nfrom pystratify.docs import material  # n + ik of a tabulated page (refractiveindex.info format)\n\nn = lambda wl: [1.0, material('docs/data/tutorials/Ag_Johnson.yml', wl), 1.52]  # incident medium, layers, substrate\nd = [np.inf, 0.013, np.inf]  # thicknesses, µm\nlam = (400 + 5 * np.arange(81)) * 1e-3  # wavelength, µm\nth = np.radians(45)\nR, T = {}, {}\nfor pol in ('s', 'p'):\n    rows = [planar.coh_tmm(pol, n(wl), d, th, wl) for wl in lam]\n    R[pol], T[pol] = np.array([r['R'] for r in rows]), np.array([r['T'] for r in rows])\nR_avg, T_avg = (R['s'] + R['p']) / 2, (T['s'] + T['p']) / 2  # unpolarized\n"
   },
   "moth-eye-taper": {
@@ -20014,6 +21876,118 @@
       0.00420808
      ]
     }
+   },
+   "live": true,
+   "sweep": {
+    "axes": [
+     {
+      "id": "height",
+      "values": [
+       50.0,
+       60.0,
+       70.0,
+       80.0,
+       90.0,
+       100.0,
+       110.0,
+       120.0,
+       130.0,
+       140.0,
+       150.0,
+       160.0,
+       170.0,
+       180.0,
+       190.0,
+       200.0,
+       210.0,
+       220.0,
+       230.0,
+       240.0,
+       250.0,
+       260.0,
+       270.0,
+       280.0,
+       290.0,
+       300.0,
+       310.0,
+       320.0,
+       330.0,
+       340.0,
+       350.0,
+       360.0,
+       370.0,
+       380.0,
+       390.0,
+       400.0,
+       410.0,
+       420.0,
+       430.0,
+       440.0,
+       450.0,
+       460.0,
+       470.0,
+       480.0,
+       490.0,
+       500.0,
+       510.0,
+       520.0,
+       530.0,
+       540.0,
+       550.0,
+       560.0,
+       570.0,
+       580.0,
+       590.0,
+       600.0,
+       610.0,
+       620.0,
+       630.0,
+       640.0,
+       650.0,
+       660.0,
+       670.0,
+       680.0,
+       690.0,
+       700.0,
+       710.0,
+       720.0,
+       730.0,
+       740.0,
+       750.0,
+       760.0,
+       770.0,
+       780.0,
+       790.0,
+       800.0,
+       810.0,
+       820.0,
+       830.0,
+       840.0,
+       850.0,
+       860.0,
+       870.0,
+       880.0,
+       890.0,
+       900.0,
+       910.0,
+       920.0,
+       930.0,
+       940.0,
+       950.0,
+       960.0,
+       970.0,
+       980.0,
+       990.0,
+       1000.0
+      ]
+     }
+    ],
+    "shape": [
+     96
+    ],
+    "points": 96,
+    "file": "docs/sweeps/moth-eye-taper.json",
+    "sha256": "024363e22512c32c2b01d89787e7ec5f47d41ff78592877d3969678ed180054a"
    },
    "checks": [],
    "code": "import numpy as np\nfrom pystratify import planar\n\nn = lambda wl: [1.0, 1.000133, 1.003255, 1.013678, 1.034064, 1.065651, 1.108369, 1.160789, 1.220125, 1.282499, 1.343531, 1.399027, 1.445564, 1.480884, 1.504155, 1.516212, 1.519845, 1.52]  # incident medium, layers, substrate\nd = [np.inf, 0.028125, 0.028125, 0.028125, 0.028125, 0.028125, 0.028125, 0.028125, 0.028125, 0.028125, 0.028125, 0.028125, 0.028125, 0.028125, 0.028125, 0.028125, 0.028125, np.inf]  # thicknesses, µm\nlam = (380 + 5 * np.arange(105)) * 1e-3  # wavelength, µm\nth = np.radians(0)\nR, T = {}, {}\nfor pol in ('s', 'p'):\n    rows = [planar.coh_tmm(pol, n(wl), d, th, wl) for wl in lam]\n    R[pol], T[pol] = np.array([r['R'] for r in rows]), np.array([r['T'] for r in rows])\nR_avg, T_avg = (R['s'] + R['p']) / 2, (T['s'] + T['p']) / 2  # unpolarized\n"
@@ -21482,6 +23456,93 @@
      ]
     }
    },
+   "live": true,
+   "sweep": {
+    "axes": [
+     {
+      "id": "perovskite",
+      "values": [
+       100.0,
+       110.0,
+       120.0,
+       130.0,
+       140.0,
+       150.0,
+       160.0,
+       170.0,
+       180.0,
+       190.0,
+       200.0,
+       210.0,
+       220.0,
+       230.0,
+       240.0,
+       250.0,
+       260.0,
+       270.0,
+       280.0,
+       290.0,
+       300.0,
+       310.0,
+       320.0,
+       330.0,
+       340.0,
+       350.0,
+       360.0,
+       370.0,
+       380.0,
+       390.0,
+       400.0,
+       410.0,
+       420.0,
+       430.0,
+       440.0,
+       450.0,
+       460.0,
+       470.0,
+       480.0,
+       490.0,
+       500.0,
+       510.0,
+       520.0,
+       530.0,
+       540.0,
+       550.0,
+       560.0,
+       570.0,
+       580.0,
+       590.0,
+       600.0,
+       610.0,
+       620.0,
+       630.0,
+       640.0,
+       650.0,
+       660.0,
+       670.0,
+       680.0,
+       690.0,
+       700.0,
+       710.0,
+       720.0,
+       730.0,
+       740.0,
+       750.0,
+       760.0,
+       770.0,
+       780.0,
+       790.0,
+       800.0
+      ]
+     }
+    ],
+    "shape": [
+     71
+    ],
+    "points": 71,
+    "file": "docs/sweeps/perovskite-cell.json",
+    "sha256": "631e5646d42514e5aec40fac873d2dd2db8954d3e86efc50d9e3a6ed582d7c5e"
+   },
    "code": "import numpy as np\nfrom pystratify import planar\nfrom pystratify.docs import material  # n + ik of a tabulated page (refractiveindex.info format)\n\nn = lambda wl: [1.0, material('docs/data/tutorials/ITO_Konig.yml', wl), material('docs/data/tutorials/TiO2_Sarkar.yml', wl), material('docs/data/tutorials/MAPbI3_Phillips.yml', wl), 1.55, material('docs/data/tutorials/Au_Johnson.yml', wl), 1.0]  # incident medium, layers, substrate\nd = [np.inf, 0.1, 0.05, 0.3, 0.15, 0.1, np.inf]  # thicknesses, µm\nlam = (380 + 5 * np.arange(95)) * 1e-3  # wavelength, µm\nth = np.radians(0)\nR, T = {}, {}\nfor pol in ('s', 'p'):\n    rows = [planar.coh_tmm(pol, n(wl), d, th, wl) for wl in lam]\n    R[pol], T[pol] = np.array([r['R'] for r in rows]), np.array([r['T'] for r in rows])\nR_avg, T_avg = (R['s'] + R['p']) / 2, (T['s'] + T['p']) / 2  # unpolarized\n"
   },
   "pyramid-facet": {
@@ -21518,7 +23579,7 @@
      "scale": 0.001,
      "min": 10,
      "max": 160,
-     "step": 1,
+     "step": 5,
      "value": 75
     }
    ],
@@ -22798,6 +24859,53 @@
      ]
     }
    },
+   "live": true,
+   "sweep": {
+    "axes": [
+     {
+      "id": "arc",
+      "values": [
+       10.0,
+       15.0,
+       20.0,
+       25.0,
+       30.0,
+       35.0,
+       40.0,
+       45.0,
+       50.0,
+       55.0,
+       60.0,
+       65.0,
+       70.0,
+       75.0,
+       80.0,
+       85.0,
+       90.0,
+       95.0,
+       100.0,
+       105.0,
+       110.0,
+       115.0,
+       120.0,
+       125.0,
+       130.0,
+       135.0,
+       140.0,
+       145.0,
+       150.0,
+       155.0,
+       160.0
+      ]
+     }
+    ],
+    "shape": [
+     31
+    ],
+    "points": 31,
+    "file": "docs/sweeps/pyramid-facet.json",
+    "sha256": "e30db75e9c401d0d2cc8e422473cd46b0e45964b351ca28a5ff6c0e9ecd7d30e"
+   },
    "checks": [],
    "code": "import numpy as np\nfrom pystratify import planar\nfrom pystratify.docs import material  # n + ik of a tabulated page (refractiveindex.info format)\n\nn = lambda wl: [1.0, material('docs/data/tutorials/Si3N4_Luke.yml', wl), material('docs/data/tutorials/Si_Green-2008.yml', wl)]  # incident medium, layers, substrate\nd = [np.inf, 0.075, np.inf]  # thicknesses, µm\nwl = 600 * 1e-3  # wavelength, µm\nangles = 0.25 + 0.5 * np.arange(180)  # degrees\nR = {pol: np.array([planar.coh_tmm(pol, n(wl), d, np.radians(a), wl)['R'] for a in angles]) for pol in ('s', 'p')}\n"
   },
@@ -23287,6 +25395,163 @@
       0.0170367
      ]
     }
+   },
+   "live": true,
+   "sweep": {
+    "axes": [
+     {
+      "id": "thickness",
+      "values": [
+       60.0,
+       61.0,
+       62.0,
+       63.0,
+       64.0,
+       65.0,
+       66.0,
+       67.0,
+       68.0,
+       69.0,
+       70.0,
+       71.0,
+       72.0,
+       73.0,
+       74.0,
+       75.0,
+       76.0,
+       77.0,
+       78.0,
+       79.0,
+       80.0,
+       81.0,
+       82.0,
+       83.0,
+       84.0,
+       85.0,
+       86.0,
+       87.0,
+       88.0,
+       89.0,
+       90.0,
+       91.0,
+       92.0,
+       93.0,
+       94.0,
+       95.0,
+       96.0,
+       97.0,
+       98.0,
+       99.0,
+       100.0,
+       101.0,
+       102.0,
+       103.0,
+       104.0,
+       105.0,
+       106.0,
+       107.0,
+       108.0,
+       109.0,
+       110.0,
+       111.0,
+       112.0,
+       113.0,
+       114.0,
+       115.0,
+       116.0,
+       117.0,
+       118.0,
+       119.0,
+       120.0,
+       121.0,
+       122.0,
+       123.0,
+       124.0,
+       125.0,
+       126.0,
+       127.0,
+       128.0,
+       129.0,
+       130.0,
+       131.0,
+       132.0,
+       133.0,
+       134.0,
+       135.0,
+       136.0,
+       137.0,
+       138.0,
+       139.0,
+       140.0,
+       141.0,
+       142.0,
+       143.0,
+       144.0,
+       145.0,
+       146.0,
+       147.0,
+       148.0,
+       149.0,
+       150.0,
+       151.0,
+       152.0,
+       153.0,
+       154.0,
+       155.0,
+       156.0,
+       157.0,
+       158.0,
+       159.0,
+       160.0,
+       161.0,
+       162.0,
+       163.0,
+       164.0,
+       165.0,
+       166.0,
+       167.0,
+       168.0,
+       169.0,
+       170.0,
+       171.0,
+       172.0,
+       173.0,
+       174.0,
+       175.0,
+       176.0,
+       177.0,
+       178.0,
+       179.0,
+       180.0,
+       181.0,
+       182.0,
+       183.0,
+       184.0,
+       185.0,
+       186.0,
+       187.0,
+       188.0,
+       189.0,
+       190.0,
+       191.0,
+       192.0,
+       193.0,
+       194.0,
+       195.0,
+       196.0,
+       197.0,
+       198.0,
+       199.0,
+       200.0
+      ]
+     }
+    ],
+    "shape": [
+     141
+    ],
+    "points": 141,
+    "file": "docs/sweeps/quarter-wave-ar.json",
+    "sha256": "3527d1b39be4155c7fbef4211e315a94a766e1db107b8f4018246ab947e24014"
    },
    "readouts": [],
    "code": "import numpy as np\nfrom pystratify import planar\n\nn = lambda wl: [1.0, 1.38, 1.52]  # incident medium, layers, substrate\nd = [np.inf, 0.109, np.inf]  # thicknesses, µm\nlam = (400 + 2 * np.arange(201)) * 1e-3  # wavelength, µm\nth = np.radians(0)\nR, T = {}, {}\nfor pol in ('s', 'p'):\n    rows = [planar.coh_tmm(pol, n(wl), d, th, wl) for wl in lam]\n    R[pol], T[pol] = np.array([r['R'] for r in rows]), np.array([r['T'] for r in rows])\nR_avg, T_avg = (R['s'] + R['p']) / 2, (T['s'] + T['p']) / 2  # unpolarized\n"
@@ -24263,6 +26528,79 @@
      ]
     }
    },
+   "live": true,
+   "sweep": {
+    "axes": [
+     {
+      "id": "thickness",
+      "values": [
+       0.4,
+       0.5,
+       0.6,
+       0.7,
+       0.8,
+       0.9,
+       1.0,
+       1.1,
+       1.2,
+       1.3,
+       1.4,
+       1.5,
+       1.6,
+       1.7,
+       1.8,
+       1.9,
+       2.0,
+       2.1,
+       2.2,
+       2.3,
+       2.4,
+       2.5,
+       2.6,
+       2.7,
+       2.8,
+       2.9,
+       3.0,
+       3.1,
+       3.2,
+       3.3,
+       3.4,
+       3.5,
+       3.6,
+       3.7,
+       3.8,
+       3.9,
+       4.0,
+       4.1,
+       4.2,
+       4.3,
+       4.4,
+       4.5,
+       4.6,
+       4.7,
+       4.8,
+       4.9,
+       5.0,
+       5.1,
+       5.2,
+       5.3,
+       5.4,
+       5.5,
+       5.6,
+       5.7,
+       5.8,
+       5.9,
+       6.0
+      ]
+     }
+    ],
+    "shape": [
+     57
+    ],
+    "points": 57,
+    "file": "docs/sweeps/radiative-cooler.json",
+    "sha256": "8bcc702a84bdd0ffd2c38eadff44a63989d4d5b512640170863315abbc3b62ee"
+   },
    "code": "import numpy as np\nfrom pystratify import planar\nfrom pystratify.docs import material  # n + ik of a tabulated page (refractiveindex.info format)\n\nn = lambda wl: [1.0, material('docs/data/tutorials/SiO2_Kischkat.yml', wl), material('docs/data/tutorials/Ag_Ciesielski.yml', wl)]  # incident medium, layers, substrate\nd = [np.inf, 1.5, np.inf]  # thicknesses, µm\nlam = (5 + 0.1 * np.arange(91))  # wavelength, µm\nth = np.radians(0)\nR, T = {}, {}\nfor pol in ('s', 'p'):\n    rows = [planar.coh_tmm(pol, n(wl), d, th, wl) for wl in lam]\n    R[pol], T[pol] = np.array([r['R'] for r in rows]), np.array([r['T'] for r in rows])\nR_avg, T_avg = (R['s'] + R['p']) / 2, (T['s'] + T['p']) / 2  # unpolarized\n"
   },
   "si-sphere-mie": {
@@ -25104,6 +27442,40 @@
      ]
     }
    },
+   "live": true,
+   "sweep": {
+    "axes": [
+     {
+      "id": "radius",
+      "values": [
+       50.0,
+       55.0,
+       60.0,
+       65.0,
+       70.0,
+       75.0,
+       80.0,
+       85.0,
+       90.0,
+       95.0,
+       100.0,
+       105.0,
+       110.0,
+       115.0,
+       120.0,
+       125.0,
+       130.0,
+       135.0
+      ]
+     }
+    ],
+    "shape": [
+     18
+    ],
+    "points": 18,
+    "file": "docs/sweeps/si-sphere-mie.json",
+    "sha256": "10bdb0b6825223b9157b54606c2ee39ec8689dcdd4b1c96b51436b997aa41aec"
+   },
    "readouts": [],
    "code": "import numpy as np\nimport pystratify as ps\nfrom pystratify.docs import material  # n + ik of a refractiveindex.info page\n\nlam = (430 + 2 * np.arange(186)) * 1e-3  # wavelength, µm\nN = np.column_stack([material('crosscheck/classics/data/Si_Green-2008.yml', lam), np.full(lam.shape, (1+0j))])  # n + ik: core, then the host\ncs = ps.cross_sections(ps.solve([0.075], N, lam))  # outer radii, µm\nq_ext, q_sca = cs.q_ext, cs.q_sca\nb1 = cs.sca_by_order[:, ps.TE, 0] / cs.geometric  # magnetic dipole part of Q_sca\n"
   },
@@ -25146,9 +27518,9 @@
      "unit": "nm",
      "target": "sphere.shells.0.thickness",
      "scale": 0.001,
-     "min": 50,
+     "min": 51,
      "max": 135,
-     "step": 1,
+     "step": 4,
      "value": 91
     }
    ],
@@ -26353,6 +28725,44 @@
       0.000532719
      ]
     }
+   },
+   "live": true,
+   "sweep": {
+    "axes": [
+     {
+      "id": "radius",
+      "values": [
+       51.0,
+       55.0,
+       59.0,
+       63.0,
+       67.0,
+       71.0,
+       75.0,
+       79.0,
+       83.0,
+       87.0,
+       91.0,
+       95.0,
+       99.0,
+       103.0,
+       107.0,
+       111.0,
+       115.0,
+       119.0,
+       123.0,
+       127.0,
+       131.0,
+       135.0
+      ]
+     }
+    ],
+    "shape": [
+     22
+    ],
+    "points": 22,
+    "file": "docs/sweeps/si-sphere-multipoles.json",
+    "sha256": "f223fc13df69ff6a91560352707dea32a7d5b205a428307604838a71ea75227f"
    },
    "readouts": [],
    "code": "import numpy as np\nimport pystratify as ps\nfrom pystratify.docs import material  # n + ik of a refractiveindex.info page\n\nlam = (430 + 2 * np.arange(186)) * 1e-3  # wavelength, µm\nN = np.column_stack([material('crosscheck/classics/data/Si_Green-2008.yml', lam), np.full(lam.shape, (1+0j))])  # n + ik: core, then the host\ncs = ps.cross_sections(ps.solve([0.091], N, lam))  # outer radii, µm\nq_ext, q_sca = cs.q_ext, cs.q_sca\nb1 = cs.sca_by_order[:, ps.TE, 0] / cs.geometric  # magnetic dipole part of Q_sca\n"

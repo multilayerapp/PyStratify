@@ -4,7 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from .build import build_manifest, dumps, write_manifest
+from .build import build_manifest, stale, write_manifest
 
 
 def main(argv=None):
@@ -21,16 +21,17 @@ def main(argv=None):
     manifest = build_manifest(root, run_classics=args.run_classics)
     target = root / "docs" / "manifest.json"
     if args.check:
-        current = target.read_text() if target.exists() else ""
-        if current != dumps(manifest):
-            print(f"{target} is stale: run `python -m pystratify.docs build`", file=sys.stderr)
+        changed = stale(manifest, target)
+        if changed:
+            print("stale: run `python -m pystratify.docs build`: " + ", ".join(changed), file=sys.stderr)
             return 1
-        print(f"{target} is current")
+        print(f"{target} and docs/sweeps/ are current")
         return 0
     write_manifest(manifest, target)
     counts = {kind: sum(r["kind"] == kind for r in manifest["records"]) for kind in ("learn", "classic", "benchmark")}
+    sweeps = sum(1 for e in manifest["examples"].values() if e.get("sweep"))
     print(f"wrote {target}: {counts['learn']} learn sections, {counts['classic']} classics, {counts['benchmark']} benchmarks, "
-          f"{len(manifest['examples'])} examples")
+          f"{len(manifest['examples'])} examples, {sweeps} precomputed sweeps in docs/sweeps/")
     return 0
 
 

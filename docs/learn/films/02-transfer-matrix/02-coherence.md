@@ -8,6 +8,7 @@ sources: [plane_wave]
 summary: >-
   Why a thin film draws interference fringes and a millimetre-thick substrate does not: the coherence length, the
   incoherent sum of intensities, and how a stack mixes coherent and incoherent layers.
+classics: [katsidis-2002]
 examples: [film-on-thick-glass]
 references:
 - cite: C. C. Katsidis and D. I. Siapkas, Appl. Opt. 41, 3978 (2002)
@@ -69,5 +70,7 @@ background, which is what a measured spectrum looks like.
 ## Partial coherence
 
 Between the two limits sit rough interfaces, thickness gradients and finite spectral resolution, which damp fringes
-without removing them. Katsidis and Siapkas treat these as phase averaging within a layer;
-[Classics](classics.html#katsidis-2002) opens their coherent and incoherent wafer of Fig. 2 in the calculator.
+without removing them. Katsidis and Siapkas treat these as phase averaging within a layer, and their infrared
+reflectance of a thin film on a thick wafer is the textbook case of fringes riding on an incoherent background.
+
+::: classic katsidis-2002

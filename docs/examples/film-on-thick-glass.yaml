@@ -22,7 +22,7 @@ params:
   scale: 0.001
   min: 50
   max: 250
-  step: 1
+  step: 5
   value: 130
 checks:
 - check: reflectance at the half-wave wavelength 2nd = 598 nm, bare plate 2R₀/(1 + R₀)
