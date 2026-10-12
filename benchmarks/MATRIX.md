@@ -14,8 +14,8 @@ far this way: `planar_codes.py` → `PLANAR_CODES.md`, `emitter_references.py` �
 `planar_checks.py`, `unified_checks.py`, `focused_checks.py`, `sphere_checks.py`, `sphere_emitter_checks.py` →
 `*_CHECKS.md` — whose rows print each observed value beside the tolerance its test asserts (`checks.py`; the
 60- and 80-digit references are `mp_reference.py`). Since 2026-10-11 every row naming a PyStratify test names
-its script; the rows left without one are another repository's (the backend's RCWA, the web's JavaScript
-lineage), the unmerged `non-local` branch, and WP1.4's anisotropy, still to build.
+its script; the rows left without one are another repository's (the backend's RCWA), the unmerged `non-local`
+branch, and WP1.4's anisotropy, still to build.
 
 **This file is multilayer.app's Verification page** (`pystratify.docs`, 2026-10-11): after editing it, run
 `python -m pystratify.docs build` and commit `docs/manifest.json` with it (`tests/test_docs_build.py` fails until
@@ -32,7 +32,7 @@ An agreement only counts as independent when the reference does not share the co
 | **method** | an independent formulation inside this repo (a scattering matrix, a plane-wave superposition, a quadrature): proves the formulation |
 | **code** | another group's code |
 | **paper** | a published number or figure |
-| **lineage** | a code that shares PyStratify's ancestry. `planar.py` *is* Byrnes's `tmm` (MIT notice in `src/pystratify/PLANAR-LICENSE.txt`); the backend's `inc_tmm`/"GTMM" path and the site's `tutorial-engine.js` descend from it. Agreement is a regression check only |
+| **lineage** | a code that shares PyStratify's ancestry. `planar.py` *is* Byrnes's `tmm` (MIT notice in `src/pystratify/PLANAR-LICENSE.txt`); the backend's `inc_tmm`/"GTMM" path descends from it (so did the site's JavaScript `tutorial-engine.js`, removed 2026-10-11). Agreement is a regression check only |
 
 ## Status
 
@@ -83,7 +83,7 @@ blank = the reference cannot compute it.
 | Davis, Carney & Bhargava 2010 (FT-IR) | paper | | | ○ | | | | | | ○ |
 | OLED / thin-film emitter papers | paper | | ○ | | | | | | | |
 | multilayer.app replication corpus | paper | ● | | | | | | | | |
-| Byrnes `tmm`, backend `inc_tmm`, `tutorial-engine.js` | lineage | ● | | | | | | | | |
+| Byrnes `tmm`, backend `inc_tmm` | lineage | ● | | | | | | | | |
 
 ## Films
 
@@ -101,7 +101,7 @@ blank = the reference cannot compute it.
 | RCWA with zero patterning | method | R | `multilayer/tests/test_rcwa.py::test_rcwa_reduces_to_tmm_on_an_unpatterned_stack` | 1e-9 abs | backend |
 | position-resolved field against Parseval | method | E(z), absorption density | `benchmarks/focused_checks.py` → `FOCUSED_CHECKS.md`; `tests/test_focused.py::test_film_near_field_against_position_resolved_and_parseval` (normal-incidence slice) | 1e-10 | suite |
 | `inc_tmm` ("GTMM" in the backend tests) | lineage | incoherent R, T, A | `test_layer_absorption.py::test_pim_tmm_matches_gtmm_*` | 1e-8 | backend |
-| `tutorial-engine.js` | lineage | R, T, A, per-layer A, field, sRGB | `multilayer_web/tests/tutorial-parity.mjs` | machine precision | web |
+| `tutorial-engine.js` (the site's JavaScript transfer matrix) | lineage | R, T, A, per-layer A, field, sRGB | — | — | **out of scope** (2026-10-11): removed with the tutorials (now Learn sections computed by PyStratify) and the parked inverse design; the site computes only through PyStratify, so there is no second engine to keep in parity |
 | replication corpus: 181 published records from 177 papers | paper | R, T, A spectra and angle scans against digitized figures | `harvester/verify.py` (`AGENTS.md` §5.4) | fit score per record | corpus |
 | **pyElli**, 2×2 and 4×4 solvers | code | R, Ψ, Δ on nine stacks (AR pair, 10-pair Bragg mirror, thin and opaque Au, a 20 µm absorber, beyond critical, frustrated TIR) × 4 angles × 3 wavelengths | `tests/test_planar_codes.py`; `benchmarks/planar_codes.py` → `PLANAR_CODES.md` | 1e-12 (R), 1e-10° (Ψ, Δ); observed ≤ 5e-15, ≤ 6e-13° | suite (`benchmarks` extra; CI job `benchmarks`) |
 | **pyElli** 4×4, uniaxial film | code | the **anisotropy reference for WP1.4** | to build with WP1.4: `tests/test_anisotropic.py` | 1e-10 | to build |

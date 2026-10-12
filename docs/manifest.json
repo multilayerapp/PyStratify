@@ -9048,12 +9048,12 @@
    "kind": "benchmark",
    "geometry": "films",
    "source": "plane_wave",
-   "reference": "`tutorial-engine.js`",
+   "reference": "`tutorial-engine.js` (the site's JavaScript transfer matrix)",
    "reference_kind": "lineage",
    "quantity": "R, T, A, per-layer A, field, sRGB",
-   "script": "`multilayer_web/tests/tutorial-parity.mjs`",
-   "tolerance": "machine precision",
-   "status": "web"
+   "script": "—",
+   "tolerance": "—",
+   "status": "**out of scope** (2026-10-11): removed with the tutorials (now Learn sections computed by PyStratify) and the parked inverse design; the site computes only through PyStratify, so there is no second engine to keep in parity"
   },
   {
    "id": "films-plane-wave-12",
@@ -26385,7 +26385,7 @@
    },
    {
     "kind": "**lineage**",
-    "proves": "a code that shares PyStratify's ancestry. `planar.py` *is* Byrnes's `tmm` (MIT notice in `src/pystratify/PLANAR-LICENSE.txt`); the backend's `inc_tmm`/\"GTMM\" path and the site's `tutorial-engine.js` descend from it. Agreement is a regression check only"
+    "proves": "a code that shares PyStratify's ancestry. `planar.py` *is* Byrnes's `tmm` (MIT notice in `src/pystratify/PLANAR-LICENSE.txt`); the backend's `inc_tmm`/\"GTMM\" path descends from it (so did the site's JavaScript `tutorial-engine.js`, removed 2026-10-11). Agreement is a regression check only"
    }
   ],
   "statuses": [
@@ -26754,7 +26754,7 @@
      ""
     ],
     [
-     "Byrnes `tmm`, backend `inc_tmm`, `tutorial-engine.js`",
+     "Byrnes `tmm`, backend `inc_tmm`",
      "lineage",
      "●",
      "",
