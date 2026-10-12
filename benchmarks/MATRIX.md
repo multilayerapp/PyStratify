@@ -81,7 +81,8 @@ blank = the reference cannot compute it.
 | Guzatov & Klimov 2012 | paper | | | | | | | | ● ◐ | |
 | Gonçalves et al. 2020 (Feibelman) | paper | | | | | | | ● | ● | |
 | Davis, Carney & Bhargava 2010 (FT-IR) | paper | | | ○ | | | | | | ○ |
-| OLED / thin-film emitter papers | paper | | ○ | | | | | | | |
+| OLED / thin-film emitter papers | paper | | ◐ | | | | | | | |
+| classic papers recomputed (`crosscheck/classics/`, 16; the site's Classics page) | paper | ◐ | ◐ | | ◐ | | ◐ | ◐ | ◐ | |
 | multilayer.app replication corpus | paper | ● | | | | | | | | |
 | Byrnes `tmm`, backend `inc_tmm` | lineage | ● | | | | | | | | |
 
@@ -130,7 +131,7 @@ blank = the reference cannot compute it.
 | **PyMoosh** `green` | code | — | out of scope: a 2D TE line source on a periodic window, not a 3D point dipole | — | out of scope |
 | **smuthi** `DipoleSource.dissipated_power` | code | total rate 30 and 100 nm above two lossless guides (its own deflected Sommerfeld contour) | `benchmarks/emitter_references.py`; `tests/test_planar_emission_references.py::test_lossless_guide_against_smuthi` | 5e-6; observed ≤ 4.8e-7 (smuthi's contour resolution) | suite where smuthi is installed (Python ≤ 3.10; see the script's docstring for the build) |
 | **Meep**, cylindrical coordinates, dipole on the axis (m = 0 perpendicular, m = 1 parallel) | code | total rate 100 nm above 200 nm of n = 2.3 on glass (a guide), 0.61–1.18 µm; a different method, so it also checks the Sommerfeld formulation | `benchmarks/fdtd_meep.py` → `FDTD_MEEP.md` "Dipoles on an axis"; `tests/test_fdtd_meep.py::test_meep_on_an_axis_converges_to_pystratify_for_a_sphere_and_a_film` | converges at about first order: worst 16.9% → 7.4% → **3.7%** at 25–100 px/µm; asserted: < 5% at 100 and closer than 25 | suite where Meep is installed |
-| OLED outcoupling papers (e.g. Furno et al. 2012; Neyts 1998) | paper | outcoupled / guided / absorbed fractions against ETL thickness | to build: `crosscheck/` script per paper (WP1.6/1.8) | plotting precision | to build |
+| OLED outcoupling papers (e.g. Furno et al. 2012; Neyts 1998) | paper | outcoupled / guided / absorbed fractions against ETL thickness | Neyts 1998 Figs. 9–10: `crosscheck/classics/neyts_1998.py` (3/3 checks; with Lukosz & Kunz 1977, `crosscheck/classics/lukosz_kunz_1977.py`, 8/8); Furno 2012 to build | plotting precision; printed digits | crosscheck (Neyts); to build (Furno) |
 
 ### Focused beam
 
@@ -152,7 +153,7 @@ blank = the reference cannot compute it.
 | **treams**, oblique incidence | code | cross widths, coefficients | `benchmarks/unified_checks.py` → `UNIFIED_CHECKS.md`; `tests/test_unified.py::test_oblique_cylinder_against_treams` | 1e-12 | suite |
 | grazing light-line caps, bounded error | method | cross widths | `benchmarks/unified_checks.py` → `UNIFIED_CHECKS.md`; `tests/test_unified.py::test_metal_cylinder_grazing_caps_have_a_bounded_error` | per tolerance | suite |
 | **OpenSANS** (*Comput. Phys. Commun.* 2023) | code | local limit of oblique multilayer cylinders; nonlocal (with the `non-local` merge) | to build: `benchmarks/cylinder_codes.py`; obtain the CPC program | 1e-8 | to build |
-| canonical cylinder papers (Bohren & Huffman's infinite cylinder; coated fibres) | paper | Q_ext, Q_sca | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
+| canonical cylinder papers (Bohren & Huffman's infinite cylinder; coated fibres) | paper | Q_ext, Q_sca | Bohren & Huffman Fig. 8.7 `crosscheck/classics/bohren_huffman_1983.py` (7/7); Ruan & Fan 2010 superscattering rod `crosscheck/classics/ruan_fan_2010.py` (5/5); Ruppin 2001 Na wire `crosscheck/classics/ruppin_2001.py` (5/5) | plotting precision; printed digits | crosscheck |
 
 ### Point dipole
 
@@ -174,7 +175,7 @@ blank = the reference cannot compute it.
 | Köhler against a plane-wave cone average; energy; NA → 0 is the plane wave | method / analytic | detected power, absorbance | `benchmarks/focused_checks.py` → `FOCUSED_CHECKS.md`; `tests/test_focused.py::test_cylinder_koehler_against_plane_wave_cone_average`, `::test_cylinder_energy_and_na_limit` | 1e-8 | suite |
 | near field against plane-wave fields | method | E at points | `benchmarks/focused_checks.py` → `FOCUSED_CHECKS.md`; `tests/test_focused.py::test_cylinder_near_field_against_plane_wave_fields` | 1e-7 | suite |
 | scalar model: coefficients, energy, brute-force sum | method | detected power | `benchmarks/focused_checks.py` → `FOCUSED_CHECKS.md`; `tests/test_focused.py::test_scalar_cylinder_coefficient_energy_and_brute_force` | — | suite |
-| an FT-IR microspectroscopy paper on fibres or cylinders (to identify) | paper | apparent absorbance of a fibre | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
+| Davis, Carney & Bhargava, *Anal. Chem.* **83**, 525 (2011): FT-IR of intact fibres | paper | apparent absorbance of a fibre under a Cassegrain | `crosscheck/classics/davis_2011.py` (Fig. 5a, 6/6) | plotting precision | crosscheck |
 
 ## Spheres
 
@@ -202,7 +203,7 @@ blank = the reference cannot compute it.
 | **MNPBEM** (boundary elements; MNPBEM17 from the CPC program library, run under GNU Octave) | code | C_ext, C_sca of a 40 nm sphere (ε = −10 + i) in vacuum and in water, and of a 10 nm-shell nanoshell, on refined meshes | `benchmarks/mnpbem_spheres.py` → `MNPBEM_SPHERES.md`; `benchmarks/mnpbem_octave.py` builds MNPBEM; `tests/test_mnpbem_spheres.py` | converges toward PyStratify; finest mesh ≤ 5% and closer than the coarsest; observed 0.45–4.4% | suite where Octave is installed |
 | **pyGDM2** (a second different method: volume Green dyadic) | code | C_ext, C_sca, C_abs of 40 nm-radius n = 2 and n = 2 + 0.1i spheres at the volume-equivalent radius, 425–2235 dipoles; metal spheres shown | `benchmarks/gdm_spheres.py` → `GDM_SPHERES.md`; `tests/test_gdm_spheres.py` | finest mesh within 4%; observed +2.2–2.9% (the lattice's error at these meshes); metals not asserted (ε = −10 + i still +173% absorption) | suite (`benchmarks` extra) |
 | thin (5 nm) nanoshell: MNPBEM against three Mie codes | code | C_ext, C_sca | `benchmarks/mnpbem_spheres.py` (shown, not asserted) | — | **MNPBEM under-resolved**: ~12% low at every affordable mesh, while PyStratify, treams and scattnlay agree to all printed digits (995.384013 nm²) |
-| Oldenburg et al. 1998 nanoshells; Kerker conditions | paper | Q spectra; zero backscattering | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
+| Oldenburg et al. 1998 nanoshells; Kerker conditions | paper | Q spectra; zero backscattering | Kerker: Fu 2013 `crosscheck/classics/fu_2013.py` (7/7); nanoshells: Prodan 2003 `crosscheck/classics/prodan_2003.py` (5/5); also Mie 1908 `crosscheck/classics/mie_1908.py` (56/56), Kuznetsov 2012 `crosscheck/classics/kuznetsov_2012.py` (10/10); Oldenburg 1998 itself to build | plotting precision; printed digits | crosscheck (Kerker, nanoshells); to build (Oldenburg) |
 | Dong et al. 2017 nonlocal nanoshells | paper | Q_ext with hydrodynamic Au | reproduced on `non-local` (`AGENTS.md` §13.6: their efficiencies carry an extra n_host²) | plotting precision | branch |
 | extended-precision nonlocal global matrix | precision | nonlocal coefficients for all three geometries | `tests/nonlocal_reference.py` on `non-local` | — | branch |
 
@@ -220,7 +221,7 @@ blank = the reference cannot compute it.
 | quadrupole coupling against finite differences | method | rates, pattern | `benchmarks/sphere_emitter_checks.py` → `SPHERE_EMITTER_CHECKS.md`; `tests/test_quadrupoles.py::test_quadrupole_coupling_against_finite_differences` | — | suite |
 | Casimir–Polder non-retarded limit | analytic | potential | `benchmarks/sphere_emitter_checks.py` → `SPHERE_EMITTER_CHECKS.md`; `tests/test_casimir.py::test_non_retarded_limit_near_a_large_sphere` | 1e-12 | suite |
 | **treams** (the dipole as an l = 1 singular wave, translated through the layered sphere's T-matrix and back) | code | total rate, radial and tangential, ED and MD, beside a nanoshell 5 nm away, a matryoshka in water and a dielectric core–shell | `benchmarks/mie_codes.py` → `MIE_CODES.md` "Emitters beside layered spheres"; `tests/test_mie_codes.py::test_emitters_beside_layered_spheres_agree_with_treams` | converges geometrically in treams' l_max: 3e-8 (nanoshell, 50), 1.2e-11 (matryoshka, 50), ≤ 2.9e-15 (dielectric, ED and MD); asserted 1e-5, 1e-8 (l_max 40), 1e-13 | suite (`benchmarks` extra) |
-| Anger, Bharadwaj & Novotny 2006 | paper | quenching against distance from Au | to build: `crosscheck/` (WP1.6) | plotting precision | to build |
+| Anger, Bharadwaj & Novotny 2006 | paper | quenching against distance from Au | `crosscheck/classics/anger_2006.py` (Fig. 1, 12/12); with Ruppin 1982 `crosscheck/classics/ruppin_1982.py` (7/7) | plotting precision; printed digits | crosscheck |
 | **MNPBEM** `dipoleret` | code | total and radiative decay rates 5 nm from a 40 nm sphere (ε = −10 + i), radial and tangential | `benchmarks/mnpbem_spheres.py`; `tests/test_mnpbem_spheres.py` | converges toward PyStratify; finest mesh 1.4% (radial total), 0.04% (tangential) | suite where Octave is installed |
 | **pyGDM2** `decay_rate` | code | total decay rates 20 and 40 nm from the n = 2 and n = 2 + 0.1i spheres, radial and tangential | `benchmarks/gdm_spheres.py`; `tests/test_gdm_spheres.py` | 0.5% at 40 nm (observed ≤ 0.14%), 10% at 20 nm (observed ≤ 7.2%) | suite (`benchmarks` extra) |
 | **Meep**, cylindrical coordinates (dipole on the axis through the sphere) | code | total rate, radial and tangential, 100 nm from an n = 2, 150 nm sphere, 0.61–1.18 µm | `benchmarks/fdtd_meep.py` → `FDTD_MEEP.md` "Dipoles on an axis"; `tests/test_fdtd_meep.py::test_meep_on_an_axis_converges_to_pystratify_for_a_sphere_and_a_film` | worst 5.5% → 1.6% → **1.7%** at 25–100 px/µm (a curved surface converges in an oscillating way); asserted: < 3% at 100 and closer than 25. A Drude sphere and Q_ext still to build | suite where Meep is installed |
@@ -239,10 +240,10 @@ blank = the reference cannot compute it.
 ## What the matrix shows
 
 - **Where the remaining `to build` rows stand (2026-10-11).** Every code comparison PyStratify can run alone is
-  built. What is left belongs elsewhere: the published-paper rows (OLED outcoupling, Davis 2010, Bohren &
-  Huffman's cylinder, a nanowire emitter, FT-IR fibres and spheres, Oldenburg nanoshells and Kerker,
-  Anger–Novotny quenching) are WP1.6 `crosscheck/` scripts, which the WP1.9 "seminal papers" plan
-  (umbrella `docs/roadmap/showcase.md`) is building; pyElli 4×4, PyMoosh `anisotropic.py` and the isotropic
+  built. The classic papers (`crosscheck/classics/`, 16 scripts, every toleranced check passing) now cover the
+  paper rows for OLED emitters (Neyts), Bohren & Huffman's cylinder, FT-IR fibres (Davis 2011), Kerker and
+  nanoshells (Fu, Prodan) and Anger–Novotny quenching. Still to build: Furno's OLEDs, Davis 2010's film, a nanowire
+  emitter, an FT-IR sphere paper and Oldenburg's nanoshells (WP1.6, with the classics' second wave); pyElli 4×4, PyMoosh `anisotropic.py` and the isotropic
   limit wait for WP1.4's anisotropic solver; PyMoosh `non_local.py` waits for the `non-local` merge;
   OpenSANS needs its CPC program library download.
 

@@ -9339,9 +9339,9 @@
    "reference": "OLED outcoupling papers (e.g. Furno et al. 2012; Neyts 1998)",
    "reference_kind": "paper",
    "quantity": "outcoupled / guided / absorbed fractions against ETL thickness",
-   "script": "to build: `crosscheck/` script per paper (WP1.6/1.8)",
-   "tolerance": "plotting precision",
-   "status": "to build"
+   "script": "Neyts 1998 Figs. 9–10: `crosscheck/classics/neyts_1998.py` (3/3 checks; with Lukosz & Kunz 1977, `crosscheck/classics/lukosz_kunz_1977.py`, 8/8); Furno 2012 to build",
+   "tolerance": "plotting precision; printed digits",
+   "status": "crosscheck (Neyts); to build (Furno)"
   },
   {
    "id": "films-focused-1",
@@ -9459,9 +9459,9 @@
    "reference": "canonical cylinder papers (Bohren & Huffman's infinite cylinder; coated fibres)",
    "reference_kind": "paper",
    "quantity": "Q_ext, Q_sca",
-   "script": "to build: `crosscheck/` (WP1.6)",
-   "tolerance": "plotting precision",
-   "status": "to build"
+   "script": "Bohren & Huffman Fig. 8.7 `crosscheck/classics/bohren_huffman_1983.py` (7/7); Ruan & Fan 2010 superscattering rod `crosscheck/classics/ruan_fan_2010.py` (5/5); Ruppin 2001 Na wire `crosscheck/classics/ruppin_2001.py` (5/5)",
+   "tolerance": "plotting precision; printed digits",
+   "status": "crosscheck"
   },
   {
    "id": "cylinders-dipole-1",
@@ -9600,12 +9600,12 @@
    "kind": "benchmark",
    "geometry": "cylinders",
    "source": "focused",
-   "reference": "an FT-IR microspectroscopy paper on fibres or cylinders (to identify)",
+   "reference": "Davis, Carney & Bhargava, *Anal. Chem.* **83**, 525 (2011): FT-IR of intact fibres",
    "reference_kind": "paper",
-   "quantity": "apparent absorbance of a fibre",
-   "script": "to build: `crosscheck/` (WP1.6)",
+   "quantity": "apparent absorbance of a fibre under a Cassegrain",
+   "script": "`crosscheck/classics/davis_2011.py` (Fig. 5a, 6/6)",
    "tolerance": "plotting precision",
-   "status": "to build"
+   "status": "crosscheck"
   },
   {
    "id": "spheres-plane-wave-1",
@@ -9856,9 +9856,9 @@
    "reference": "Oldenburg et al. 1998 nanoshells; Kerker conditions",
    "reference_kind": "paper",
    "quantity": "Q spectra; zero backscattering",
-   "script": "to build: `crosscheck/` (WP1.6)",
-   "tolerance": "plotting precision",
-   "status": "to build"
+   "script": "Kerker: Fu 2013 `crosscheck/classics/fu_2013.py` (7/7); nanoshells: Prodan 2003 `crosscheck/classics/prodan_2003.py` (5/5); also Mie 1908 `crosscheck/classics/mie_1908.py` (56/56), Kuznetsov 2012 `crosscheck/classics/kuznetsov_2012.py` (10/10); Oldenburg 1998 itself to build",
+   "tolerance": "plotting precision; printed digits",
+   "status": "crosscheck (Kerker, nanoshells); to build (Oldenburg)"
   },
   {
    "id": "spheres-plane-wave-22",
@@ -10012,9 +10012,9 @@
    "reference": "Anger, Bharadwaj & Novotny 2006",
    "reference_kind": "paper",
    "quantity": "quenching against distance from Au",
-   "script": "to build: `crosscheck/` (WP1.6)",
-   "tolerance": "plotting precision",
-   "status": "to build"
+   "script": "`crosscheck/classics/anger_2006.py` (Fig. 1, 12/12); with Ruppin 1982 `crosscheck/classics/ruppin_1982.py` (7/7)",
+   "tolerance": "plotting precision; printed digits",
+   "status": "crosscheck"
   },
   {
    "id": "spheres-dipole-12",
@@ -26731,13 +26731,26 @@
      "OLED / thin-film emitter papers",
      "paper",
      "",
-     "○",
+     "◐",
      "",
      "",
      "",
      "",
      "",
      "",
+     ""
+    ],
+    [
+     "classic papers recomputed (`crosscheck/classics/`, 16; the site's Classics page)",
+     "paper",
+     "◐",
+     "◐",
+     "",
+     "◐",
+     "",
+     "◐",
+     "◐",
+     "◐",
      ""
     ],
     [
@@ -26768,6 +26781,6 @@
     ]
    ]
   },
-  "findings": "- **Where the remaining `to build` rows stand (2026-10-11).** Every code comparison PyStratify can run alone is\n  built. What is left belongs elsewhere: the published-paper rows (OLED outcoupling, Davis 2010, Bohren &\n  Huffman's cylinder, a nanowire emitter, FT-IR fibres and spheres, Oldenburg nanoshells and Kerker,\n  Anger–Novotny quenching) are WP1.6 `crosscheck/` scripts, which the WP1.9 \"seminal papers\" plan\n  (umbrella `docs/roadmap/showcase.md`) is building; pyElli 4×4, PyMoosh `anisotropic.py` and the isotropic\n  limit wait for WP1.4's anisotropic solver; PyMoosh `non_local.py` waits for the `non-local` merge;\n  OpenSANS needs its CPC program library download.\n\n- **Films now have two independent codes** (2026-10-10): PyMoosh and pyElli agree with\n  `pystratify.planar` to ≤ 1.2e-14 in R, T, r, t and per-layer A, and to ≤ 6e-13° in Ψ and Δ, including\n  opaque and 20 µm absorbing layers, total internal reflection and a magnetic layer\n  (`PLANAR_CODES.md`). Plane-wave fields agree with PyMoosh to ≤ 1.6e-14, and every guided mode of\n  four lossless guides with PyMoosh (≤ 1.1e-11) and the slab dispersion relation (≤ 6.6e-14).\n  Conventions that had to be mapped: PyMoosh's p-polarised t is the H-field ratio, and pyElli's\n  Δ = 180° − Δ(tmm). Still open on films: anisotropy (pyElli's 4×4, with WP1.4).\n- **Film emitter rates now have two outside references** (2026-10-10): independently written\n  Sommerfeld integrals, pinned to the image-dipole closed form, agree with `FilmSource` to ≤ 5e-12;\n  smuthi agrees on lossless guides to ≤ 4.8e-7. The guide comparison **found a bug**: a source in an\n  exterior half-space lost all guided power (fixed in 0.10.3). **Cylinder emitters have an outside\n  reference since 2026-10-10**: Meep's 3D FDTD converges toward PyStratify (0.74% at 60 px/µm, every\n  orientation, through a mode cutoff), and its first run **found a bug**: the guided-mode search dropped\n  real modes while reporting convergence (up to 12% here, 9.5% over random cylinders; fixed in 0.10.4,\n  the found modes now equal the fibre's closed-form dispersion relations). NGSolve's 3D finite\n  elements are the second volume method (1.5% at 0.8 µm; a mode just above cutoff needs a larger cell\n  than 8 GB allows).\n- **Volume methods (FDTD, FEM, BEM) are a different-method check at ~1%**, not a precision check:\n  they test the formulation (sign conventions, normalisation, multipole bookkeeping), not the digits.\n  Meep in cylindrical coordinates is cheap for a dipole on the symmetry axis: since 2026-10-10 a sphere\n  agrees to 1.7% and a guiding film to 3.7% at 100 px/µm (2D, under a minute each); off-axis sources and\n  cylinders need 3D runs, one at a time on this 8 GB Mac. At 200 px/µm Meep's E_z (m = 0) runs jump at the\n  band's lowest frequency (+9% sphere, +12% film) while everything else keeps converging — Meep-side,\n  noted in the report, not yet explained.\n- **Spheres are the best covered**: precision, BHMIE, five papers, and since 2026-10-10 two Mie codes run\n  publicly (scattnlay and treams agree with PyStratify to ≤ 1.8e-11 once 20 orders beyond Wiscombe's\n  truncation are kept; at the default truncation, what a user gets, to ≤ 3.7e-8) and a\n  different *method*: MNPBEM's boundary elements converge toward PyStratify for cross sections and\n  decay rates (`MNPBEM_SPHERES.md`), and pyGDM2's volume dipoles agree within ~3% for dielectric\n  spheres (`GDM_SPHERES.md`). A 5 nm nanoshell is beyond MNPBEM's affordable meshes here; three\n  Mie codes (PyStratify, treams, scattnlay) settle that case exactly. **Near fields** too\n  (2026-10-10): E and H inside every layer and outside agree with scattnlay to ≤ 8.2e-13 and the\n  scattered field with treams to ≤ 6.6e-14; the centre is exact (Bohren & Huffman's d₁, c₁ to\n  1e-14), where scattnlay loses up to 5e-3, and scattnlay's internal field fails toward the core of a\n  10-layer sphere whose PyStratify coefficients agree with 60-digit transfer matrices. **Emitters**\n  beside a sphere agree with smuthi to machine precision (2.2e-16) for dielectric spheres and to\n  5e-10 for a metal-like sphere 5 nm away, converging with smuthi's truncation; beside **layered**\n  spheres (a nanoshell, a matryoshka; electric and magnetic dipoles) with treams, to 3e-15 for\n  dielectric shells and 3e-8 / 1e-11 for the metal ones; Meep (cylindrical coordinates) agrees to 1.7%.\n- **Focused beams are verified only against their own plane-wave engines.** The FT-IR papers are\n  the outside check.\n- **The incoherent film path** has only the explicit phase average as an independent check. The\n  backend's \"GTMM\" comparison is `inc_tmm` itself. PyMoosh's `incoherent.py` is now the outside\n  check for a thick incoherent substrate; stacks with several incoherent layers are still unchecked.\n- **PyMoosh covers the most planar cells of any one code**: R/T/A and fields, incoherent stacks,\n  anisotropy, dipole sources, guided modes and hydrodynamic films. `benchmarks/planar_codes.py` is\n  where its next cells go."
+  "findings": "- **Where the remaining `to build` rows stand (2026-10-11).** Every code comparison PyStratify can run alone is\n  built. The classic papers (`crosscheck/classics/`, 16 scripts, every toleranced check passing) now cover the\n  paper rows for OLED emitters (Neyts), Bohren & Huffman's cylinder, FT-IR fibres (Davis 2011), Kerker and\n  nanoshells (Fu, Prodan) and Anger–Novotny quenching. Still to build: Furno's OLEDs, Davis 2010's film, a nanowire\n  emitter, an FT-IR sphere paper and Oldenburg's nanoshells (WP1.6, with the classics' second wave); pyElli 4×4, PyMoosh `anisotropic.py` and the isotropic\n  limit wait for WP1.4's anisotropic solver; PyMoosh `non_local.py` waits for the `non-local` merge;\n  OpenSANS needs its CPC program library download.\n\n- **Films now have two independent codes** (2026-10-10): PyMoosh and pyElli agree with\n  `pystratify.planar` to ≤ 1.2e-14 in R, T, r, t and per-layer A, and to ≤ 6e-13° in Ψ and Δ, including\n  opaque and 20 µm absorbing layers, total internal reflection and a magnetic layer\n  (`PLANAR_CODES.md`). Plane-wave fields agree with PyMoosh to ≤ 1.6e-14, and every guided mode of\n  four lossless guides with PyMoosh (≤ 1.1e-11) and the slab dispersion relation (≤ 6.6e-14).\n  Conventions that had to be mapped: PyMoosh's p-polarised t is the H-field ratio, and pyElli's\n  Δ = 180° − Δ(tmm). Still open on films: anisotropy (pyElli's 4×4, with WP1.4).\n- **Film emitter rates now have two outside references** (2026-10-10): independently written\n  Sommerfeld integrals, pinned to the image-dipole closed form, agree with `FilmSource` to ≤ 5e-12;\n  smuthi agrees on lossless guides to ≤ 4.8e-7. The guide comparison **found a bug**: a source in an\n  exterior half-space lost all guided power (fixed in 0.10.3). **Cylinder emitters have an outside\n  reference since 2026-10-10**: Meep's 3D FDTD converges toward PyStratify (0.74% at 60 px/µm, every\n  orientation, through a mode cutoff), and its first run **found a bug**: the guided-mode search dropped\n  real modes while reporting convergence (up to 12% here, 9.5% over random cylinders; fixed in 0.10.4,\n  the found modes now equal the fibre's closed-form dispersion relations). NGSolve's 3D finite\n  elements are the second volume method (1.5% at 0.8 µm; a mode just above cutoff needs a larger cell\n  than 8 GB allows).\n- **Volume methods (FDTD, FEM, BEM) are a different-method check at ~1%**, not a precision check:\n  they test the formulation (sign conventions, normalisation, multipole bookkeeping), not the digits.\n  Meep in cylindrical coordinates is cheap for a dipole on the symmetry axis: since 2026-10-10 a sphere\n  agrees to 1.7% and a guiding film to 3.7% at 100 px/µm (2D, under a minute each); off-axis sources and\n  cylinders need 3D runs, one at a time on this 8 GB Mac. At 200 px/µm Meep's E_z (m = 0) runs jump at the\n  band's lowest frequency (+9% sphere, +12% film) while everything else keeps converging — Meep-side,\n  noted in the report, not yet explained.\n- **Spheres are the best covered**: precision, BHMIE, five papers, and since 2026-10-10 two Mie codes run\n  publicly (scattnlay and treams agree with PyStratify to ≤ 1.8e-11 once 20 orders beyond Wiscombe's\n  truncation are kept; at the default truncation, what a user gets, to ≤ 3.7e-8) and a\n  different *method*: MNPBEM's boundary elements converge toward PyStratify for cross sections and\n  decay rates (`MNPBEM_SPHERES.md`), and pyGDM2's volume dipoles agree within ~3% for dielectric\n  spheres (`GDM_SPHERES.md`). A 5 nm nanoshell is beyond MNPBEM's affordable meshes here; three\n  Mie codes (PyStratify, treams, scattnlay) settle that case exactly. **Near fields** too\n  (2026-10-10): E and H inside every layer and outside agree with scattnlay to ≤ 8.2e-13 and the\n  scattered field with treams to ≤ 6.6e-14; the centre is exact (Bohren & Huffman's d₁, c₁ to\n  1e-14), where scattnlay loses up to 5e-3, and scattnlay's internal field fails toward the core of a\n  10-layer sphere whose PyStratify coefficients agree with 60-digit transfer matrices. **Emitters**\n  beside a sphere agree with smuthi to machine precision (2.2e-16) for dielectric spheres and to\n  5e-10 for a metal-like sphere 5 nm away, converging with smuthi's truncation; beside **layered**\n  spheres (a nanoshell, a matryoshka; electric and magnetic dipoles) with treams, to 3e-15 for\n  dielectric shells and 3e-8 / 1e-11 for the metal ones; Meep (cylindrical coordinates) agrees to 1.7%.\n- **Focused beams are verified only against their own plane-wave engines.** The FT-IR papers are\n  the outside check.\n- **The incoherent film path** has only the explicit phase average as an independent check. The\n  backend's \"GTMM\" comparison is `inc_tmm` itself. PyMoosh's `incoherent.py` is now the outside\n  check for a thick incoherent substrate; stacks with several incoherent layers are still unchecked.\n- **PyMoosh covers the most planar cells of any one code**: R/T/A and fields, incoherent stacks,\n  anisotropy, dipole sources, guided modes and hydrodynamic films. `benchmarks/planar_codes.py` is\n  where its next cells go."
  }
 }
