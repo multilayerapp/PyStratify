@@ -756,8 +756,25 @@ def load_verification(root, examples):
         if link["example"] not in examples:
             raise ContentError(f"docs/verification.md: no example {link['example']!r} in docs/examples/")
         rows[key]["example"] = link["example"]
+    # Comparison figures (benchmarks/figures.py writes docs/figures/<name>.json): one per row that names one.
+    figures = {}
+    for link in meta.get("figures", []):
+        key = (link["geometry"], link["source"], link["reference"])
+        if key not in rows:
+            raise ContentError(f"docs/verification.md: no MATRIX.md row {key} for figure {link['figure']!r}")
+        path = root / "docs" / "figures" / f"{link['figure']}.json"
+        if not path.exists():
+            raise ContentError(f"docs/verification.md: no {path.relative_to(root)}; run `python benchmarks/figures.py {link['figure']}`")
+        data = json.loads(path.read_text())
+        for field in ("id", "title", "x_label", "y_label", "x", "series", "worst", "worst_label", "note", "script", "function"):
+            if field not in data:
+                raise ContentError(f"{path.relative_to(root)}: missing {field}")
+        if any(len(s["y"]) != len(data["x"]) for s in data["series"]):
+            raise ContentError(f"{path.relative_to(root)}: a series does not match the x grid")
+        rows[key]["figure"] = link["figure"]
+        figures[link["figure"]] = data
     page = {"title": meta["title"], "summary": meta["summary"], "body": body,
-            **{k: matrix[k] for k in ("kinds", "statuses", "coverage", "findings")}}
+            **{k: matrix[k] for k in ("kinds", "statuses", "coverage", "findings")}, "figures": figures}
     return page, matrix["records"]
 
 

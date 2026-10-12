@@ -8,6 +8,20 @@ examples:
 - {geometry: films, source: plane_wave, reference: "Fresnel at oblique incidence; Brewster zero; s = p at normal", example: fresnel-air-glass}
 - {geometry: films, source: plane_wave, reference: "Airy slab; quarter-wave Bragg mirror", example: bragg-mirror}
 - {geometry: spheres, source: plane_wave, reference: "textbook Mie (homogeneous); identical shells = one sphere", example: si-sphere-mie}
+figures:
+- {geometry: films, source: plane_wave, reference: "Fresnel at oblique incidence; Brewster zero; s = p at normal", figure: fresnel-oblique}
+- {geometry: films, source: plane_wave, reference: "Airy slab; quarter-wave Bragg mirror", figure: airy-slab}
+- {geometry: films, source: plane_wave, reference: "R + T = 1 for lossless stacks, below and beyond the critical angle; reciprocity under reversal", figure: energy-conservation}
+- {geometry: films, source: dipole, reference: "Sommerfeld integrals over s = k_ρ/k₁ with Parratt-recursion r_s, r_p, written without `pystratify`", figure: sommerfeld-film-emitter}
+- {geometry: spheres, source: plane_wave, reference: "textbook Mie (homogeneous); identical shells = one sphere", figure: mie-homogeneous}
+- {geometry: spheres, source: plane_wave, reference: "**BHMIE**", figure: bhmie-large-spheres}
+- {geometry: spheres, source: plane_wave, reference: "60-digit transfer matrices", figure: sixty-digit-coefficients}
+- {geometry: spheres, source: plane_wave, reference: "**treams**, achiral spheres and multilayers (x ≤ 15)", figure: treams-nanoshell}
+- {geometry: spheres, source: dipole, reference: "normalized route against extended precision and classical formulas", figure: sphere-decay-mpmath}
+- {geometry: spheres, source: dipole, reference: "**treams** (the dipole as an l = 1 singular wave, translated through the layered sphere's T-matrix and back)", figure: treams-dipole-nanoshell}
+- {geometry: cylinders, source: plane_wave, reference: "**treams**, oblique incidence", figure: treams-cylinder-oblique}
+- {geometry: cylinders, source: plane_wave, reference: "Bessel boundary equations solved directly", figure: cylinder-bessel-direct}
+- {geometry: cylinders, source: dipole, reference: "step-index fibre dispersion relations (TE₀₁, TM₀₁; Snyder & Love)", figure: fibre-dispersion}
 ---
 
 The calculator computes every film, cylinder and sphere with PyStratify, an open-source Python package (GPL-3.0).
