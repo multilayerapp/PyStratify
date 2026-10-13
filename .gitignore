@@ -6,3 +6,4 @@ dist/
 examples/*.png
 crosscheck/results/
 crosscheck/classics/results/
+benchmarks/runs/

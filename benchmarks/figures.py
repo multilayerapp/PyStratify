@@ -3,6 +3,10 @@
     pip install -e ".[docs,benchmarks]"
     python benchmarks/figures.py            # writes docs/figures/<name>.json for every figure
     python benchmarks/figures.py NAME ...   # some of them
+    python benchmarks/figures.py --env ENV  # the figures of one environment (bench, smuthi, meep, ngsolve, tmmax)
+    python benchmarks/figures.py --list     # every figure and its environment
+
+    python benchmarks/verify_all.py         # the whole study, every figure in its own environment (envs/README.md)
 
 Each figure draws PyStratify against the reference of one matrix row, as curves on a common axis, so the row page
 shows the comparison rather than a number: the closed form of a single interface against the planar engine, Mie's
@@ -39,11 +43,16 @@ from pystratify import planar  # noqa: E402
 
 OUT = ROOT / "docs" / "figures"
 FIGURES = {}
+# The environment each figure runs in (benchmarks/envs/README.md): "bench" holds PyStratify with treams, scattnlay,
+# pyGDM2, PyMoosh, pyElli and meent (and drives GNU Octave for MNPBEM); smuthi, Meep, NGSolve and tmmax each need
+# their own. benchmarks/verify_all.py runs every figure in its environment.
+ENVS = {}
 
 
-def figure(name, title, x_label, y_label, log=False):
+def figure(name, title, x_label, y_label, log=False, env="bench"):
     def register(fn):
         FIGURES[name] = (fn, dict(id=name, title=title, x_label=x_label, y_label=y_label, log=log))
+        ENVS[name] = env
         return fn
     return register
 
@@ -411,7 +420,7 @@ def _tmmax_figure(name, versions):
     return lam, out, diffs
 
 
-@figure("tmmax-single-layer", "100 nm of n = 2.1 in air, normal incidence: R against tmmax (JAX, float32) as shipped", "λ [nm]", "R")
+@figure("tmmax-single-layer", "100 nm of n = 2.1 in air, normal incidence: R against tmmax (JAX, float32) as shipped", "λ [nm]", "R", env="tmmax")
 def tmmax_single_layer():
     lam, out, diffs = _tmmax_figure("single layer n = 2.1 in air", (("as shipped", False),))
     return dict(x=sig(lam), series=out, worst=diffs[0], worst_label="largest |R − R_tmmax| (float32)",
@@ -419,7 +428,7 @@ def tmmax_single_layer():
                      "asserted as shipped, to 2e-6.")
 
 
-@figure("tmmax-bragg-mirror", "A five-pair quarter-wave mirror (n = 2.35 / 1.46) on glass, normal incidence: R against tmmax, as shipped and with its scan step fixed", "λ [nm]", "R")
+@figure("tmmax-bragg-mirror", "A five-pair quarter-wave mirror (n = 2.35 / 1.46) on glass, normal incidence: R against tmmax, as shipped and with its scan step fixed", "λ [nm]", "R", env="tmmax")
 def tmmax_bragg_mirror():
     lam, out, diffs = _tmmax_figure("quarter-wave mirror, 5 pairs", (("with the scan step fixed", True), ("as shipped", False)))
     return dict(x=sig(lam), series=out, worst=diffs[0], worst_label="largest |R − R_tmmax| (fixed step, float32)",
@@ -619,7 +628,7 @@ def slab_dispersion_modes():
                      "slab_modes).")
 
 
-@figure("smuthi-film-guide", "A dipole above 200 nm of TiO₂ (n = 2.3) on glass, 633 nm: total rates against smuthi", "height above the film [nm]", "Γ / Γ₀")
+@figure("smuthi-film-guide", "A dipole above 200 nm of TiO₂ (n = 2.3) on glass, 633 nm: total rates against smuthi", "height above the film [nm]", "Γ / Γ₀", env="smuthi")
 def smuthi_film_guide():
     import emitter_references as er
 
@@ -637,7 +646,7 @@ def smuthi_film_guide():
                      "(resolution 2e-3), a method independent of PyStratify's residues; agreement is set by that contour's resolution.")
 
 
-@figure("meep-axial-film", "A dipole 100 nm above 200 nm of n = 2.3 on glass: total decay rate against Meep (cylindrical coordinates, 100 px/µm)", "λ [µm]", "Γ / Γ₀")
+@figure("meep-axial-film", "A dipole 100 nm above 200 nm of n = 2.3 on glass: total decay rate against Meep (cylindrical coordinates, 100 px/µm)", "λ [µm]", "Γ / Γ₀", env="meep")
 def meep_axial_film():
     import meep as mp
     from fdtd_meep import AXIAL_CASES, meep_ldos_axial
@@ -1643,7 +1652,7 @@ def mnpbem_decay():
              "difference grows toward the surface (33% for the radial rate at 2 nm, not shown). The test follows four meshes at 5 nm (1.4% radial, 0.04% tangential at 2044 faces).")
 
 
-@figure("meep-axial-sphere", "A dipole 100 nm outside an n = 2, 150 nm sphere, on its axis: total decay rate against Meep (FDTD, 100 px/µm)", "λ [µm]", "Γ / Γ₀")
+@figure("meep-axial-sphere", "A dipole 100 nm outside an n = 2, 150 nm sphere, on its axis: total decay rate against Meep (FDTD, 100 px/µm)", "λ [µm]", "Γ / Γ₀", env="meep")
 def meep_axial_sphere():
     import meep as mp
     from fdtd_meep import AXIAL_CASES, meep_ldos_axial
@@ -1719,7 +1728,7 @@ for _slug, _case, _gaps, _log, _what in SMUTHI_SWEEPS:
         return smuthi_sweep(case, gaps)
     _make.__name__ = f"smuthi_{_slug}"
     figure(f"smuthi-sphere-{_slug}", f"A dipole {_gaps[0]}–{_gaps[1]} nm from {_what}: PyStratify against smuthi",
-           "gap [nm]", "Γ / Γ₀", log=_log)(_make)
+           "gap [nm]", "Γ / Γ₀", log=_log, env="smuthi")(_make)
 
 
 # --- spheres, focused beam --------------------------------------------------------------------------------------
@@ -2148,7 +2157,7 @@ def fibre_rates_cutoff():
                      "by 2e-3). Every mode PyStratify finds is checked against the dispersion relations in the fibre-dispersion plot.")
 
 
-@figure("meep-cylinder-fibre", "A dipole 100 nm outside a step-index fibre (n = 2, radius 150 nm) in air: total decay rates against Meep (3D FDTD, 60 px/µm)", "λ [µm]", "Γ / Γ₀")
+@figure("meep-cylinder-fibre", "A dipole 100 nm outside a step-index fibre (n = 2, radius 150 nm) in air: total decay rates against Meep (3D FDTD, 60 px/µm)", "λ [µm]", "Γ / Γ₀", env="meep")
 def meep_cylinder_fibre():
     import meep as mp
     from fdtd_meep import CASES, ORIENTATIONS, meep_ldos
@@ -2173,7 +2182,7 @@ def meep_cylinder_fibre():
                      "grid's own dispersion cancels. TE₀₁ and TM₀₁ are cut off at 0.678 µm. The difference shrinks with the grid, "
                      "6.9% → 3.2% → 1.7% → 0.74% at 20–60 px/µm (FDTD_MEEP.md); the test runs 20 and 30.")
 
-@figure("ngsolve-cylinder-fibre", "A dipole 100 nm outside a step-index fibre (n = 2, radius 150 nm) in vacuum: total decay rates against NGSolve (3D finite elements)", "λ [µm]", "Γ / Γ₀")
+@figure("ngsolve-cylinder-fibre", "A dipole 100 nm outside a step-index fibre (n = 2, radius 150 nm) in vacuum: total decay rates against NGSolve (3D finite elements)", "λ [µm]", "Γ / Γ₀", env="ngsolve")
 def ngsolve_cylinder_fibre():
     import ngsolve  # noqa: F401
     from fem_ngsolve import MESHES, ORIENTATIONS, RADIUS, INDEX, SOURCE, ngsolve_rates
@@ -2361,11 +2370,11 @@ def davis_2011_fibres():
 
 # --- CLI ---------------------------------------------------------------------------------------------------------
 
-def build(names=None):
+def build(names=None, env=None):
     OUT.mkdir(exist_ok=True)
     written = []
     for name, (fn, meta) in FIGURES.items():
-        if names and name not in names:
+        if (names and name not in names) or (env and ENVS[name] != env):
             continue
         t = time.time()
         try:
@@ -2384,4 +2393,11 @@ def build(names=None):
 
 
 if __name__ == "__main__":
-    build(sys.argv[1:] or None)
+    args = sys.argv[1:]
+    if args[:1] == ["--list"]:  # name and environment of every figure
+        for name in FIGURES:
+            print(name, ENVS[name])
+    elif args[:1] == ["--env"]:  # every figure of one environment
+        build(env=args[1])
+    else:
+        build(args or None)

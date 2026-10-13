@@ -102562,7 +102562,7 @@
       "role": "reference"
      }
     ],
-    "worst": 0.0704571225502737,
+    "worst": 0.07045712255031833,
     "worst_label": "largest relative difference (the cell, not the mesh)",
     "note": "Second-order Nédélec elements on a sphere of 0.8 µm with a 0.5 µm radial PML shell, the fibre running through it; the rate is Im(p·E) at the dipole over the same on the same mesh with the fibre's permittivity set to 1; the 126k-unknown mesh (0.25 µm in vacuum, 0.06 µm in the fibre). At 0.8 µm it agrees to 1.5% and converges with the mesh (FEM_NGSOLVE.md; the test runs the coarsest mesh there). Elsewhere the cell, which 8 GB allows, sets the difference, up to 7% with alternating sign: moving the PML from 0.8 to 1.0 µm turns +8% into −6% at 0.75 µm on the same mesh, while a stronger or thicker PML changes nothing. Beyond 1 µm the HE₁₁ mode's evanescent tail (1/e length 0.37–0.96 µm) reaches the PML; at 0.75 µm TE₀₁ and TM₀₁ have just turned leaky. Meep's 3D grid, with Cartesian PML, agrees to 0.74% over the whole band.",
     "script": "benchmarks/figures.py",
