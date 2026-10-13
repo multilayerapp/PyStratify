@@ -166,20 +166,18 @@ def cylinder_homogeneous_fields(beta):
     return rows
 
 
-def metal_cylinder_grazing_caps(dipole):
+METAL_WIRE = ([.01], [.97 + 1.87j, 1])  # a 10 nm metal cylinder (n = 0.97 + 1.87i); the dipole 5 nm from its surface
+
+
+def metal_wire_rates(dipole, wavelength=.5):
+    """(PyStratify's rates for a dipole 5 nm from METAL_WIRE, the same rates integrated with the precision guard at
+    the light line moved inward to 3e-6: {total, escape, absorbed}). Moving the guard checks the grazing error the
+    caps charge independently."""
     from pystratify.cylinder_emission import CylinderSource
     from pystratify.integration import integrate
 
-    name = f"10 nm metal cylinder (n = 0.97 + 1.87i), {dipole} dipole 5 nm away: grazing caps"
-    source = CylinderSource([.01], [.97 + 1.87j, 1], .5, .015, dipole)
-    rates = source.rates()
-    rows = [flag(name, "converged", rates.converged), row(name, "evaluations", rates.evaluations, 2500, "<"),
-            row(name, "grazing error charged", rates.grazing_error, 0, ">"),
-            row(name, "error - grazing error", rates.error - rates.grazing_error, 0, ">="),
-            row(name, "error / max total", rates.error / np.max(rates.total), 1e-6),
-            close(name, "total against escape + absorbed", rates.total, rates.escape + rates.absorbed, 1e-6)]
-    # moving the precision guard inward checks the charged error independently
-    reference = CylinderSource([.01], [.97 + 1.87j, 1], .5, .015, dipole, m_max=rates.orders)
+    rates = CylinderSource(*METAL_WIRE, wavelength, .015, dipole).rates()
+    reference = CylinderSource(*METAL_WIRE, wavelength, .015, dipole, m_max=rates.orders)
     original = reference.spectral
     reference.spectral = lambda b, *a, **k: original(1 + np.copysign(3e-6, b - 1) if abs(b - 1) < 3e-6 else b, *a, **k)
 
@@ -188,18 +186,33 @@ def metal_cylinder_grazing_caps(dipole):
         return np.r_[green.real, escape, absorbed, tail]
 
     integral = integrate(sample, [0, .97, 1, reference.maximum], 1e-6)
-    rows.append(flag(name, "the guard moved to 3e-6 converges", integral.converged))
-    for label, actual, expected in [("total", rates.total, 1 + integral.value[:3]), ("escape", rates.escape, integral.value[3:6]),
-                                    ("absorbed", rates.absorbed, integral.value[6:9])]:
-        rows.append(row(name, f"max |{label} - guard at 3e-6| / grazing error", np.max(abs(actual - expected)) / rates.grazing_error, 1, "<"))
+    return rates, dict(total=1 + integral.value[:3], escape=integral.value[3:6], absorbed=integral.value[6:9], converged=integral.converged)
+
+
+def metal_cylinder_grazing_caps(dipole):
+    name = f"10 nm metal cylinder (n = 0.97 + 1.87i), {dipole} dipole 5 nm away: grazing caps"
+    rates, guard = metal_wire_rates(dipole)
+    rows = [flag(name, "converged", rates.converged), row(name, "evaluations", rates.evaluations, 2500, "<"),
+            row(name, "grazing error charged", rates.grazing_error, 0, ">"),
+            row(name, "error - grazing error", rates.error - rates.grazing_error, 0, ">="),
+            row(name, "error / max total", rates.error / np.max(rates.total), 1e-6),
+            close(name, "total against escape + absorbed", rates.total, rates.escape + rates.absorbed, 1e-6)]
+    rows.append(flag(name, "the guard moved to 3e-6 converges", guard["converged"]))
+    for label in ("total", "escape", "absorbed"):
+        rows.append(row(name, f"max |{label} - guard at 3e-6| / grazing error", np.max(abs(getattr(rates, label) - guard[label])) / rates.grazing_error, 1, "<"))
     return rows
 
 
-def cylinder_grazing_uncertainty_at_a_tighter_tolerance():
+def metal_wire_tight(wavelength=.5):
+    """The rates of an electric dipole 5 nm from METAL_WIRE asked for at tolerance 1e-9 (40 orders)."""
     from pystratify.cylinder_emission import CylinderSource
 
+    return CylinderSource(*METAL_WIRE, wavelength, .015, m_max=40).rates(tolerance=1e-9)
+
+
+def cylinder_grazing_uncertainty_at_a_tighter_tolerance():
     name = "the same metal cylinder at tolerance 1e-9"
-    rates = CylinderSource([.01], [.97 + 1.87j, 1], .5, .015, m_max=40).rates(tolerance=1e-9)
+    rates = metal_wire_tight()
     return [row(name, "error - grazing error", rates.error - rates.grazing_error, 0, ">="),
             row(name, "grazing error / (1e-9 max total)", rates.grazing_error / (1e-9 * np.max(rates.total)), 1, ">"),
             flag(name, "reports not converged", not rates.converged)]
@@ -237,10 +250,14 @@ def fibre_modes_near_cutoff(wavelength):
     return rows
 
 
+def fibre_rates(wavelength):
+    """solve_problem for an electric dipole 100 nm outside the step-index fibre (n = 2, R = 150 nm), tolerance 1e-7."""
+    return ps.solve_problem(ps.Problem("cylinders", [.15], [2.0, 1], wavelength, ps.PointDipole(.25, "electric", 1), 1e-7))
+
+
 def rates_smooth_through_cutoff():
     wavelengths = np.linspace(.66, .70, 9)  # TE01 and TM01 cut off near 0.678 um
-    total = np.array([ps.solve_problem(ps.Problem("cylinders", [.15], [2.0, 1], w, ps.PointDipole(.25, "electric", 1), 1e-7))["total"][:3]
-                      for w in wavelengths])
+    total = np.array([fibre_rates(w)["total"][:3] for w in wavelengths])
     curvature = np.abs(total[2:] - 2 * total[1:-1] + total[:-2])
     return [row("fibre rates over 0.66-0.70 um, through the TE01/TM01 cutoff", "max second difference", curvature, 2e-3, "<")]
 

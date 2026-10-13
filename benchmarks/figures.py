@@ -1243,6 +1243,467 @@ def fibre_dispersion():
                 note="Snyder & Love's TE₀₁ and TM₀₁ relations, J₁(u)/(u J₀(u)) + c K₁(w)/(w K₀(w)) = 0, solved by bisection, against the poles PyStratify finds behind a dipole's guided channel; HE₁₁ (no closed form of this kind, and no cutoff) is shown as found; the shorter wavelengths guide higher modes too, not drawn. TE₀₁ and TM₀₁ reach cutoff at 0.392 µm, where V = 2.405.")
 
 
+@figure("cylinder-index-matched", "A cylinder of n = 1.5, radius 100 nm, in n = 1.5 at 600 nm, β = 2 µm⁻¹: its field is the plane wave", "x [nm]", "Re E")
+def cylinder_index_matched():
+    n, wavelength, beta = 1.5, .6, 2.0
+    k = 2 * np.pi * n / wavelength
+    q = np.sqrt(k * k - beta * beta)
+    s = ps.solve_cylinder([.1], [n, n], wavelength, beta=beta, m_max=24)
+    x = np.linspace(-.25, .25, 151)
+    points = np.column_stack([x, np.full_like(x, .03), np.full_like(x, .01)])
+    phase = np.exp(1j * (q * x + beta * .01))
+    out, worst_ = [], 0.0
+    for pol, label, component, amplitude in (("axial-electric", "E along the axis, E_z", 2, q / k), ("axial-magnetic", "H along the axis, E_y", 1, 1.0)):
+        E, _ = s.field(points, pol)
+        ours, ref = E[:, component].real, (amplitude * phase).real
+        out += [(pol, label, ours, ref)]
+        worst_ = max(worst_, float(np.max(np.abs(E[:, component] - amplitude * phase))))
+    return dict(x=sig(x * 1e3), series=[series(p, f"{lab}, PyStratify", o, "pystratify") for p, lab, o, _ in out]
+                + [series(f"{p}_ref", f"{lab}, the plane wave", r, "reference") for p, lab, _, r in out],
+                worst=worst_, worst_label="largest |E − plane wave|",
+                note="A cylinder of the same index as its surroundings is no cylinder: the field PyStratify builds from its Bessel expansion "
+                     "inside and outside (24 orders) must be the incident plane wave, here at oblique incidence (β = 2 µm⁻¹) along y = 30 nm, "
+                     "z = 10 nm across the 100 nm radius; the test also checks |E|² = 1 and |H|² = n² at three points.")
+
+
+def _metal_wire_figure(dipole):
+    from unified_checks import metal_wire_rates
+
+    lam = np.linspace(.4, .7, 16)
+    bound, diff = [], []
+    for w in lam:
+        rates, guard = metal_wire_rates(dipole, w)
+        bound.append(rates.grazing_error)
+        diff.append(max(float(np.max(np.abs(getattr(rates, key) - guard[key]))) for key in ("total", "escape", "absorbed")))
+    bound, diff = np.array(bound), np.array(diff)
+    return dict(x=sig(lam * 1e3), series=[series("bound", "grazing error charged, PyStratify", bound, "pystratify"),
+                                          series("diff", "|PyStratify − guard moved to 3e-6|", diff, "reference")],
+                worst=float(np.max(diff / bound)), worst_label="largest difference / charged error (must stay below 1)",
+                note=f"A {dipole} dipole 5 nm from a 10 nm wire of n = 0.97 + 1.87i (no dispersion): near the light line the "
+                     "integrand is capped, and PyStratify charges the cap to its error. Integrating again with the precision guard "
+                     "moved inward to 3e-6 measures what the caps leave out; the largest difference over the total, escape and "
+                     "absorbed rates and the three orientations stays below the charge.")
+
+
+for _dipole in ("electric", "magnetic"):
+    def _make(dipole=_dipole):
+        return _metal_wire_figure(dipole)
+    _make.__name__ = f"metal_wire_grazing_{_dipole}"
+    figure(f"cylinder-grazing-caps-{_dipole}", f"{'An' if _dipole == 'electric' else 'A'} {_dipole} dipole 5 nm from a 10 nm metal wire (n = 0.97 + 1.87i): the grazing caps' error against moving the guard",
+           "λ [nm]", "error in Γ / Γ₀", log=True)(_make)
+
+
+def _bh_peak(x, y, lo=None, hi=None):
+    m = np.ones_like(x, dtype=bool) if lo is None else (x >= lo) & (x <= hi)
+    i = np.flatnonzero(m)[np.argmax(y[m])]
+    return float(x[i])
+
+
+def _read_worst(name):
+    """Largest relative difference between a classic's computed and read values."""
+    return float(max(abs(c["computed"] - c["paper"]) / abs(c["paper"]) for c in json.loads((CLASSICS / f"{name}.json").read_text())))
+
+
+@figure("bohren-huffman-cylinder", "A non-absorbing cylinder of n = 1.55 in air at 0.6328 µm: scattering per unit volume, Bohren & Huffman Fig. 8.7", "diameter [µm]", "C_sca / V [10⁴ cm⁻¹]")
+def bohren_huffman_cylinder():
+    curve, paper = classic_curve("bohren_huffman_1983_fig8_7"), classic_values("bohren_huffman_1983")
+    d, par, perp = curve["diameter_um"], curve["Csca_over_V_parallel_1e4_per_cm"], curve["Csca_over_V_perpendicular_1e4_per_cm"]
+    par_ref = at(d, {_bh_peak(d, par, .08, .25): paper["parallel: first maximum"], _bh_peak(d, par, .25, .40): paper["parallel: second maximum"],
+                     paper["parallel: diameter of the highest maximum (µm)"]: paper["parallel: highest maximum"],
+                     _bh_peak(d, par, .55, .70): paper["parallel: shoulder after it"]})
+    perp_ref = at(d, {paper["perpendicular: diameter of the maximum (µm)"]: paper["perpendicular: maximum"]})
+    return dict(x=sig(d), series=[series("par", "parallel (E along the axis), PyStratify", par, "pystratify"),
+                                  series("perp", "perpendicular, PyStratify", perp, "pystratify"),
+                                  series("par_ref", "parallel, read off Fig. 8.7", par_ref, "reference"),
+                                  series("perp_ref", "perpendicular, read off Fig. 8.7", perp_ref, "reference")],
+                worst=_read_worst("bohren_huffman_1983"), worst_label="largest relative difference from the read values",
+                note="Bohren & Huffman, Absorption and Scattering of Light by Small Particles (1983), §8.4: the scattering width over the "
+                     "cross-sectional area, 4 Q_sca / (π d), the book's demonstration that a cylinder scatters the two polarizations "
+                     "differently. Maxima read off the figure to ±0.2 and ±0.03 µm; the book prints the diameters of the highest ones only, "
+                     "so the others are marked where PyStratify's curve peaks. From crosscheck/classics/bohren_huffman_1983.py.")
+
+
+def _ruan_fan_widths(x, g_core, g_shell):
+    """Ruan & Fan's three-layer rod (crosscheck/classics/ruan_fan_2010.py): scattering and absorption widths in units
+    of 2λ/π, and |t_m|² of the axial-magnetic channel per order m = 1..4, at ω/ωp = x."""
+    sys.path.insert(0, str(ROOT / "crosscheck" / "classics"))
+    from _common import drude_nk
+
+    lp = 0.1376
+    radii = np.array([0.3485, 0.5623, 0.6370]) * lp
+    out = []
+    for lam in lp / np.asarray(x):
+        s = ps.solve_cylinder(radii, [drude_nk(lam, lp, g_core), 3.6, drude_nk(lam, lp, g_shell), 1.0], lam)
+        w = ps.cross_widths(s, "axial-magnetic")
+        t = np.abs(s.t[:, 1, 1]) ** 2
+        out.append([w["scattering"] / (2 * lam / np.pi), w["absorption"] / (2 * lam / np.pi)] + [t[s.orders == m].sum() for m in range(1, 5)])
+    return np.array(out)
+
+
+@figure("ruan-fan-superscattering", "A three-layer nanorod with four aligned resonances, lossless: superscattering, Ruan & Fan 2010, Fig. 1", "ω / ω_p", "width / (2λ/π)")
+def ruan_fan_superscattering():
+    paper = classic_values("ruan_fan_2010")
+    fine = np.linspace(0.2535, 0.2550, 6001)  # the m = 3, 4 resonances are ~1e-6 ω_p wide
+    w = _ruan_fan_widths(fine, 0.0, 0.0)
+    keep = set(range(0, fine.size, 25)) | {fine.size - 1}
+    for column in (0, 2, 3, 4, 5):  # every peak, with its flanks
+        y = w[:, column]
+        for i in np.flatnonzero((y[1:-1] > y[:-2]) & (y[1:-1] >= y[2:])) + 1:
+            keep |= set(range(max(i - 12, 0), min(i + 13, fine.size)))
+    keep = np.array(sorted(keep))
+    x, w = fine[keep], w[keep]
+    ref = at(x, {paper["lossless: frequency of the peak (ω/ωp)"]: paper["lossless: total scattering peak (2λ/π)"]})
+    return dict(x=[float(f"{v:.9g}") for v in x], series=[series("total", "total scattering, PyStratify", w[:, 0], "pystratify")]
+                + [series(f"m{m}", f"channel m = ±{m}, PyStratify", w[:, 1 + m], "pystratify") for m in range(1, 5)]
+                + [series("total_ref", "printed peak, 7.94 at ω = 0.2542 ω_p", ref, "reference")],
+                worst=float(abs(np.max(w[:, 0]) - 7.94) / 7.94), worst_label="peak, relative difference from the printed 7.94",
+                note="Ruan & Fan, Phys. Rev. Lett. 105, 013901 (2010): Drude core to 0.3485 λ_p, ε = 12.96 shell to 0.5623 λ_p, Drude shell "
+                     "to 0.6370 λ_p, H along the axis. Each channel can scatter at most 2λ/π (the single-channel limit, 1 on this axis); "
+                     "aligning four gives ~8. The m = 3 and 4 resonances are needles about 1e-6 ω_p wide, so the window is computed on "
+                     "6001 points and drawn on a thinned grid that keeps every peak. From crosscheck/classics/ruan_fan_2010.py.")
+
+
+@figure("ruan-fan-lossy", "The same nanorod with silver-like loss (γ = 0.004 ω_p core, 0.012 ω_p shell): Ruan & Fan 2010, Fig. 4a", "ω / ω_p", "width / (2λ/π)")
+def ruan_fan_lossy():
+    curve, paper = classic_curve("ruan_fan_2010_fig1_fig4a"), classic_values("ruan_fan_2010")
+    x, sca, ab = curve["omega_over_omega_p"][::3], curve["sca_lossy"][::3], curve["abs_lossy"][::3]
+    sca_ref = at(x, {float(x[np.argmax(sca)]): paper["lossy: total scattering peak (2λ/π)"]})
+    abs_ref = at(x, {float(x[np.argmax(ab)]): paper["lossy: absorption peak (2λ/π)"]})
+    return dict(x=sig(x), series=[series("sca", "scattering, PyStratify", sca, "pystratify"), series("abs", "absorption, PyStratify", ab, "pystratify"),
+                                  series("sca_ref", "scattering peak, printed (1.92)", sca_ref, "reference"),
+                                  series("abs_ref", "absorption peak, printed (0.73)", abs_ref, "reference")],
+                worst=float(max(abs(np.max(sca) - 1.92) / 1.92, abs(np.max(ab) - 0.73) / 0.73)), worst_label="largest relative difference from the printed peaks",
+                note="With silver's damping the needles broaden and the superscattering drops from ~8 to 1.92 single-channel limits; the "
+                     "paper prints the peak heights (p. 3–4), not their frequencies, so they are marked where PyStratify's curves peak. "
+                     "From crosscheck/classics/ruan_fan_2010.py.")
+
+
+@figure("ruppin-sodium-wire", "A 1 nm sodium wire in vacuum and a 2 nm one in ε = 2, E across the wire: extinction, Ruppin 2001 (local curves)", "ω / ω_p", "Q_ext", log=True)
+def ruppin_sodium_wire():
+    curve, paper = classic_curve("ruppin_2001_fig1_fig4_local"), classic_values("ruppin_2001")
+    x = curve["omega_over_omega_p"]
+    one, two = curve["Qext_a1nm_host1"], curve["Qext_a2nm_host_eps2"]
+    ref = at(x, {paper["a = 1 nm, ε_m = 1: local resonance (ω/ωp)"]: 10 ** paper["a = 1 nm: log10 of the local peak"],
+                 1.4: 10 ** paper["a = 1 nm: log10 C_e at 1.4 ωp"]})
+    i = int(np.argmax(one))
+    return dict(x=sig(x), series=[series("a1", "a = 1 nm, ε_m = 1, PyStratify", one, "pystratify"), series("a2", "a = 2 nm, ε_m = 2, PyStratify", two, "pystratify"),
+                                  series("a1_ref", "a = 1 nm: read off Fig. 1 (dashed) at the printed resonance ω_p/√2", ref, "reference")],
+                worst=float(max(abs(np.log10(one[i]) - paper["a = 1 nm: log10 of the local peak"]), abs(np.log10(one[-1]) - paper["a = 1 nm: log10 C_e at 1.4 ωp"]))),
+                worst_label="largest difference in log₁₀ Q_ext from the read values",
+                note="Ruppin, Opt. Commun. 190, 205 (2001): Drude sodium (ω_p = 8.65e15 s⁻¹, γ = 0.01 ω_p). The calculator draws the paper's "
+                     "dashed local curves; its solid ones add the hydrodynamic response. The printed resonances, ω_p/√(1 + ε_m), fall at 0.7071 "
+                     "(PyStratify 0.707) and 0.5774 (0.576); the heights are read off the log axis. From crosscheck/classics/ruppin_2001.py.")
+
+
+# --- cylinders, point dipole ------------------------------------------------------------------------------------
+
+@figure("cylinder-dipole-homogeneous", "A dipole in and around a cylinder of n = 1.5 in n = 1.5 at 600 nm: the rates of free space", "distance from the axis [nm]", "|Γ / Γ₀ − 1|", log=True)
+def cylinder_dipole_homogeneous():
+    r = np.r_[np.linspace(0, .095, 12), np.linspace(.105, .3, 20)]
+    out = {}
+    for dipole in ("electric", "magnetic"):
+        for ri in r:
+            res = ps.solve_problem(ps.Problem("cylinders", [.1], [1.5, 1.5], .6, ps.PointDipole(ri, dipole, int(ri > .1), .4), 1e-6, 15))
+            out.setdefault(dipole, []).append(max(float(np.max(np.abs(res["total"] - 1))), 1e-17))
+    return dict(x=sig(r * 1e3), series=[series(d, f"{d} dipole, max over orientations, PyStratify", out[d], "pystratify") for d in out],
+                worst=float(max(max(v) for v in out.values())), worst_label="largest |Γ / Γ₀ − 1|",
+                note="A cylinder of the medium's own index changes nothing: every rate is the free-space one, 1, for any position and "
+                     "orientation, inside the cylinder (r < 100 nm) or out; the test also checks escape = 1, no guided or absorbed power "
+                     "and the quantum yield 0.4 passed through. Floored at 1e-17 for the logarithmic axis.")
+
+
+def _coating_budget(dipole):
+    r = np.linspace(.105, .4, 24)
+    total, channels = [], []
+    for ri in r:
+        res = ps.solve_problem(ps.Problem("cylinders", [.05, .1], [1.5, .2 + 3j, 1], .6, ps.PointDipole(ri, dipole, 2), 1e-5, 30))
+        total.append(res["total"][:3]), channels.append((res["escape"] + res["guided"] + res["absorbed"])[:3])
+    total, channels = np.array(total), np.array(channels)
+    names = ("radial", "azimuthal", "axial")
+    return dict(x=sig(r * 1e3), series=[series(o, f"{o}, total (PyStratify)", total[:, i], "pystratify") for i, o in enumerate(names)]
+                + [series(f"{o}_ref", f"{o}, escape + guided + absorbed", channels[:, i], "reference") for i, o in enumerate(names)],
+                worst=worst(total, channels, relative=True), worst_label="largest relative difference",
+                note=f"A {dipole} dipole outside a cylinder of n = 1.5 (50 nm) under 50 nm of an absorbing n = 0.2 + 3i coating, 600 nm. "
+                     "The total rate comes from the Green's function at the source; the channels separately, from the power escaping to "
+                     "infinity, the power carried by guided modes and the power absorbed in the coating, so their sum is an independent budget.")
+
+
+for _dipole in ("electric", "magnetic"):
+    def _make(dipole=_dipole):
+        return _coating_budget(dipole)
+    _make.__name__ = f"coating_budget_{_dipole}"
+    figure(f"cylinder-coating-budget-{_dipole}", f"{'An' if _dipole == 'electric' else 'A'} {_dipole} dipole outside a coated cylinder (n = 1.5 core, absorbing n = 0.2 + 3i coating, 50/100 nm), 600 nm: the total against its channels",
+           "distance from the axis [nm]", "Γ / Γ₀", log=True)(_make)
+
+
+@figure("cylinder-guide-budget", "A dipole inside a lossless guide (n = 1.5, radius 100 nm) in air, 600 nm: the total against escape + guided", "distance from the axis [nm]", "Γ / Γ₀")
+def cylinder_guide_budget():
+    r = np.linspace(0, .095, 20)
+    total, escape, guided = [], [], []
+    for ri in r:
+        res = ps.solve_problem(ps.Problem("cylinders", [.1], [1.5, 1], .6, ps.PointDipole(ri, "electric", 0), 1e-5, 20))
+        total.append(res["total"][3]), escape.append(res["escape"][3]), guided.append(res["guided"][3])
+    total, escape, guided = map(np.array, (total, escape, guided))
+    return dict(x=sig(r * 1e3), series=[series("total", "total, PyStratify", total, "pystratify"), series("escape", "escape", escape, "pystratify"),
+                                        series("guided", "guided", guided, "pystratify"),
+                                        series("total_ref", "escape + guided", escape + guided, "reference")],
+                worst=worst(total, escape + guided, relative=True), worst_label="largest relative difference",
+                note="An electric dipole inside the guide, averaged over orientations: a point source (unlike a line source) sends a finite "
+                     "share of its power into the guided mode, here about a tenth of the free rate; the total from the Green's function must "
+                     "equal what escapes plus what is guided, since nothing absorbs.")
+
+
+@figure("cylinder-grazing-tolerance", "An electric dipole 5 nm from a 10 nm metal wire (n = 0.97 + 1.87i), asked for 1e-9: the grazing error it cannot pass", "λ [nm]", "error in Γ / Γ₀", log=True)
+def cylinder_grazing_tolerance():
+    from unified_checks import metal_wire_tight
+
+    lam = np.linspace(.4, .7, 16)
+    grazing, error, asked, converged = [], [], [], []
+    for w in lam:
+        rates = metal_wire_tight(w)
+        grazing.append(rates.grazing_error), error.append(rates.error), asked.append(1e-9 * np.max(rates.total)), converged.append(rates.converged)
+    grazing, asked = np.array(grazing), np.array(asked)
+    return dict(x=sig(lam * 1e3), series=[series("grazing", "grazing error charged, PyStratify", grazing, "pystratify"),
+                                          series("error", "total error reported, PyStratify", error, "pystratify"),
+                                          series("asked", "1e-9 × max Γ / Γ₀, the accuracy asked for", asked, "reference")],
+                worst=float(np.min(grazing / asked)), worst_label="smallest grazing error / accuracy asked (must stay above 1)",
+                note="The light-line caps leave an error the integration cannot shrink; asked for 1e-9, PyStratify charges it to the total "
+                     f"error and reports the result as not converged ({sum(not c for c in converged)} of {len(converged)} wavelengths), rather than "
+                     "claiming an accuracy it does not have. The grazing error is all but 0.3% of the reported error, so the two lines coincide. "
+                     "The same wire as the grazing-caps rows; 40 orders; no dispersion.")
+
+
+@figure("fibre-rates-cutoff", "An electric dipole 100 nm outside a step-index fibre (n = 2, radius 150 nm) through the TE₀₁/TM₀₁ cutoff", "λ [µm]", "Γ / Γ₀")
+def fibre_rates_cutoff():
+    from unified_checks import fibre_rates
+
+    lam = np.linspace(.62, .74, 49)
+    total, escape, guided = [], [], []
+    for w in lam:
+        res = fibre_rates(w)
+        total.append(res["total"][:3]), escape.append(res["escape"][:3]), guided.append(res["guided"][:3])
+    total, escape, guided = map(np.array, (total, escape, guided))
+    names = ("radial", "azimuthal", "axial")
+    return dict(x=sig(lam), series=[series(o, f"{o}, total (PyStratify)", total[:, i], "pystratify") for i, o in enumerate(names)]
+                + [series(f"{o}_guided", f"{o}, guided (PyStratify)", guided[:, i], "pystratify") for i, o in enumerate(names)]
+                + [series(f"{o}_ref", f"{o}, escape + guided", (escape + guided)[:, i], "reference") for i, o in enumerate(names)],
+                worst=worst(total, escape + guided, relative=True), worst_label="largest relative difference, total against escape + guided",
+                note="TE₀₁ and TM₀₁ are cut off near 0.678 µm: the guided power of the radial and azimuthal dipoles, which they carried, drops "
+                     "there and reappears as escaping power (HE₁₁ stays guided), while the total, from the Green's function, passes through smoothly (the test bounds its second difference over 0.66–0.70 µm "
+                     "by 2e-3). Every mode PyStratify finds is checked against the dispersion relations in the fibre-dispersion plot.")
+
+
+@figure("meep-cylinder-fibre", "A dipole 100 nm outside a step-index fibre (n = 2, radius 150 nm) in air: total decay rates against Meep (3D FDTD, 60 px/µm)", "λ [µm]", "Γ / Γ₀")
+def meep_cylinder_fibre():
+    import meep as mp
+    from fdtd_meep import CASES, ORIENTATIONS, meep_ldos
+
+    case = "fibre n = 2, R = 150 nm, dipole 100 nm outside"
+    radii, n, source = CASES[case]
+    mp.verbosity(0)
+    coarse = 1 / np.linspace(0.85, 1.65, 17)
+    theirs = {o: meep_ldos(case, o, 60, wavelengths=coarse) / meep_ldos(case, o, 60, False, wavelengths=coarse) for o in ORIENTATIONS}
+    dense = 1 / np.linspace(0.85, 1.65, 161)
+    ours = np.array([ps.solve_problem(ps.Problem("cylinders", radii, n, w, ps.PointDipole(source, "electric"), 1e-6))["total"][:3] for w in dense])
+    out, refs, rel = [], [], []
+    for i, o in enumerate(ORIENTATIONS):
+        ref = np.full(dense.size, np.nan)
+        ref[::10] = theirs[o]
+        out.append(series(o, f"{o}, PyStratify", ours[:, i], "pystratify"))
+        refs.append(series(f"{o}_ref", f"{o}, Meep", ref, "reference"))
+        rel.append(np.max(np.abs(theirs[o] / ours[::10, i] - 1)))
+    return dict(x=sig(dense), series=out + refs, worst=float(max(rel)), worst_label="largest relative difference (the grid's error)",
+                note="Meep in 3D: the fibre runs through the perfectly matched layers, a 1.8 µm cell plus 1 µm of PML per side, two mirror "
+                     "planes; a Gaussian pulse and the local density of states at the dipole, over the same run without the fibre so the "
+                     "grid's own dispersion cancels. TE₀₁ and TM₀₁ are cut off at 0.678 µm. The difference shrinks with the grid, "
+                     "6.9% → 3.2% → 1.7% → 0.74% at 20–60 px/µm (FDTD_MEEP.md); the test runs 20 and 30.")
+
+@figure("ngsolve-cylinder-fibre", "A dipole 100 nm outside a step-index fibre (n = 2, radius 150 nm) in vacuum: total decay rates against NGSolve (3D finite elements)", "λ [µm]", "Γ / Γ₀")
+def ngsolve_cylinder_fibre():
+    import ngsolve  # noqa: F401
+    from fem_ngsolve import MESHES, ORIENTATIONS, RADIUS, INDEX, SOURCE, ngsolve_rates
+
+    points = (0.75, 0.8, 0.9, 1.0, 1.1, 1.2)  # longer than the TE01/TM01 cutoff (0.678 um), whose modes reach the PML
+    theirs = {w: ngsolve_rates(w, *MESHES[1])[0] for w in points}
+    dense = np.round(np.linspace(0.74, 1.2, 47), 6)
+    ours = np.array([ps.solve_problem(ps.Problem("cylinders", [RADIUS], [INDEX, 1.0], w, ps.PointDipole(SOURCE, "electric"), 1e-6))["total"][:3] for w in dense])
+    out, refs, rel = [], [], []
+    for i, o in enumerate(ORIENTATIONS):
+        out.append(series(o, f"{o}, PyStratify", ours[:, i], "pystratify"))
+        refs.append(series(f"{o}_ref", f"{o}, NGSolve", at(dense, {w: theirs[w][i] for w in points}), "reference"))
+        rel.append(max(abs(theirs[w][i] / ours[int(np.argmin(np.abs(dense - w))), i] - 1) for w in points))
+    return dict(x=sig(dense), series=out + refs, worst=float(max(rel)), worst_label="largest relative difference (the cell, not the mesh)",
+                note="Second-order Nédélec elements on a sphere of 0.8 µm with a 0.5 µm radial PML shell, the fibre running through it; "
+                     "the rate is Im(p·E) at the dipole over the same on the same mesh with the fibre's permittivity set to 1; the 126k-unknown "
+                     "mesh (0.25 µm in vacuum, 0.06 µm in the fibre). At 0.8 µm it agrees to 1.5% and converges with the mesh (FEM_NGSOLVE.md; "
+                     "the test runs the coarsest mesh there). Elsewhere the cell, which 8 GB allows, sets the difference, up to 7% with "
+                     "alternating sign: moving the PML from 0.8 to 1.0 µm turns +8% into −6% at 0.75 µm on the same mesh, while a stronger or "
+                     "thicker PML changes nothing. Beyond 1 µm the HE₁₁ mode's evanescent tail (1/e length 0.37–0.96 µm) reaches the PML; "
+                     "at 0.75 µm TE₀₁ and TM₀₁ have just turned leaky. Meep's 3D grid, with Cartesian PML, agrees to 0.74% over the whole band.")
+
+
+# --- cylinders, focused beam ------------------------------------------------------------------------------------
+
+@figure("focused-cylinder-rows", "A coated cylinder (0.7/1.2 µm) under a focused beam (NA 0.6/0.2, collection 0.8/0.1, x polarized), 3 µm: one pupil row at a time against plane-wave sums", "pupil row s_y", "power per row")
+def focused_cylinder_rows():
+    from focused_checks import CYLINDER, CYLINDER_ROW_BEAM, row_brute
+    from pystratify import focused as F
+
+    radii, n = CYLINDER
+    rows_ = F._CylinderRows(radii, n, 3.0, [CYLINDER_ROW_BEAM], 14)
+    sy = np.linspace(0.01, 0.59, 30)
+    ours = np.array([rows_(s)[:3] / 2 for s in sy])
+    ref = np.array([row_brute(radii, n, 3.0, s, CYLINDER_ROW_BEAM, (1.0, 0.0), 14)[:3] for s in sy])
+    keys = ("extinction", "scattering", "detected")
+    return dict(x=sig(sy), series=[series(k, f"{k}, PyStratify", ours[:, i], "pystratify") for i, k in enumerate(keys)]
+                + [series(f"{k}_ref", f"{k}, plane waves summed", ref[:, i], "reference") for i, k in enumerate(keys)],
+                worst=worst(ours, ref, relative=True), worst_label="largest relative difference",
+                note="A cylinder conserves the beam's direction along its axis, so the pupil splits into rows of fixed s_y, each an oblique "
+                     "cylinder problem. PyStratify sums a row in closed form over Fourier orders; the reference solves every plane wave of the "
+                     "row (60 nodes per interval), adds their far fields on observation angles and integrates the powers directly. Focus at "
+                     "(0.4, 0, 0.3) µm; the y polarization and the mirror rows −s_y are checked too.")
+
+
+
+def _cylinder_whole_beam_figure(pol):
+    from focused_checks import cylinder_whole_beam_pair
+
+    lam = np.linspace(2.5, 6.0, 15)
+    keys = ("extinction", "scattering", "detected")
+    ours, ref = [], []
+    for w in lam:
+        r, total, width = cylinder_whole_beam_pair(w)
+        p = "xy".index(pol)
+        bp = r.by_polarization[pol]
+        ours.append([float(np.ravel(bp[k])[0]) for k in keys]), ref.append(total[p * width:p * width + 3])
+    ours, ref = np.array(ours), np.array(ref)
+    return dict(x=sig(lam), series=[series(k, f"{k}, PyStratify (adaptive)", ours[:, i], "pystratify") for i, k in enumerate(keys)]
+                + [series(f"{k}_ref", f"{k}, fixed 40-node quadrature", ref[:, i], "reference") for i, k in enumerate(keys)],
+                worst=worst(ours, ref, relative=True), worst_label="largest relative difference",
+                note=f"The whole beam, {pol} polarized ({'across' if pol == 'x' else 'along'} the axis): PyStratify integrates its rows over s_y "
+                     "adaptively to 1e-9; the reference sums the same rows with a fixed 40-node rule on each side of the obscuration. "
+                     "The incident power is 1.")
+
+
+for _pol in "xy":
+    def _make(pol=_pol):
+        return _cylinder_whole_beam_figure(pol)
+    _make.__name__ = f"focused_cylinder_whole_beam_{_pol}"
+    figure(f"focused-cylinder-whole-beam-{_pol}", f"The coated cylinder (0.7/1.2 µm) under a focused beam (NA 0.6/0.2, collection 0.8), {_pol} polarized: the whole beam against a fixed quadrature",
+           "λ [µm]", "power / incident")(_make)
+
+
+@figure("focused-cylinder-koehler", "The coated cylinder (0.7/1.2 µm) under Köhler illumination (NA 0.6/0.2, collection 0.7/0.3, field stop 30 µm): against a cone average of plane waves", "λ [µm]", "power / incident")
+def focused_cylinder_koehler():
+    from focused_checks import CYLINDER, cylinder_koehler_reference
+    from pystratify import focused as F
+
+    radii, n = CYLINDER
+    beam = ps.FocusedBeam(0.6, 0.2, collection_na=0.7, collection_obscuration=0.3, illumination="kohler", field_stop=30.0)
+    lam = np.linspace(2.5, 6.0, 15)
+    ours, ref = [], []
+    for w in lam:
+        r = F.focused_cylinders(radii, n, w, beam, m_max=14, tolerance=1e-9)
+        t = cylinder_koehler_reference(w, 30.0)
+        ours.append([float(np.ravel(r.by_polarization[p][k])[0]) for p in "xy" for k in ("extinction", "detected")])
+        ref.append([v for p in "xy" for v in (t[p][0], t[p][2] + t[p][1])])
+    ours, ref = np.array(ours), np.array(ref)
+    labels = ("extinction, x", "detected, x", "extinction, y", "detected, y")
+    return dict(x=sig(lam), series=[series(f"s{i}", f"{lab}, PyStratify", ours[:, i], "pystratify") for i, lab in enumerate(labels)]
+                + [series(f"s{i}_ref", f"{lab}, cone average", ref[:, i], "reference") for i, lab in enumerate(labels)],
+                worst=worst(ours, ref, relative=True), worst_label="largest relative difference",
+                note="Köhler illumination is incoherent across the pupil: the cylinder sees each plane wave of the illumination cone on its "
+                     "own, over the chord the field stop lights. The reference averages the oblique plane-wave extinction widths and the "
+                     "scattered power that lands in the collection annulus over the cone (focused_checks.py); x is across the axis.")
+
+
+@figure("focused-cylinder-na-limit", "The coated cylinder (0.7/1.2 µm) at λ = 3 µm: a focused beam as its NA closes, against the plane wave", "NA", "extinction / (∫|E|² dl · C_ext)")
+def focused_cylinder_na_limit():
+    from focused_checks import cylinder_na_ratio
+
+    nas = np.linspace(0.01, 0.3, 30)
+    ratios = {p: np.array([cylinder_na_ratio(na, p) for na in nas]) for p in "xy"}
+    return dict(x=sig(nas), series=[series(p, f"{p} polarized ({'across' if p == 'x' else 'along'} the axis), PyStratify", ratios[p], "pystratify") for p in "xy"]
+                + [series("plane", "plane wave (= 1)", np.ones_like(nas), "reference")],
+                worst=float(max(abs(ratios[p][0] - 1) for p in "xy")), worst_label="difference from 1 at NA 0.01",
+                note="A focused beam's extinction, divided by its |E|² integrated along the cylinder's axis and the plane-wave extinction "
+                     "width, tends to 1 as the NA closes; the test asserts it is within 2e-3 at NA 0.02 and closer than at 0.04, and that "
+                     "a lossless cylinder absorbs nothing.")
+
+
+@figure("focused-cylinder-near-field", "A coated cylinder (0.6/1.2 µm, axis along y) under a focused beam (NA 0.6/0.2, x polarized, focus off-centre), 3 µm: |E|² across it against plane-wave fields", "x [µm]", "|E|²")
+def focused_cylinder_near_field():
+    from focused_checks import cylinder_near_field_pair
+
+    x = np.linspace(-2.5, 2.5, 101)
+    field, E = cylinder_near_field_pair(np.column_stack([x, np.full_like(x, 0.2), np.full_like(x, 0.25)]))
+    ours = np.sum(np.abs(np.asarray(field.e[0])) ** 2, -1)
+    ref = np.sum(np.abs(E) ** 2, -1)
+    return dict(x=sig(x), series=[series("e2", "|E|², PyStratify", ours, "pystratify"), series("e2_ref", "|E|², superposition of plane-wave cylinder fields", ref, "reference")],
+                worst=worst(ours, ref, relative=True), worst_label="largest relative difference",
+                note="Along y = 0.2, z = 0.25 µm, across the cylinder (core 0.6, shell 1.2 µm; n = 1.5 + 0.1i, 1.3 + 0.02i): PyStratify's field "
+                     "from its row coefficients against the pupil's plane waves, each solved as an oblique cylinder and its field summed "
+                     "(focused_checks.py). Focus at (0.3, 0.2, 0.25) µm.")
+
+
+@figure("scalar-cylinder-coefficients", "The scalar model: a cylinder of radius 1.1 µm, n = 1.45 + 0.06i, row s_y = 0.4, 3 µm: coefficients against the scalar boundary equations", "order m", "|t_m|", log=True)
+def scalar_cylinder_coefficients():
+    from focused_checks import scalar_cylinder_coefficient
+
+    lam, R, m_in, sy = 3.0, 1.1, 1.45 + 0.06j, 0.4
+    k = 2 * np.pi / lam
+    n_v, n_p = np.sqrt(1 - sy * sy), np.sqrt(m_in ** 2 - sy * sy)
+    sol = ps.solve_cylinder([R], [n_p, n_v], lam, beta=0, m_max=12)
+    expected = [scalar_cylinder_coefficient(abs(m), k * R * n_v, k * R * n_p, n_v, n_p) for m in sol.orders]
+    t = sol.t[:, 0, 0]
+    return dict(x=[float(m) for m in sol.orders], series=[series("t", "|t_m|, PyStratify", np.abs(t), "pystratify"),
+                                                          series("t_ref", "|t_m|, scalar boundary equations", np.abs(expected), "reference")],
+                worst=worst(np.abs(t), np.abs(expected), relative=True), worst_label="largest relative difference",
+                note="The scalar model treats a row of the pupil as a scalar wave U = J_m + t_m H_m outside a cylinder of effective "
+                     "indices √(n² − s_y²), with U and ∂U/∂ρ continuous; the coefficients from PyStratify's cylinder solver against those "
+                     "two conditions solved directly in SciPy's Bessel functions.")
+
+
+@figure("scalar-cylinder-rows", "The scalar model, the coated cylinder (0.7/1.2 µm) under NA 0.6/0.2, 3 µm: each pupil row against a direct superposition", "pupil row s_y", "power per row")
+def scalar_cylinder_rows():
+    from focused_checks import scalar_row_pair
+
+    sy = np.linspace(0.01, 0.59, 30)
+    ours, ref = [], []
+    for s in sy:
+        value, (sca, ext) = scalar_row_pair(s)
+        ours.append([value[0], value[1]]), ref.append([ext, sca])
+    ours, ref = np.array(ours), np.array(ref)
+    return dict(x=sig(sy), series=[series("ext", "extinction, PyStratify", ours[:, 0], "pystratify"), series("sca", "scattering, PyStratify", ours[:, 1], "pystratify"),
+                                   series("ext_ref", "extinction, direct superposition", ref[:, 0], "reference"),
+                                   series("sca_ref", "scattering, direct superposition", ref[:, 1], "reference")],
+                worst=worst(ours, ref, relative=True), worst_label="largest relative difference",
+                note="Each row's scalar plane waves, with the aplanatic pupil amplitude and the focus at (0.3, 0, 0.2) µm, scattered one by one "
+                     "with the effective-index coefficients and superposed on observation angles; the powers integrated directly. The test "
+                     "also checks that a lossless cylinder absorbs nothing and that the scalar model has no polarization split.")
+
+
+@figure("davis-2011-fibres", "Non-absorbing fibres (R = 5 µm, n = 1.477; R = 10 µm, n = 1.478) under a Cassegrain (NA 0.1–0.4): transmission, Davis, Carney & Bhargava 2011, Fig. 5", "wavenumber [cm⁻¹]", "transmission [%]")
+def davis_2011_fibres():
+    curve, paper = classic_curve("davis_2011_fig5"), classic_values("davis_2011")
+    wn, t5, t10 = curve["wavenumber_cm-1"], curve["T_percent_R5um_n1.477"], curve["T_percent_R10um_n1.478"]
+    window = lambda lo, hi: (wn >= lo) & (wn <= hi)  # noqa: E731
+    w1, w2 = window(1900, 2600), window(2700, 3300)
+    ref5 = at(wn, {paper["R = 5 µm: wavenumber of the minimum (cm-1)"]: paper["R = 5 µm: transmission minimum (%)"],
+                   float(wn[w1][np.argmax(t5[w1])]): paper["R = 5 µm: maximum near the fit range, 1900-2600 cm-1 (%)"],
+                   float(wn[w2][np.argmin(t5[w2])]): paper["R = 5 µm: dip near 3000 cm-1 (%)"], 4000.0: paper["R = 5 µm: at 4000 cm-1 (%)"]})
+    ref10 = at(wn, {800.0: paper["R = 10 µm: at 800 cm-1 (%)"]})
+    values = json.loads((CLASSICS / "davis_2011.json").read_text())
+    return dict(x=sig(wn), series=[series("t5", "R = 5 µm, PyStratify", t5, "pystratify"), series("t10", "R = 10 µm, PyStratify", t10, "pystratify"),
+                                   series("t5_ref", "R = 5 µm, read off Fig. 5a", ref5, "reference"), series("t10_ref", "R = 10 µm, read off Fig. 5b", ref10, "reference")],
+                worst=float(max(abs(c["computed"] - c["paper"]) for c in values if "(%)" in c["check"])), worst_label="largest difference from a read transmission [percentage points]",
+                note="Davis, Carney & Bhargava, Anal. Chem. 83, 525 (2011): a fibre that absorbs nothing still shows a strong, wavenumber-"
+                     "dependent apparent absorbance, made by refraction and scattering out of the objective. Values read off Fig. 5 to ±3%; "
+                     "the paper prints no position for the maximum and the dip, so they are marked where PyStratify's curve turns, and the "
+                     "minimum sits 20 cm⁻¹ from the read 1100. The paper does not state Fig. 5's NA; 0.1–0.4 is its Fig. 2 pair. "
+                     "From crosscheck/classics/davis_2011.py.")
+
+
 # --- CLI ---------------------------------------------------------------------------------------------------------
 
 def build(names=None):

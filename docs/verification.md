@@ -55,7 +55,19 @@ figures:
 - {geometry: spheres, source: dipole, reference: "**Meep**, cylindrical coordinates (dipole on the axis through the sphere)", figure: meep-axial-sphere}
 - {geometry: cylinders, source: plane_wave, reference: "**treams**, oblique incidence", figure: treams-cylinder-oblique}
 - {geometry: cylinders, source: plane_wave, reference: "Bessel boundary equations solved directly", figure: cylinder-bessel-direct}
-- {geometry: cylinders, source: dipole, reference: "step-index fibre dispersion relations (TE₀₁, TM₀₁; Snyder & Love)", figure: fibre-dispersion}
+- {geometry: cylinders, source: dipole, reference: "step-index fibre dispersion relations (TE₀₁, TM₀₁; Snyder & Love)", figure: [fibre-dispersion, fibre-rates-cutoff]}
+- {geometry: cylinders, source: plane_wave, reference: "homogeneous cylinder fields; index-matched limit", figure: cylinder-index-matched}
+- {geometry: cylinders, source: plane_wave, reference: "grazing light-line caps, bounded error", figure: [cylinder-grazing-caps-electric, cylinder-grazing-caps-magnetic]}
+- {geometry: cylinders, source: plane_wave, reference: "canonical cylinder papers (Bohren & Huffman's infinite cylinder; coated fibres)", figure: [bohren-huffman-cylinder, ruan-fan-superscattering, ruan-fan-lossy, ruppin-sodium-wire]}
+- {geometry: cylinders, source: dipole, reference: "homogeneous medium; independent flux budget; guided channels", figure: [cylinder-dipole-homogeneous, cylinder-coating-budget-electric, cylinder-coating-budget-magnetic, cylinder-guide-budget]}
+- {geometry: cylinders, source: dipole, reference: "grazing endpoint continuation within the error budget", figure: cylinder-grazing-tolerance}
+- {geometry: cylinders, source: dipole, reference: "**Meep**, 3D FDTD (the cylinder through the PML)", figure: meep-cylinder-fibre}
+- {geometry: cylinders, source: dipole, reference: "**NGSolve** (3D finite elements; total field of a point dipole, Im(p·E) over the same mesh without the fibre)", figure: ngsolve-cylinder-fibre}
+- {geometry: cylinders, source: focused, reference: "rows against plane-wave sums; whole beam against fixed quadrature", figure: [focused-cylinder-rows, focused-cylinder-whole-beam-x, focused-cylinder-whole-beam-y]}
+- {geometry: cylinders, source: focused, reference: "Köhler against a plane-wave cone average; energy; NA → 0 is the plane wave", figure: [focused-cylinder-koehler, focused-cylinder-na-limit]}
+- {geometry: cylinders, source: focused, reference: "near field against plane-wave fields", figure: focused-cylinder-near-field}
+- {geometry: cylinders, source: focused, reference: "scalar model: coefficients, energy, brute-force sum", figure: [scalar-cylinder-coefficients, scalar-cylinder-rows]}
+- {geometry: cylinders, source: focused, reference: "Davis, Carney & Bhargava, *Anal. Chem.* **83**, 525 (2011): FT-IR of intact fibres", figure: davis-2011-fibres}
 ---
 
 The calculator computes every film, cylinder and sphere with PyStratify, an open-source Python package (GPL-3.0).

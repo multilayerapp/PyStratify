@@ -318,7 +318,7 @@ def sphere_koehler_cone_average():
 
 def cylinder_rows():
     radii, n = CYLINDER
-    beam = ps.FocusedBeam(0.6, 0.2, collection_na=0.8, collection_obscuration=0.1, offset=(0.4, 0.0, 0.3))
+    beam = CYLINDER_ROW_BEAM
     rows_ = F._CylinderRows(radii, n, 3.0, [beam], 14)
     out = []
     for sy in (0.05, 0.3, 0.55):
@@ -331,23 +331,53 @@ def cylinder_rows():
     return out
 
 
-def cylinder_whole_beam():
+CYLINDER_ROW_BEAM = ps.FocusedBeam(0.6, 0.2, collection_na=0.8, collection_obscuration=0.1, offset=(0.4, 0.0, 0.3))
+
+
+def cylinder_whole_beam_pair(lam=3.0):
+    """(PyStratify's adaptive whole-beam result, the same rows summed by a fixed 40-node quadrature over s_y) for
+    CYLINDER under NA 0.6/0.2, collection 0.8, focus at (0.4, 0, 0.3); the fixed sum is [ext, sca, det, ref] for x
+    then y polarization at index p * width."""
     radii, n = CYLINDER
     beam = ps.FocusedBeam(0.6, 0.2, collection_na=0.8, offset=(0.4, 0.0, 0.3))
-    r = F.focused_cylinders(radii, n, 3.0, beam, m_max=14, tolerance=1e-9)
-    rows_ = F._CylinderRows(radii, n, 3.0, [beam], 14)
+    r = F.focused_cylinders(radii, n, lam, beam, m_max=14, tolerance=1e-9)
+    rows_ = F._CylinderRows(radii, n, lam, [beam], 14)
     total = 0
     for a, b in F._cuts(0, 0.6, (0.2,)):
         sy, w = F._mapped_nodes(a, b, 40)
         total = total + sum(wi * rows_(s) for s, wi in zip(sy, w))
+    return r, total, rows_.width
+
+
+def cylinder_whole_beam():
+    r, total, width = cylinder_whole_beam_pair()
     name = "coated cylinder, whole beam: adaptive against a fixed 40-node quadrature"
     out = []
     for p, pol in enumerate("xy"):
         bp = r.by_polarization[pol]
         out.append(close(name, f"{pol}: ext, sca, detected, reference", np.ravel([bp["extinction"], bp["scattering"], bp["detected"], bp["reference"]]),
-                         total[p * rows_.width:p * rows_.width + 4], 1e-8, 1e-8))
+                         total[p * width:p * width + 4], 1e-8, 1e-8))
     return out + [close(name, "reference against 1 (the condenser sees the whole beam)", r.reference, 1.0, 1e-8, 1e-8),
                   flag(name, "converged", r.diagnostics["converged"])]
+
+
+def cylinder_na_ratio(na, pol_name, lam=3.0):
+    """CYLINDER's extinction under an unobscured beam of this NA, polarized x (axial-magnetic) or y (axial-electric),
+    divided by the beam's |E|^2 integrated along the axis line and the plane-wave extinction width: 1 as NA -> 0."""
+    radii, n = CYLINDER
+    k = 2 * np.pi / lam
+    sol = solve_cylinder(radii, n, lam, beta=0)
+    out_ = F.focused_cylinders(radii, n, lam, ps.FocusedBeam(na, polarization=pol_name))
+    sy, wy = F._mapped_nodes(0, na, 60)
+    line = 0
+    for s, w in zip(sy, wy):
+        (a, b), = F._row_intervals(s, 0, na)
+        al, wa = F._nodes(a, b, 40)
+        u, _, _ = F._row_basis(al, s)
+        A = pupil_field(u, (0, na), (1.0, 0.0) if pol_name == "x" else (0.0, 1.0), k, (0, 0, 0))
+        line += 2 * w * np.sum(np.abs(np.sum(A * wa[:, None], 0)) ** 2)
+    pol = "axial-magnetic" if pol_name == "x" else "axial-electric"
+    return float(np.ravel(out_["extinction"])[0] / (k / (2 * np.pi) * line) / cross_widths(sol, pol)["extinction"])
 
 
 def cylinder_energy_and_na_limit():
@@ -359,32 +389,17 @@ def cylinder_energy_and_na_limit():
     out = [row(name, f"max |absorption|, lossless, {p}", np.abs(lossless.by_polarization[p]["absorption"]), 1e-12) for p in "xy"]
     out += [flag(name, "absorption > 0, lossy", np.all(r["absorption"] > 0)),
             close(name, "multipole extinction shares summed", r.multipoles["extinction"].sum(-1), r["extinction"], 1e-5, 1e-8)]
-    lam = 3.0
-    k = 2 * np.pi / lam
-    sol = solve_cylinder(radii, n, lam, beta=0)
-    for pol_name, pol in (("x", "axial-magnetic"), ("y", "axial-electric")):
-        ratios = []
-        for na in (0.04, 0.02):
-            out_ = F.focused_cylinders(radii, n, lam, ps.FocusedBeam(na, polarization=pol_name))
-            sy, wy = F._mapped_nodes(0, na, 60)
-            line = 0
-            for s, w in zip(sy, wy):
-                (a, b), = F._row_intervals(s, 0, na)
-                al, wa = F._nodes(a, b, 40)
-                u, _, _ = F._row_basis(al, s)
-                A = pupil_field(u, (0, na), (1.0, 0.0) if pol_name == "x" else (0.0, 1.0), k, (0, 0, 0))
-                line += 2 * w * np.sum(np.abs(np.sum(A * wa[:, None], 0)) ** 2)
-            ratios.append(out_["extinction"] / (k / (2 * np.pi) * line) / cross_widths(sol, pol)["extinction"])
+    for pol_name in "xy":
+        ratios = [cylinder_na_ratio(na, pol_name) for na in (0.04, 0.02)]
         out += [flag(name, f"{pol_name}: extinction ratio closer to 1 at NA 0.02 than 0.04", abs(ratios[1] - 1) < abs(ratios[0] - 1)),
                 row(name, f"{pol_name}: |extinction / (line |E|^2 C_ext) - 1| at NA 0.02", abs(ratios[1] - 1), 2e-3, "<")]
     return out
 
 
-def cylinder_koehler_cone_average():
+def cylinder_koehler_reference(lam, D=30.0):
+    """Kohler illumination of CYLINDER (NA 0.6/0.2, collection 0.7/0.3, field stop D) as a cone average of plane
+    waves: {pol: [extinction, detected - reference, reference]} for x and y."""
     radii, n = CYLINDER
-    lam, D = 3.0, 30.0
-    beam = ps.FocusedBeam(0.6, 0.2, collection_na=0.7, collection_obscuration=0.3, illumination="kohler", field_stop=D)
-    r = F.focused_cylinders(radii, n, lam, beam, m_max=14, tolerance=1e-9)
     k = 2 * np.pi / lam
     G = np.pi * D * D / 4
     totals = {p: np.zeros(3) for p in "xy"}
@@ -412,6 +427,15 @@ def cylinder_koehler_cone_average():
                         weight = 2 * wy * wai * F.aplanatic_amplitude(ui[2], 0.2, 0.6) ** 2  # dP, both +-sy
                         irradiance = weight / (G * ui[2]) * D  # times the lit chord
                         totals[pol] += [irradiance * c_ext, irradiance * (landed - seen * c_ext), weight * seen]
+    return totals
+
+
+def cylinder_koehler_cone_average():
+    radii, n = CYLINDER
+    lam, D = 3.0, 30.0
+    beam = ps.FocusedBeam(0.6, 0.2, collection_na=0.7, collection_obscuration=0.3, illumination="kohler", field_stop=D)
+    r = F.focused_cylinders(radii, n, lam, beam, m_max=14, tolerance=1e-9)
+    totals = cylinder_koehler_reference(lam, D)
     name = "coated cylinder, Kohler (field stop 30 um): against a plane-wave cone average"
     out = []
     for pol in "xy":
@@ -432,37 +456,48 @@ def scalar_cylinder():
     name = "scalar cylinder model"
     out = [close(name, "coefficients against the scalar boundary equations", t, expected, 1e-10, 1e-8)]
     radii, n = CYLINDER
-    beam = ps.FocusedBeam(0.6, 0.2, model="scalar", offset=(0.3, 0.0, 0.2))
+    beam = SCALAR_BEAM
     lossless = F.focused_cylinders(radii, n.real, [3.0, 5.0], beam)
     r = F.focused_cylinders(radii, n, 3.0, beam, m_max=14, tolerance=1e-9)
     out += [row(name, "max |absorption|, lossless", np.abs(lossless["absorption"]), 1e-12),
             flag(name, "absorption > 0, lossy; no polarization split", r["absorption"] > 0 and not r.by_polarization)]
-    rows_ = F._CylinderRows(radii, n, 3.0, [beam], 14)
     for sy in (0.1, 0.45):
-        value = rows_(sy)[:4] / 2
-        eff = np.sqrt(n ** 2 - sy ** 2)
-        ts = solve_cylinder(radii, eff, 3.0, beta=0, m_max=14).t[:, 0, 0]
-        orders = np.arange(-14, 15)
-        intervals = F._row_intervals(sy, 0.2, 0.6)
-        al = np.concatenate([F._nodes(a, b, 60)[0] for a, b in intervals])
-        wa = np.concatenate([F._nodes(a, b, 60)[1] for a, b in intervals])
-
-        def amplitude(phi):
-            u, _, _ = F._row_basis(phi, sy)
-            s = np.hypot(u[:, 0], u[:, 1])
-            return np.where((s >= 0.2) & (s <= 0.6), F.aplanatic_amplitude(u[:, 2], 0.2, 0.6), 0) * np.exp(-1j * k * u @ np.array(beam.offset))
-
-        U = amplitude(al) * wa
-
-        def scattered(phi):  # (1/pi) sum over the row's plane waves of their rotated scattered amplitudes
-            return np.array([np.sum(U * (np.exp(1j * np.outer(p - al, orders)) @ ts)) for p in phi]) / np.pi
-
-        ph = 2 * np.pi * np.arange(256) / 256
-        ext = sum(-2 * np.real(np.conj(amplitude(p)) * scattered(p) @ wq) for p, wq in (F._nodes(a, b, 80) for a, b in intervals))
-        out += [close(name, f"row s_y = {sy:g}: scattering against a direct superposition", value[1],
-                      np.sum(np.abs(scattered(ph)) ** 2) * 2 * np.pi / 256, 1e-9, 1e-8),
+        value, (sca, ext) = scalar_row_pair(sy)
+        out += [close(name, f"row s_y = {sy:g}: scattering against a direct superposition", value[1], sca, 1e-9, 1e-8),
                 close(name, f"row s_y = {sy:g}: extinction against a direct superposition", value[0], ext, 1e-9, 1e-8)]
     return out
+
+
+SCALAR_BEAM = ps.FocusedBeam(0.6, 0.2, model="scalar", offset=(0.3, 0.0, 0.2))
+
+
+def scalar_row_pair(sy, lam=3.0):
+    """(PyStratify's scalar row s_y of CYLINDER under SCALAR_BEAM: [ext, sca, det, ref], (scattering, extinction)
+    of the row's plane waves superposed directly with the effective-index coefficients)."""
+    radii, n = CYLINDER
+    beam = SCALAR_BEAM
+    k = 2 * np.pi / lam
+    value = F._CylinderRows(radii, n, lam, [beam], 14)(sy)[:4] / 2
+    eff = np.sqrt(n ** 2 - sy ** 2)
+    ts = solve_cylinder(radii, eff, lam, beta=0, m_max=14).t[:, 0, 0]
+    orders = np.arange(-14, 15)
+    intervals = F._row_intervals(sy, 0.2, 0.6)
+    al = np.concatenate([F._nodes(a, b, 60)[0] for a, b in intervals])
+    wa = np.concatenate([F._nodes(a, b, 60)[1] for a, b in intervals])
+
+    def amplitude(phi):
+        u, _, _ = F._row_basis(phi, sy)
+        s = np.hypot(u[:, 0], u[:, 1])
+        return np.where((s >= 0.2) & (s <= 0.6), F.aplanatic_amplitude(u[:, 2], 0.2, 0.6), 0) * np.exp(-1j * k * u @ np.array(beam.offset))
+
+    U = amplitude(al) * wa
+
+    def scattered(phi):  # (1/pi) sum over the row's plane waves of their rotated scattered amplitudes
+        return np.array([np.sum(U * (np.exp(1j * np.outer(p - al, orders)) @ ts)) for p in phi]) / np.pi
+
+    ph = 2 * np.pi * np.arange(256) / 256
+    ext = sum(-2 * np.real(np.conj(amplitude(p)) * scattered(p) @ wq) for p, wq in (F._nodes(a, b, 80) for a, b in intervals))
+    return value, (np.sum(np.abs(scattered(ph)) ** 2) * 2 * np.pi / 256, ext)
 
 
 # ---------------------------------------------------------------- near fields
@@ -502,14 +537,15 @@ def sphere_near_field():
             flag(name, "the incident field is withheld inside the sphere", np.all(np.isnan(field.e_incident[0, :2])) and np.all(np.isfinite(field.e_incident[0, 2:])))]
 
 
-def cylinder_near_field():
+def cylinder_near_field_pair(points):
+    """(PyStratify's focused near field, E as a superposition of plane-wave cylinder fields) at points (P, 3), for a
+    coated cylinder (0.6/1.2 um, axis along y) under NA 0.6/0.2, x polarized, focus at (0.3, 0.2, 0.25), 3 um."""
     radii, n, lam = [0.6, 1.2], np.array([1.5 + 0.1j, 1.3 + 0.02j, 1.0]), 3.0
     beam = ps.FocusedBeam(0.6, 0.2, offset=(0.3, 0.2, 0.25), polarization="x")
-    points = np.array([[0.1, 0.0, 0.3], [0.9, 0.1, -0.2], [-0.5, 0.8, 1.9]])
     field = F.focused_field_cylinders(radii, n, lam, beam, points, m_max=14)
     k = 2 * np.pi / lam
     cyl = np.stack((points[:, 2], points[:, 0], points[:, 1]), -1)
-    E = np.zeros((3, 3), complex)
+    E = np.zeros((len(points), 3), complex)
     for a, b in F._cuts(-0.6, 0.6, (-0.2, 0.2)):
         for sy, wy in zip(*F._mapped_nodes(a, b, 40)):
             sol = solve_cylinder(radii, n, lam, beta=k * sy, m_max=14)
@@ -525,8 +561,12 @@ def cylinder_near_field():
                     Em, _ = sol.field(p, "axial-magnetic")
                     Ec = (cn * En + cm * Em) @ Rz.T
                     E += wi * wy * np.stack((Ec[:, 1], Ec[:, 2], Ec[:, 0]), -1)
-    return [close("coated cylinder, focused near field at 3 points: against plane-wave fields", "E", field.e[0],
-                  E / F.focal_amplitude((0.2, 0.6)), 1e-7, 1e-8)]
+    return field, E / F.focal_amplitude((0.2, 0.6))
+
+
+def cylinder_near_field():
+    field, E = cylinder_near_field_pair(np.array([[0.1, 0.0, 0.3], [0.9, 0.1, -0.2], [-0.5, 0.8, 1.9]]))
+    return [close("coated cylinder, focused near field at 3 points: against plane-wave fields", "E", field.e[0], E, 1e-7, 1e-8)]
 
 
 def film_near_field_and_parseval():

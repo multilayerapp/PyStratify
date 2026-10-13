@@ -53,12 +53,13 @@ def stratify(case):
     return dict(zip(ORIENTATIONS, totals.T))
 
 
-def meep_ldos(case, orientation, resolution, cylinder=True):
-    """Meep's LDOS at the dipole per wavelength, with or without the cylinder."""
+def meep_ldos(case, orientation, resolution, cylinder=True, wavelengths=WAVELENGTHS):
+    """Meep's LDOS at the dipole per wavelength (``wavelengths``, evenly spaced in frequency), with or without the
+    cylinder."""
     import meep as mp
 
     radii, n, source = CASES[case]
-    frequencies = 1 / WAVELENGTHS
+    frequencies = 1 / np.asarray(wavelengths)
     centre, width = (frequencies[0] + frequencies[-1]) / 2, frequencies[-1] - frequencies[0]
     component = {"radial": mp.Ex, "azimuthal": mp.Ey, "axial": mp.Ez}[orientation]
     # a mirror plane containing the dipole is even (+1), one normal to it odd (-1)
