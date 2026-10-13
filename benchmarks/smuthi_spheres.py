@@ -44,15 +44,16 @@ CASES = {
 ORIENTATIONS = ("radial", "tangential")
 
 
-def stratify(case):
-    wavelength, radius, n, host, gap, _ = CASES[case]
+def stratify(case, gap=None):
+    wavelength, radius, n, host, case_gap, _ = CASES[case]
+    gap = case_gap if gap is None else gap
     problem = ps.Problem("spheres", [radius / 1000], [n, host], wavelength / 1000,
                          ps.PointDipole((radius + gap) / 1000, "electric", 1), 1e-10)
     return np.asarray(ps.solve_problem(problem)["total"][:2])
 
 
-def smuthi_rates(case, l_max):
-    """smuthi's (radial, tangential) total rates relative to the dipole in the host."""
+def smuthi_rates(case, l_max, gap=None):
+    """smuthi's (radial, tangential) total rates relative to the dipole in the host (at the case's gap, or ``gap``)."""
     stdout = sys.stdout
     with contextlib.redirect_stdout(io.StringIO()):
         import smuthi.initial_field as initial
@@ -60,7 +61,8 @@ def smuthi_rates(case, l_max):
         import smuthi.particles as particles
         import smuthi.simulation as simulation
     sys.stdout = stdout  # importing smuthi replaces the stream it was given
-    wavelength, radius, n, host, gap, _ = CASES[case]
+    wavelength, radius, n, host, case_gap, _ = CASES[case]
+    gap = case_gap if gap is None else gap
     system = layers.LayerSystem(thicknesses=[0, 0], refractive_indices=[host, host])
     rates = []
     for moment in ([0, 0, 1], [1, 0, 0]):  # along and across the line through the sphere's centre

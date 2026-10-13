@@ -196,9 +196,9 @@ def radiated_power_equals_decay_rates(dipole):
 GUZATOV_CASES = ((6.0, 1.0, 0.1), (4.0 + 0.1j, 1.0, 0.2), (-4.0 + 0.3j, 1.0, 0.1), (-4.0 + 0.1j, -1.11 + 0.05j, 0.2), (-2.5 + 0.1j, -1.6, 0.2))
 
 
-def chiral_molecule_guzatov_klimov(eps, mu, chi):
-    """Orientation-averaged radiative rate of a molecule (d0, m = -i xi d0), xi = +-0.1, at r0 = 2a from a small
-    Drude-Born-Fedorov sphere (their Eq. 48 polarisabilities); agreement to O((k0 a)^2)."""
+def guzatov_klimov_rate(eps, mu, chi, ka, distance, xi):
+    """(PyStratify's orientation-averaged radiative rate, Guzatov & Klimov's Eq. 46 / (1 + xi^2)) of a molecule
+    (d0, m = -i xi d0) at r0 = distance x a from a small Drude-Born-Fedorov sphere (their Eq. 48 polarisabilities)."""
     wavelength = 600.0
     k = 2 * np.pi / wavelength
     n2 = eps * mu
@@ -206,19 +206,26 @@ def chiral_molecule_guzatov_klimov(eps, mu, chi):
     n_p = np.sqrt(n2 + 0j) / s
     n_p = -n_p if n_p.imag < 0 else n_p
     den = (eps + 2) * (mu + 2) - 4 * chi ** 2 * eps * mu
+    a = ka / k
+    r0 = distance * a
+    a_ee = a ** 3 * ((eps - 1) * (mu + 2) + 2 * chi ** 2 * eps * mu) / den
+    a_hh = a ** 3 * ((mu - 1) * (eps + 2) + 2 * chi ** 2 * eps * mu) / den
+    a_eh = a ** 3 * 3j * chi * eps * mu / den
+    eq46 = 1 + xi ** 2 + 2 / r0 ** 6 * (abs(a_ee - 1j * xi * a_eh) ** 2 + abs(-a_eh - 1j * xi * a_hh) ** 2)
+    out = ps.emission_rates([a], [n_p, 1.0], wavelength, [0, 0, r0], [0, 0, 1.0], magnetic_moment=[0, 0, -1j * xi],
+                            mu=[mu / s, 1.0], kappa=[n2 * chi / s, 0], orientation="isotropic", tol=1e-10)
+    return float(np.ravel(out.radiative)[0]), eq46 / (1 + xi ** 2)
+
+
+def chiral_molecule_guzatov_klimov(eps, mu, chi):
+    """Orientation-averaged radiative rate of a molecule (d0, m = -i xi d0), xi = +-0.1, at r0 = 2a from a small
+    Drude-Born-Fedorov sphere (their Eq. 48 polarisabilities); agreement to O((k0 a)^2)."""
     rows = []
     for ka, tol in ((0.01, 3e-4), (0.005, 8e-5)):
-        a = ka / k
-        r0 = 2 * a
-        a_ee = a ** 3 * ((eps - 1) * (mu + 2) + 2 * chi ** 2 * eps * mu) / den
-        a_hh = a ** 3 * ((mu - 1) * (eps + 2) + 2 * chi ** 2 * eps * mu) / den
-        a_eh = a ** 3 * 3j * chi * eps * mu / den
         for xi in (0.1, -0.1):
-            eq46 = 1 + xi ** 2 + 2 / r0 ** 6 * (abs(a_ee - 1j * xi * a_eh) ** 2 + abs(-a_eh - 1j * xi * a_hh) ** 2)
-            out = ps.emission_rates([a], [n_p, 1.0], wavelength, [0, 0, r0], [0, 0, 1.0], magnetic_moment=[0, 0, -1j * xi],
-                                    mu=[mu / s, 1.0], kappa=[n2 * chi / s, 0], orientation="isotropic", tol=1e-10)
+            ours, eq46 = guzatov_klimov_rate(eps, mu, chi, ka, 2.0, xi)
             rows.append(row(f"chiral molecule (xi = {xi:+g}) at 2a from a chiral sphere eps = {eps:g}, mu = {mu:g}, chi = {chi:g}, k a = {ka:g}",
-                            "|radiative / Eq. 46 - 1|", abs(out.radiative / (eq46 / (1 + xi ** 2)) - 1), tol))
+                            "|radiative / Eq. 46 - 1|", abs(ours / eq46 - 1), tol))
     return rows
 
 
@@ -271,26 +278,39 @@ def _mp_two_point(radii, n, lam, a, b, orders, dps=80):
 TWO_POINT_CASES = ((56.0, 60.0), (60.0, 56.0), (40.0, 49.0))
 
 
-def two_point_radial_form(a, b):
-    """psi_1 xi_2 [sigma_2 + rho_1 sigma_2 + rho_1 + R S]/(1 - R S) (value-value) per order against mpmath."""
+TWO_POINT_SHELL = ([50.0, 55.0], [1.45, AU_ELM, 1.33], 614.0)
+
+
+def two_point_terms(a, b, L=120):
+    """{TM, TE: (the radial form per order, its 80-digit reference)} for points at a and b in TWO_POINT_SHELL:
+    psi_1 xi_2 [sigma_2 + rho_1 sigma_2 + rho_1 + R S]/(1 - R S) (value-value) against mpmath."""
     from pystratify.normalized import _Sweep
 
-    radii, n, lam = [50.0, 55.0], [1.45, AU_ELM, 1.33], 614.0
-    L = 120
+    radii, n, lam = TWO_POINT_SHELL
     k = 2 * np.pi * np.asarray(n, complex) / lam
     t = _Sweep(np.asarray(radii), np.asarray(n, complex), np.ones(3, complex), k, L).at(np.array([a, b]))
     l = np.arange(1, L + 1)
     i1, i2 = (0, 1) if a <= b else (1, 0)  # inner, outer point
     x1, x2 = t["x"][i1], t["x"][i2]
     ref = _mp_two_point(radii, n, lam, a, b, L)
-    rows = []
-    for p, label in ((TM, "TM"), (TE, "TE")):
+    out = {}
+    for p in (TM, TE):
         rho1, sig2, rs = t["rho"][p, i1], t["sigma"][p, i2], t["rho"][p, i1] * t["sigma"][p, i1]
         pref = t["P"][p, i2] * np.exp((l + 1) * np.log(x1 / x2) + t["lj"][p, i1] - t["lj"][p, i2])
-        form = pref * (sig2 + rho1 * sig2 + rho1 + rs) / (1 - rs)
+        out[p] = (pref * (sig2 + rho1 * sig2 + rho1 + rs) / (1 - rs), ref[p])
+    return out
+
+
+def two_point_radial_form(a, b):
+    """psi_1 xi_2 [sigma_2 + rho_1 sigma_2 + rho_1 + R S]/(1 - R S) (value-value) per order against mpmath."""
+    terms = two_point_terms(a, b)
+    l = np.arange(1, 121)
+    rows = []
+    for p, label in ((TM, "TM"), (TE, "TE")):
+        form, ref = terms[p]
         w = 2 * l + 1
         rows.append(row(f"two-point Green dyadic, points at {a:g} and {b:g} nm of a gold nanoshell, {label}",
-                        "sum (2l+1) |form - mpmath| / sum (2l+1) |mpmath|", np.sum(w * np.abs(form - ref[p])) / np.sum(w * np.abs(ref[p])), 1e-13))
+                        "sum (2l+1) |form - mpmath| / sum (2l+1) |mpmath|", np.sum(w * np.abs(form - ref)) / np.sum(w * np.abs(ref)), 1e-13))
     return rows
 
 
@@ -336,8 +356,9 @@ def _bh_mode(l, m, parity, kind, k, point):
 QUADRUPOLE_ORDERS = (2, 5)
 
 
-def quadrupole_coupling(l):
-    """(1/6) sum Q_ij d_j W_i of W_s = M + s N at (0, 0, r0), all axial families, both radial kinds."""
+def quadrupole_values(l):
+    """{(kind, family, sign): (PyStratify's functional, the 40-digit finite difference)}: (1/6) sum Q_ij d_j W_i of
+    W_s = M + s N at (0, 0, r0), all axial families, both radial kinds."""
     from pystratify.rates import _functionals
     from pystratify.riccati import log_riccati
 
@@ -347,7 +368,7 @@ def quadrupole_coupling(l):
     x = k * r0
     log_psi, log_xi = log_riccati(np.array([x + 0j]), l + 1)
     families = [(0, "e"), (1, "e"), (1, "o"), (2, "e"), (2, "o")]
-    worst = 0.0
+    out = {}
     for kind, logs in (("psi", log_psi[0]), ("xi", log_xi[0])):
         dlog = np.exp(logs[l - 1] - logs[l]) - l / x
         values = _functionals(np.full((1, 1, 2), dlog), np.full((1, 2), x), np.full(2, k), np.zeros((1, 1, 2, 3)), q[None, None],
@@ -363,8 +384,13 @@ def quadrupole_coupling(l):
                     (mp_, np_), (mm_, nm_) = (_bh_mode(l, m, parity, kind, mp.mpf(k), pt) for pt in (plus, minus))
                     for i in range(3):
                         total += complex(q[i, j]) * ((mp_[i] + sign * np_[i]) - (mm_[i] + sign * nm_[i])) / (2 * h)
-                reference = complex(total / 6)
-                worst = max(worst, abs(values[f, c] - reference) / max(abs(reference), 1e-300))
+                out[kind, (m, parity), sign] = (values[f, c], complex(total / 6))
+    return out
+
+
+def quadrupole_coupling(l):
+    """(1/6) sum Q_ij d_j W_i of W_s = M + s N at (0, 0, r0), all axial families, both radial kinds."""
+    worst = max(abs(got - reference) / max(abs(reference), 1e-300) for got, reference in quadrupole_values(l).values())
     return [row(f"quadrupole coupling, order l = {l}, all axial families, psi and xi", "max |functional - finite difference| / |reference| (40 digits)",
                 worst, 1e-9, "<")]
 

@@ -55,28 +55,45 @@ CASES = {
 }
 
 
-def gdm(radius, n, per_radius, emitters):
-    """pyGDM2's values and the volume-equivalent radius for a mesh of ``per_radius`` dipoles per radius."""
-    from pyGDM2 import core, fields, linear, materials, propagators, structures
+def gdm_simulation(radius, n, per_radius, wavelengths=(WAVELENGTH,)):
+    """(the scattered pyGDM2 simulation, its dipole positions, the volume-equivalent radius) for a hexagonal mesh of
+    ``per_radius`` dipoles per radius, lit by an x-polarized plane wave at each of ``wavelengths``."""
+    from pyGDM2 import core, fields, materials, propagators, structures
 
     step = radius / per_radius
     structure = structures.struct(step, structures.sphere(step, R=per_radius, mesh="hex"), materials.dummy(n),
                                   verbose=False)
     dipoles = np.asarray(structure.geometry)
     r_eff = (3 * len(dipoles) * step ** 3 / np.sqrt(2) / (4 * np.pi)) ** (1 / 3)
-    field = fields.efield(fields.plane_wave, wavelengths=[WAVELENGTH], kwargs=dict(theta=0, inc_angle=180))
+    field = fields.efield(fields.plane_wave, wavelengths=list(wavelengths), kwargs=dict(theta=0, inc_angle=180))
     simulation = core.simulation(structure, field, propagators.DyadsQuasistatic123(n1=1, n2=1), dtype="d",
                                  verbose=False)
     simulation.scatter(verbose=False)
+    return simulation, dipoles, r_eff
+
+
+def gdm_rates(simulation, dipoles, radius, gaps, wavelength=WAVELENGTH):
+    """pyGDM2's total decay rates (radial, tangential) over the dipole in vacuum at ``gaps`` from the surface."""
+    from pyGDM2 import core
+
+    center = dipoles.mean(axis=0)
+    probes = [(center[0], center[1], center[2] + radius + gap) for gap in gaps]
+    rates = core.decay_rate(simulation, wavelength=wavelength, r_probe=probes, verbose=False)
+    return np.asarray(rates[2])[:, 3].astype(float), np.asarray(rates[0])[:, 3].astype(float)
+
+
+def gdm(radius, n, per_radius, emitters):
+    """pyGDM2's values and the volume-equivalent radius for a mesh of ``per_radius`` dipoles per radius."""
+    from pyGDM2 import linear
+
+    simulation, dipoles, r_eff = gdm_simulation(radius, n, per_radius)
     ext, sca, absorbed = (float(v) for v in linear.extinct(simulation, 0))
     out = {"dipoles": len(dipoles), "r_eff": r_eff, "C_ext": ext, "C_sca": sca, "C_abs": absorbed}
     if emitters:
-        center = dipoles.mean(axis=0)
-        probes = [(center[0], center[1], center[2] + radius + gap) for gap in GAPS]
-        rates = core.decay_rate(simulation, wavelength=WAVELENGTH, r_probe=probes, verbose=False)
+        radial, tangential = gdm_rates(simulation, dipoles, radius, GAPS)
         for i, gap in enumerate(GAPS):
-            out[f"radial, {gap:g} nm"] = float(np.asarray(rates[2])[i, 3])
-            out[f"tangential, {gap:g} nm"] = float(np.asarray(rates[0])[i, 3])
+            out[f"radial, {gap:g} nm"] = float(radial[i])
+            out[f"tangential, {gap:g} nm"] = float(tangential[i])
     return out
 
 

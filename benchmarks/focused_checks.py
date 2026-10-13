@@ -277,11 +277,10 @@ def sphere_invisible_and_na_limit():
             close(name, "extinction / (|E(0)|^2 sigma_ext) at NA 0.02 against 1", ratios[1], 1, 1e-5, 1e-3)]
 
 
-def sphere_koehler_cone_average():
+def sphere_koehler_reference(lam, D=25.0):
+    """Kohler illumination of SPHERE (NA 0.6/0.2, collection 0.7/0.3) as a cone average of plane waves:
+    {extinction, scattering, detected, reference}."""
     radii, n = SPHERE
-    lam, D = 3.0, 25.0
-    beam = ps.FocusedBeam(0.6, 0.2, collection_na=0.7, collection_obscuration=0.3, illumination="kohler", field_stop=D)
-    r = F.focused_spheres(radii, n, lam, beam)
     sol = ps.solve(radii, n, lam)
     cs = ps.cross_sections(sol)
     k = 2 * np.pi / lam
@@ -299,11 +298,20 @@ def sphere_koehler_cone_average():
     s = np.hypot(u_in[:, 0], u_in[:, 1])
     seen = (s >= 0.3) & (s <= 0.7)
     detected = np.sum(dP * seen) - cs.ext[0] * np.sum(irradiance * seen) + np.sum(irradiance * np.array(landed))
+    return dict(extinction=cs.ext[0] * np.sum(irradiance), scattering=cs.sca[0] * np.sum(irradiance), detected=detected, reference=np.sum(dP * seen))
+
+
+def sphere_koehler_cone_average():
+    radii, n = SPHERE
+    lam, D = 3.0, 25.0
+    beam = ps.FocusedBeam(0.6, 0.2, collection_na=0.7, collection_obscuration=0.3, illumination="kohler", field_stop=D)
+    r = F.focused_spheres(radii, n, lam, beam)
+    ref = sphere_koehler_reference(lam, D)
     name = "sphere, Kohler (field stop 25 um): against a plane-wave cone average"
-    return [close(name, "extinction", r["extinction"], cs.ext[0] * np.sum(irradiance), 1e-10, 1e-8),
-            close(name, "scattering", r["scattering"], cs.sca[0] * np.sum(irradiance), 1e-10, 1e-8),
-            close(name, "detected", r.detected, detected, 1e-9, 1e-8),
-            close(name, "reference", r.reference, np.sum(dP * seen), 1e-12, 1e-8)]
+    return [close(name, "extinction", r["extinction"], ref["extinction"], 1e-10, 1e-8),
+            close(name, "scattering", r["scattering"], ref["scattering"], 1e-10, 1e-8),
+            close(name, "detected", r.detected, ref["detected"], 1e-9, 1e-8),
+            close(name, "reference", r.reference, ref["reference"], 1e-12, 1e-8)]
 
 
 # ---------------------------------------------------------------- cylinders
@@ -459,16 +467,21 @@ def scalar_cylinder():
 
 # ---------------------------------------------------------------- near fields
 
-def sphere_near_field():
-    radii, n, lam = [0.6, 1.2], [1.5 + 0.1j, 1.3 + 0.02j, 1.0], 3.0
+NEAR_SPHERE = ([0.6, 1.2], [1.5 + 0.1j, 1.3 + 0.02j, 1.0], 3.0)
+NEAR_BEAM = dict(na=0.6, obscuration=0.2, offset=(0.4, -0.3, 0.25), polarization="y")
+
+
+def sphere_near_field_pair(points):
+    """(PyStratify's focused near field, its plane-wave superposition): (E, H) each, at points (P, 3), for NEAR_SPHERE
+    under NEAR_BEAM (y polarization, 36 x 56 pupil directions)."""
+    radii, n, lam = NEAR_SPHERE
     sol = ps.solve(radii, n, lam, regime="near")
-    beam = ps.FocusedBeam(0.6, 0.2, offset=(0.4, -0.3, 0.25), polarization="y")
-    points = np.array([[0.1, 0.2, 0.3], [0.9, 0.1, -0.2], [1.6, 0.4, 0.5], [2.5, -1.0, -1.5]])
+    beam = ps.FocusedBeam(NEAR_BEAM["na"], NEAR_BEAM["obscuration"], offset=NEAR_BEAM["offset"], polarization=NEAR_BEAM["polarization"])
     field = F.focused_field_spheres(radii, n, lam, beam, points, l_max=sol.orders[-1])
     k = 2 * np.pi / lam
     u, w = pupil_grid(0.2, 0.6, 36, 56)
     A = pupil_field(u, (0.2, 0.6), (0.0, 1.0), k, beam.offset)
-    E, H = np.zeros((4, 3), complex), np.zeros((4, 3), complex)
+    E, H = np.zeros((len(points), 3), complex), np.zeros((len(points), 3), complex)
     for ui, Ai, wi in zip(u, A, w):
         e = F._pupil_polarization(ui[None], (0.0, 1.0))[0]  # real unit polarization; A = amplitude e
         amplitude = Ai @ e
@@ -478,8 +491,14 @@ def sphere_near_field():
         E += wi * amplitude * np.stack([nf.e[c] for c in "xyz"], -1) @ R.T
         H += wi * amplitude * np.stack([nf.h[c] for c in "xyz"], -1) @ R.T
     unit = F.focal_amplitude((0.2, 0.6))
+    return field, E / unit, H / unit
+
+
+def sphere_near_field():
+    points = np.array([[0.1, 0.2, 0.3], [0.9, 0.1, -0.2], [1.6, 0.4, 0.5], [2.5, -1.0, -1.5]])
+    field, E, H = sphere_near_field_pair(points)
     name = "coated sphere, focused near field at 4 points: against plane-wave near fields"
-    return [close(name, "E", field.e[0], E / unit, 1e-8, 1e-9), close(name, "H", field.h[0], H / unit, 1e-8, 1e-9),
+    return [close(name, "E", field.e[0], E, 1e-8, 1e-9), close(name, "H", field.h[0], H, 1e-8, 1e-9),
             flag(name, "the incident field is withheld inside the sphere", np.all(np.isnan(field.e_incident[0, :2])) and np.all(np.isfinite(field.e_incident[0, 2:])))]
 
 

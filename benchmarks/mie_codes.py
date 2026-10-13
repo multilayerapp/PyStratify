@@ -108,13 +108,13 @@ def stratify(radii, n, extra_orders=0):
             "Q_back": 4 * abs(s1[0, -1]) ** 2 / x ** 2, "S1": s1[0], "S2": s2[0]}
 
 
-def scattnlay_values(radii, n, multiple_precision=False):
+def scattnlay_values(radii, n, multiple_precision=False, angles_deg=ANGLES_DEG):
     from scattnlay import scattnlay
 
     host = np.real(n[-1])
     x = 2 * np.pi * host * np.asarray(radii) / WAVELENGTH
     m = np.asarray(n[:-1], complex) / host
-    _, q_ext, q_sca, q_abs, q_back, _, _, _, s1, s2 = scattnlay(x, m, np.radians(ANGLES_DEG), mp=multiple_precision)
+    _, q_ext, q_sca, q_abs, q_back, _, _, _, s1, s2 = scattnlay(x, m, np.radians(angles_deg), mp=multiple_precision)
     return {"Q_ext": q_ext, "Q_sca": q_sca, "Q_abs": q_abs, "Q_back": q_back, "S1": s1, "S2": s2}
 
 
@@ -130,21 +130,25 @@ def treams_values(radii, n):
     return {"Q_ext": ext, "Q_sca": sca, "Q_abs": ext - sca}
 
 
-def chiral_against_treams(name):
-    """Worst |T_ours - T_treams| / max |T| over orders of the helicity T-matrix."""
+def chiral_blocks(radii, n, kappa, mu, wavelength, l_max):
+    """(PyStratify's, treams') helicity T-matrix blocks, (l_max, 2, 2) each, of a chiral multilayer."""
     import treams
 
-    radii, n, kappa, mu, wavelength, l_max = CHIRAL[name]
     materials = [treams.Material(v ** 2 / m, m, k) for v, k, m in zip(n, kappa, mu)]
     tmatrix = treams.TMatrix.sphere(l_max, 2 * np.pi / wavelength, radii, materials, poltype="helicity")
     basis, block = tmatrix.basis, np.asarray(tmatrix)
     ours = ps.solve_chiral(radii, n, kappa, wavelength, mu, l_max=l_max).t_helicity[0]
-    worst = 0.0
+    theirs = []
     for l in range(1, l_max + 1):
         plus, minus = (int(np.flatnonzero((basis.l == l) & (basis.m == 0) & (basis.pol == pol))[0]) for pol in (1, 0))
-        theirs = np.array([[block[plus, plus], -block[plus, minus]], [-block[minus, plus], block[minus, minus]]])
-        worst = max(worst, np.abs(ours[l - 1] - theirs).max() / np.abs(theirs).max())
-    return worst
+        theirs.append([[block[plus, plus], -block[plus, minus]], [-block[minus, plus], block[minus, minus]]])
+    return ours, np.array(theirs)
+
+
+def chiral_against_treams(name):
+    """Worst |T_ours - T_treams| / max |T| over orders of the helicity T-matrix."""
+    ours, theirs = chiral_blocks(*CHIRAL[name])
+    return max(np.abs(o - t).max() / np.abs(t).max() for o, t in zip(ours, theirs))
 
 
 def bohren_huffman_centre(m, x):

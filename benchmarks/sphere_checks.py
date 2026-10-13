@@ -251,10 +251,9 @@ def chiral_layer_solutions_against_80_digits(radii, n, kappa, mu):
 CHIRAL_SMALL_CASES = ((4.0, 1.0, 0.1), (-4.0 + 0.3j, 1.0, 0.05), (6.0, 1.2, 0.15), (2.25 + 0.1j, 0.9, -0.08), (-2.2 + 0.1j, 1.0, 0.1))
 
 
-def small_chiral_sphere_polarisabilities(eps, mu, chi):
-    """Quasi-static polarisabilities of Guzatov & Klimov, New J. Phys. 14, 123009 (2012), Eq. 48, for the
-    Drude-Born-Fedorov medium; in Pasteur form eps_P = eps/s, mu_P = mu/s, kappa = n^2 chi/s, s = 1 - n^2 chi^2,
-    and the dipole block is T = (2i/3) k^3 [[a_EE, -i a_EH], [-i a_EH, a_HH]]; (k a)^2 = 1e-6 corrections."""
+def small_chiral_t(eps, mu, chi):
+    """(PyStratify's dipole T block of a k a = 1e-3 Drude-Born-Fedorov sphere, Guzatov & Klimov's c a_EE, c a_HH,
+    -i c a_EH), c = (2i/3) k^3: see small_chiral_sphere_polarisabilities."""
     k = 2 * np.pi / 600.0
     a = 1e-3 / k
     den = (eps + 2) * (mu + 2) - 4 * chi ** 2 * eps * mu
@@ -267,10 +266,18 @@ def small_chiral_sphere_polarisabilities(eps, mu, chi):
     n_p = -n_p if n_p.imag < 0 else n_p
     t = ps.solve_chiral([a], [n_p, 1.0], [n2 * chi / s, 0], 600.0, [mu / s, 1.0], l_max=3).t_matrix[0, 0]
     c = 2j * k ** 3 / 3
+    return t, (c * a_ee, c * a_hh, -1j * c * a_eh)
+
+
+def small_chiral_sphere_polarisabilities(eps, mu, chi):
+    """Quasi-static polarisabilities of Guzatov & Klimov, New J. Phys. 14, 123009 (2012), Eq. 48, for the
+    Drude-Born-Fedorov medium; in Pasteur form eps_P = eps/s, mu_P = mu/s, kappa = n^2 chi/s, s = 1 - n^2 chi^2,
+    and the dipole block is T = (2i/3) k^3 [[a_EE, -i a_EH], [-i a_EH, a_HH]]; (k a)^2 = 1e-6 corrections."""
+    t, (ee, hh, eh) = small_chiral_t(eps, mu, chi)
     name = f"small chiral sphere eps = {eps:g}, mu = {mu:g}, chi = {chi:g}: Guzatov & Klimov Eq. 48"
-    return [row(name, "|T_EE / (c a_EE) - 1|", abs(t[0, 0] / (c * a_ee) - 1), 1e-4),
-            row(name, "|T_HH / (c a_HH) - 1|", abs(t[1, 1] / (c * a_hh) - 1), 1e-4),
-            row(name, "|T_EH / (-i c a_EH) - 1|", abs(t[0, 1] / (-1j * c * a_eh) - 1), 1e-4),
+    return [row(name, "|T_EE / (c a_EE) - 1|", abs(t[0, 0] / ee - 1), 1e-4),
+            row(name, "|T_HH / (c a_HH) - 1|", abs(t[1, 1] / hh - 1), 1e-4),
+            row(name, "|T_EH / (-i c a_EH) - 1|", abs(t[0, 1] / eh - 1), 1e-4),
             row(name, "|T_HE / T_EH - 1| (reciprocity)", abs(t[1, 0] / t[0, 1] - 1), 1e-12)]
 
 

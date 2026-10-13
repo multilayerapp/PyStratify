@@ -144,12 +144,13 @@ def stratify_axial(case):
     return dict(zip(names, totals.T))
 
 
-def meep_ldos_axial(case, orientation, resolution, structure=True):
-    """Meep's LDOS per wavelength for a dipole on the axis, with or without the sphere or film."""
+def meep_ldos_axial(case, orientation, resolution, structure=True, wavelengths=WAVELENGTHS):
+    """Meep's LDOS per wavelength (``wavelengths``, evenly spaced in frequency) for a dipole on the axis, with or
+    without the sphere or film."""
     import meep as mp
 
     geometry, dimensions, n, source, names = AXIAL_CASES[case]
-    frequencies = 1 / WAVELENGTHS
+    frequencies = 1 / np.asarray(wavelengths)
     centre, width = (frequencies[0] + frequencies[-1]) / 2, frequencies[-1] - frequencies[0]
     along = orientation == names[0]
     component = mp.Ez if along else mp.Er

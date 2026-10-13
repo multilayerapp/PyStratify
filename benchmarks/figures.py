@@ -10,8 +10,11 @@ series against the multilayered-sphere recursion, the 60-digit transfer matrices
 against PyStratify for spheres, cylinders and emitters, the Sommerfeld integrals against the film emitter, the fibre's
 dispersion relations against the guided poles. The references are the ones the benchmark scripts beside this file use
 (`planar_checks.py`, `sphere_checks.py`, `unified_checks.py`, `mie_codes.py`, `emitter_references.py`,
-`mp_reference.py`, `pystratify.references`); nothing here is asserted, the tests do that. A figure needing a package
-that is not installed (treams) is skipped with a note.
+`mp_reference.py`, `pystratify.references`, and for the sphere rows also `gdm_spheres.py`, `mnpbem_spheres.py`,
+`fdtd_meep.py`, `smuthi_spheres.py` and the papers' crosscheck classics); nothing here is asserted, the tests do that.
+A figure needing a package that is not installed (treams, scattnlay, pyGDM2, smuthi, Meep) is skipped with a note;
+the MNPBEM figures need GNU Octave (`mnpbem_octave.py`), and run one environment at a time: smuthi wants Python <= 3.10
+with NumPy < 2, Meep its conda build, pyGDM2 NumPy < 2.4.
 
 `docs/verification.md` names which row each figure belongs to; `python -m pystratify.docs build` carries the JSON into
 `docs/manifest.json`, and the site draws it with the same chart core as its Learn examples (reference curves dashed).
@@ -46,7 +49,8 @@ def figure(name, title, x_label, y_label, log=False):
 
 
 def series(key, label, y, role):
-    return {"key": key, "label": label, "y": [float(v) for v in np.asarray(y, float)], "role": role}
+    """A curve; NaN (a reference computed at only some of the points) is written as null."""
+    return {"key": key, "label": label, "y": [float(v) if np.isfinite(v) else None for v in np.asarray(y, float)], "role": role}
 
 
 def worst(ours, theirs, relative=False):
@@ -56,7 +60,7 @@ def worst(ours, theirs, relative=False):
 
 
 def sig(values, digits=7):
-    return [float(f"{v:.{digits}g}") for v in values]
+    return [None if v is None else float(f"{v:.{digits}g}") for v in values]
 
 
 # --- films, plane wave -------------------------------------------------------------------------------------------
@@ -213,6 +217,477 @@ def treams_nanoshell():
                 note="treams (Beutel et al.) builds the T-matrix of a layered sphere from its own vector spherical waves; the fixed metal index keeps the shell's plasmon at one wavelength, so the comparison is of the two codes, not of a material.")
 
 
+# The sphere rows' closed forms, extended-precision references and independent methods (2026-10-12): each calls the
+# reference its test calls (sphere_checks.py, mie_codes.py, mp_reference.py, sphere_emitter_checks.py,
+# focused_checks.py, pystratify.references) over a sweep instead of at a few points.
+
+@figure("centre-field", "The field at the centre of a sphere of m = 3 + 0.01i in air, 600 nm: Bohren & Huffman's d₁ and c₁", "size parameter x", "|field at the centre|")
+def centre_field():
+    from mie_codes import bohren_huffman_centre
+
+    xs = np.linspace(0.05, 4, 200)
+    m, lam = 3 + 0.01j, 600.0
+    e, h, e_ref, h_ref = [], [], [], []
+    for x in xs:
+        sol = ps.solve([x * lam / (2 * np.pi)], np.array([[m, 1.0]]), np.array([lam]), l_max=30)
+        f = ps.near_field(sol, [0.0], [0.0], [0.0])
+        d1, mc1 = bohren_huffman_centre(m, x)
+        e.append(complex(np.ravel(f.e["x"])[0])), h.append(complex(np.ravel(f.h["y"])[0])), e_ref.append(d1), h_ref.append(mc1)
+    e, h, e_ref, h_ref = map(np.array, (e, h, e_ref, h_ref))
+    rel = max(np.max(np.abs(e / e_ref - 1)), np.max(np.abs(h / h_ref - 1)))
+    return dict(x=sig(xs), series=[
+        series("e", "|E(0)|, PyStratify", np.abs(e), "pystratify"), series("h", "|H(0)|, PyStratify", np.abs(h), "pystratify"),
+        series("e_ref", "|d₁|, Bohren & Huffman", np.abs(e_ref), "reference"), series("h_ref", "|m c₁|, Bohren & Huffman", np.abs(h_ref), "reference")],
+        worst=float(rel), worst_label="largest relative difference (complex fields)",
+        note="Only the order ℓ = 1 survives at the centre, so E(0) = d₁ x̂ and H(0) = m c₁ ŷ exactly (Bohren & Huffman Eq. 4.53); "
+             "PyStratify sums its full near field at r = 0. The peaks are the sphere's internal resonances.")
+
+
+@figure("optical-theorem", "A 50 nm silica core with a 5 nm gold shell (n = 0.27 + 2.93i) in air: extinction and scattering two ways", "λ [nm]", "Q")
+def optical_theorem():
+    from scipy.integrate import trapezoid
+
+    lam = np.linspace(450, 1000, 111)
+    radii, n = [50.0, 55.0], [1.45, 0.27 + 2.93j, 1.0]
+    th = np.linspace(0, np.pi, 4001)
+    ext, sca, ext_ref, sca_ref = [], [], [], []
+    area = np.pi * radii[-1] ** 2
+    for w in lam:
+        sol = ps.solve(radii, n, w, l_max=20)
+        cs = ps.cross_sections(sol)
+        k = 2 * np.pi / w
+        forward, _ = ps.scattering_amplitudes(sol, np.array([0.0]))
+        p, q = ps.scattering_amplitudes(sol, th)
+        ext.append(cs.q_ext[0]), sca.append(cs.q_sca[0])
+        ext_ref.append(4 * np.pi / k ** 2 * np.real(-forward[0, 0]) / area)
+        sca_ref.append(np.pi / k ** 2 * trapezoid((np.abs(p[0]) ** 2 + np.abs(q[0]) ** 2) * np.sin(th), th) / area)
+    return dict(x=sig(lam), series=[
+        series("ext", "Q_ext, sum over orders (PyStratify)", ext, "pystratify"), series("sca", "Q_sca, sum over orders (PyStratify)", sca, "pystratify"),
+        series("ext_ref", "Q_ext, optical theorem (forward amplitude)", ext_ref, "reference"), series("sca_ref", "Q_sca, integrated pattern", sca_ref, "reference")],
+        worst=max(worst(ext, ext_ref, relative=True), worst(sca, sca_ref, relative=True)), worst_label="largest relative difference",
+        note="The extinction from the coefficients against 4π/k² Re S(0), the forward amplitude; the scattering from the coefficients "
+             "against the far-field pattern integrated over 4001 angles (the trapezoid rule limits that pair to about 1e-7). "
+             "The fixed gold index keeps the comparison about the method, not a material.")
+
+
+@figure("rayleigh-limit", "A small sphere of m = 1.5 + 0.2i: the electric dipole coefficient against Rayleigh's", "size parameter x", "|a₁| / x³")
+def rayleigh_limit():
+    xs = np.linspace(0.005, 1.0, 120)
+    m, lam = 1.5 + 0.2j, 614.0
+    ours = np.array([ps.solve([x * lam / (2 * np.pi)], [m, 1.0], lam, l_max=3).a[0, 0] for x in xs])
+    ref = -2j * xs ** 3 / 3 * (m ** 2 - 1) / (m ** 2 + 2)
+    small = xs <= 0.01
+    return dict(x=sig(xs), series=[series("a1", "|a₁| / x³, PyStratify", np.abs(ours) / xs ** 3, "pystratify"),
+                                   series("a1_ref", "Rayleigh: (2/3) |(m² − 1)/(m² + 2)|", np.abs(ref) / xs ** 3, "reference")],
+                worst=float(np.max(np.abs(ours[small] / ref[small] - 1))), worst_label="relative difference for x ≤ 0.01",
+                note="Rayleigh's a₁ = −(2i/3) x³ (m² − 1)/(m² + 2) is the first term in x, so divided by x³ it is a constant: PyStratify "
+                     "meets it as x → 0 and leaves it as the sphere grows (11% at x = 1); the difference falls as x² (1e-7 at x = 1e-4 in the test).")
+
+
+@figure("lossless-absorbs-nothing", "Random lossless eight-shell spheres in water: what they absorb", "size parameter x", "|Q_abs| / Q_ext", log=True)
+def lossless_absorbs_nothing():
+    rng = np.random.default_rng(3)
+    fractions, n = np.sort(rng.uniform(0.05, 1.0, 8)), np.r_[rng.uniform(1.2, 3.5, 8), 1.33]
+    xs = np.linspace(0.5, 300, 150)
+    lam = 614.0
+    out = []
+    for x in xs:
+        cs = ps.cross_sections(ps.solve(fractions * x * lam / (2 * np.pi), n, lam))
+        out.append(max(abs(cs.q_abs[0]) / cs.q_ext[0], 1e-17))
+    return dict(x=sig(xs), series=[series("abs", "|Q_abs| / Q_ext, PyStratify", out, "pystratify")],
+                worst=float(np.max(out)), worst_label="largest |Q_abs| / Q_ext",
+                note="Eight shells of random real indices 1.2–3.5: absorption is the difference of extinction and scattering, so "
+                     "anything above rounding would be energy the recursion invents; it stays below 1e-12 (the test's bound) to x = 300, "
+                     "growing slowly with the number of orders summed; floored at 1e-17 for the logarithmic axis.")
+
+
+@figure("chiral-80-digits", "A chiral shell (κ = 0.05 + 0.01i) on a 40 nm core in water, 690 nm: the T-matrix against 80-digit transfer matrices", "order ℓ", "|T|", log=True)
+def chiral_80_digits():
+    from mp_reference import chiral_t_matrix
+
+    radii, n, kappa, mu = [40.0, 55.0], [1.45 + 0.01j, 1.6 + 0.02j, 1.33], [0, 0.05 + 0.01j, 0], [1, 1, 1]
+    L = 40
+    sol = ps.solve_chiral(radii, n, kappa, 690.0, mu, l_max=L)
+    ours = np.exp(sol.log_t_helicity[0])
+    ref = np.array([np.exp(np.array(chiral_t_matrix(radii, n, kappa, mu, 690.0, l), dtype=complex)) for l in range(1, L + 1)])
+    orders = list(range(1, L + 1))
+    names = {(0, 0): "T₊₊", (1, 1): "T₋₋", (0, 1): "T₊₋"}
+    out, refs = [], []
+    for (i, j), label in names.items():
+        out.append(series(f"t{i}{j}", f"|{label}|, PyStratify", np.abs(ours[:, i, j]), "pystratify"))
+        refs.append(series(f"t{i}{j}_ref", f"|{label}|, 80 digits", np.abs(ref[:, i, j]), "reference"))
+    return dict(x=orders, series=out + refs,
+                worst=float(np.max(np.abs(ours - ref)) / np.max(np.abs(ref))), worst_label="largest |T − T₈₀| / max |T₈₀|",
+                note="The helicity blocks of the host T-matrix: direct 4×4 transfer matrices in 80-digit arithmetic (mp_reference.py) "
+                     "against PyStratify's scaled recursion in double precision, as the elements fall over many decades.")
+
+
+@figure("graphene-sphere-plasmon", "A graphene-coated sphere (ε = 2.1 in ε = 1.77, E_F = 0.5 eV): the dipole plasmon against the quasi-static resonance", "radius [nm]", "λ [µm]")
+def graphene_sphere_plasmon():
+    from scipy.optimize import brentq, minimize_scalar
+
+    e1, e2, order = 2.1, 1.77, 1
+    radii = np.linspace(5, 60, 23)
+    peaks, qs = [], []
+    for radius in radii:
+        def quasi_static(lam):
+            s_ = ps.graphene_conductivity(lam, 0.5, 1e-5, 1.0)
+            return (e1 * order + e2 * (order + 1) + 1j * s_ * order * (order + 1) * lam / (2 * np.pi * radius)).real
+
+        lam_qs = brentq(quasi_static, 800, 200000)
+
+        def minus_t(lam):
+            sol = ps.solve([radius], [np.sqrt(e1), np.sqrt(e2)], lam, l_max=order, sheets={0: ps.graphene_conductivity(lam, 0.5, 1e-5, 1.0)})
+            return -abs(np.exp(sol.log_t[0, 0, order - 1]))
+
+        peaks.append(minimize_scalar(minus_t, bounds=(0.9 * lam_qs, 1.2 * lam_qs), method="bounded", options={"xatol": 1e-6 * lam_qs}).x)
+        qs.append(lam_qs)
+    peaks, qs = np.array(peaks) / 1000, np.array(qs) / 1000
+    return dict(x=sig(radii), series=[series("peak", "resonance, PyStratify (peak of |T₁|)", peaks, "pystratify"),
+                                      series("qs", "quasi-static: ε₁ℓ + ε₂(ℓ + 1) + iσℓ(ℓ + 1)/(k₀R) = 0", qs, "reference")],
+                worst=float(np.abs(peaks[0] / qs[0] - 1)), worst_label="relative shift at R = 5 nm",
+                note="The full solution with a conducting sheet on the sphere against the quasi-static resonance condition: they meet as R → 0 "
+                     "and part by retardation, too little to see here (5e-5 at 5 nm, 9e-4 at 60 nm); the test asserts the shift stays within (kR)².")
+
+
+@figure("thin-film-sheet", "A 1 nm film of ε = 15 + 5i on a 200 nm sphere of n = 3.5 in water: the film as a 2D sheet", "λ [nm]", "Q_ext")
+def thin_film_sheet():
+    eps_film, d, radius, core = 15.0 + 5.0j, 1.0, 200.0, 3.5
+    lam = np.linspace(500, 900, 161)
+    ours, ref = [], []
+    for w in lam:
+        film = ps.solve([radius, radius + d], [core, np.sqrt(eps_film), 1.33], w, l_max=40)
+        sheet = ps.Sheet.from_film(eps_film, d, w, 1.33 ** 2)
+        full = ps.solve([radius], [core, 1.33], w, l_max=40, sheets={0: sheet})
+        # Q relative to the same geometric section: the sheet's sphere is d smaller
+        ours.append(ps.cross_sections(full).ext[0] / (np.pi * (radius + d) ** 2)), ref.append(ps.cross_sections(film).q_ext[0])
+    return dict(x=sig(lam), series=[series("sheet", "Q_ext, 2D sheet (PyStratify)", ours, "pystratify"), series("film", "Q_ext, explicit 1 nm film", ref, "reference")],
+                worst=worst(ours, ref, relative=True), worst_label="largest relative difference",
+                note="Sheet.from_film turns a thin film into surface conductivities with the normal (out-of-plane) term; its error falls as d² "
+                     "(halving d quarters it, the test's check), against the film solved as a shell of its own.")
+
+
+@figure("near-field-truncation", "A 50 nm gold-like sphere (n = 0.25 + 3i) in water, 600 nm: |E|² outside it against 120 orders", "distance from the centre [nm]", "|E|²", log=True)
+def near_field_truncation():
+    r = np.linspace(50.5, 400, 150)
+    sol = ps.solve([50.0], [0.25 + 3j, 1.33], 600.0, regime="near")
+    ref = ps.solve([50.0], [0.25 + 3j, 1.33], 600.0, l_max=120)
+    points = (r, 0 * r, 0 * r)  # along the polarisation, where the near field is strongest
+    e2 = lambda f: sum(np.abs(np.ravel(f.e[c])) ** 2 for c in "xyz")  # noqa: E731
+    ours, theirs = e2(ps.near_field(sol, *points)), e2(ps.near_field(ref, *points))
+    return dict(x=sig(r), series=[series("e2", f"|E|², PyStratify near-field truncation ({sol.orders[-1]} orders)", ours, "pystratify"),
+                                  series("e2_ref", "|E|², 120 orders", theirs, "reference")],
+                worst=worst(ours, theirs, relative=True), worst_label="largest relative difference",
+                note="The far-field truncation (Wiscombe's, 5 orders here) is enough for cross sections but not at the surface, where it "
+                     "misses |E|² by 3e-5; regime='near', which the calculator uses for fields, adds the orders the distance needs.")
+
+
+# The papers' rows (2026-10-12): PyStratify's curve with the published values as the circles. A crosscheck
+# classic (crosscheck/classics/) writes its curve and the values it read off the paper to results/; the figure
+# reads both, so a page shows exactly what the classic checked.
+CLASSICS = ROOT / "crosscheck" / "classics" / "results"
+
+
+def classic_values(name):
+    """{check: the paper's value} of a crosscheck classic's results/<name>.json."""
+    return {c["check"]: c["paper"] for c in json.loads((CLASSICS / f"{name}.json").read_text())}
+
+
+def classic_curve(name):
+    """{column: values} of a crosscheck classic's results/<name>.csv."""
+    lines = (CLASSICS / f"{name}.csv").read_text().splitlines()
+    columns = lines[0].split(",")
+    data = np.array([[float(v) for v in line.split(",")] for line in lines[1:]])
+    return {c: data[:, i] for i, c in enumerate(columns)}
+
+
+def at(x, points):
+    """A reference series on the grid x, null except at the published points {x: value} (nearest grid point)."""
+    out = np.full(len(x), np.nan)
+    for xp, value in points.items():
+        out[int(np.argmin(np.abs(np.asarray(x) - xp)))] = value
+    return out
+
+
+@figure("bh-reference-values", "Bohren & Huffman's BHMIE case, m = 1.55 at 0.6328 µm: the printed Q_ext and Q_back", "radius [µm]", "Q")
+def bh_reference_values():
+    lam, m = 0.6328, 1.55
+    a = np.linspace(0.45, 0.60, 151)
+    q_ext, q_back = [], []
+    for radius in a:
+        sol = ps.solve([radius], [m, 1.0], lam, l_max=30)
+        x = 2 * np.pi * radius / lam
+        q_ext.append(ps.cross_sections(sol).q_ext[0])
+        q_back.append(4 * np.pi * ps.scattering_pattern(sol, np.pi).differential_cross_section[0] / (np.pi * radius ** 2))
+    q_ext, q_back = np.array(q_ext), np.array(q_back)
+    i = int(np.argmin(np.abs(a - 0.525)))
+    return dict(x=sig(a), series=[series("ext", "Q_ext, PyStratify", q_ext, "pystratify"), series("back", "Q_back, PyStratify", q_back, "pystratify"),
+                                  series("ext_ref", "Q_ext = 3.10543, printed (a = 0.525 µm)", at(a, {0.525: 3.10543}), "reference"),
+                                  series("back_ref", "Q_back = 2.92534, printed", at(a, {0.525: 2.92534}), "reference")],
+                worst=float(max(abs(q_ext[i] - 3.10543), abs(q_back[i] - 2.92534))), worst_label="largest difference from the printed values (5 digits)",
+                note="The book's Appendix A runs BHMIE for a sphere of m = 1.55, a = 0.525 µm at 0.6328 µm and prints Q_ext and Q_back to six "
+                     "figures; PyStratify's curves through that radius, Q_back from its far-field pattern at 180°.")
+
+
+@figure("many-identical-layers", "A sphere of m = 1.33 + 0.001i cut into 100 identical layers [W97]", "size parameter x", "Q_ext")
+def many_identical_layers():
+    xs = np.linspace(1, 100, 100)
+    m, lam, N = 1.33 + 0.001j, 2 * np.pi, 100
+    layered, single = [], []
+    for x in xs:
+        layered.append(ps.cross_sections(ps.solve(np.linspace(x / N, x, N), [m] * N + [1.0], lam)).q_ext[0])
+        single.append(ps.cross_sections(ps.solve([x], [m, 1.0], lam)).q_ext[0])
+    return dict(x=sig(xs), series=[series("layers", "Q_ext, 100 identical layers (PyStratify)", layered, "pystratify"),
+                                   series("one", "Q_ext, one sphere", single, "reference")],
+                worst=worst(layered, single, relative=True), worst_label="largest relative difference",
+                note="Wu & Wang's and Yang's test for a layered recursion: 99 interfaces between identical media must change nothing. "
+                     "The report repeats it with 1000 layers at x = 1000, and checks graded (Kai–Massoli, Luneburg) profiles absorb nothing.")
+
+
+@figure("graded-droplet-rainbow", "The rainbow of a 250 µm droplet with a graded index (128 layers, n = 1.33 → 1.36), 514.5 nm [W97]", "scattering angle [°]", "|S₁|", log=True)
+def graded_droplet_rainbow():
+    lam, R, N = 0.5145, 125.0, 128
+    radii = np.linspace(R / N, R, N)
+    n = list(1.33 + 0.03 * (radii - R / N / 2) / R) + [1.0]
+    sol = ps.solve(radii, n, lam)
+    more = ps.solve(radii, n, lam, l_max=sol.orders.size + 200)
+    theta = np.linspace(130, 150, 401)
+    ours = np.abs(ps.scattering_amplitudes(sol, np.radians(theta))[1][0])
+    ref = np.abs(ps.scattering_amplitudes(more, np.radians(theta))[1][0])
+    return dict(x=sig(theta), series=[series("s", f"|S₁|, PyStratify ({sol.orders.size} orders)", ours, "pystratify"),
+                                      series("s_ref", f"|S₁|, {sol.orders.size + 200} orders", ref, "reference")],
+                worst=worst(ours, ref, relative=True), worst_label="largest relative difference",
+                note="x ≈ 1527 and 128 shells: the primary rainbow near 138° and its supernumerary fringes, from PyStratify's own "
+                     "truncation against 200 orders more. A truncation that stopped too early would move the fringes.")
+
+
+@figure("chiral-polarisabilities", "A small chiral sphere (k a = 0.001, ε = −4 + 0.3i, μ = 1): the dipole block against Guzatov & Klimov's quasi-static polarisabilities", "chirality χ", "|T| / k³a³")
+def chiral_polarisabilities():
+    from sphere_checks import small_chiral_t
+
+    chis = np.linspace(-0.2, 0.2, 81)
+    eps, mu = -4.0 + 0.3j, 1.0
+    scale = (1e-3) ** 3
+    ours, ref = [], []
+    for chi in chis:
+        t, (ee, hh, eh) = small_chiral_t(eps, mu, chi)
+        ours.append([t[0, 0], t[1, 1], t[0, 1]]), ref.append([ee, hh, eh])
+    ours, ref = np.abs(np.array(ours)) / scale, np.abs(np.array(ref)) / scale
+    names = ("T_EE (electric)", "T_HH (magnetic)", "T_EH (cross, chiral)")
+    return dict(x=sig(chis), series=[series(f"t{i}", f"|{nm}|, PyStratify", ours[:, i], "pystratify") for i, nm in enumerate(names)]
+                + [series(f"t{i}_ref", f"|{nm}|, Eq. 48", ref[:, i], "reference") for i, nm in enumerate(names)],
+                worst=float(np.max(np.abs(ours - ref).max(axis=0) / ref.max(axis=0))), worst_label="largest difference relative to each curve's peak",
+                note="Guzatov & Klimov, New J. Phys. 14, 123009 (2012), Eq. 48: the electric, magnetic and cross polarisabilities of a "
+                     "Drude–Born–Fedorov sphere, against the order-1 block of PyStratify's chiral T-matrix (agreement to (ka)² = 1e-6). "
+                     "The cross term vanishes without chirality; the test also covers magnetic (μ ≠ 1) spheres.")
+
+
+@figure("goncalves-feibelman", "A radial dipole beside a 5 nm gold sphere (n = 0.141 + 3.152i), 614 nm, with Feibelman d-parameters: against Gonçalves et al. 2020", "distance from the centre [nm]", "Γ / Γ₀", log=True)
+def goncalves_feibelman():
+    from sphere_emitter_checks import AU_GONCALVES, GONCALVES_CASES, _goncalves_perp
+
+    r = np.geomspace(5.5, 15, 25)
+    out, refs, diffs = [], [], []
+    for d_perp, d_par in GONCALVES_CASES:
+        rates = ps.decay_rates([5.0], [AU_GONCALVES, 1.0], 614.0, r, sheets={0: ps.Feibelman(d_perp, d_par)}, tol=1e-14)
+        # the series converges as (R/r)^l: 300 orders near the surface, where 120 (the test's, at 6 and 7 nm) fall short
+        ref = np.array([_goncalves_perp(5.0, AU_GONCALVES, 1.0, 614.0, ri, d_perp, d_par, orders=300 if ri < 6 else 120) for ri in r])
+        label = f"d⊥ = {d_perp:g}, d∥ = {d_par:g} nm"
+        out.append(series(f"c{len(out)}", f"{label}, PyStratify", rates.total[:, 0], "pystratify"))
+        refs.append(series(f"c{len(refs)}_ref", f"{label}, Eqs. (4a), (13a)", ref, "reference"))
+        diffs.append(np.max(np.abs(rates.total[:, 0] / ref - 1)))
+    return dict(x=sig(r), series=out + refs, worst=float(max(diffs)), worst_label="largest relative difference",
+                note="Gonçalves et al., Nat. Commun. 11, 366 (2020): quantum surface corrections enter the Mie coefficients through the "
+                     "d-parameters; their closed form summed in mpmath (40 digits, 120 orders) against PyStratify's Feibelman boundary "
+                     "conditions (300 orders within 1 nm of the surface). The d-parameters shift the quenching close to the surface.")
+
+
+@figure("fu-2013-kerker", "A 75 nm silicon sphere in air: forward-to-backward scattering, Fu et al. 2013, Fig. 1a", "λ [nm]", "F / B")
+def fu_2013_kerker():
+    curve, paper = classic_curve("fu_2013_fig1a"), classic_values("fu_2013")
+    nm, ratio = curve["wavelength_nm"], curve["F_over_B"]
+    points = {paper["wavelength of the F/B maximum (nm)"]: paper["F/B maximum"],
+              paper["F = B, electric dipole (nm)"]: 1.0, paper["F = B, magnetic dipole (nm)"]: 1.0}
+    ref = at(nm, points)
+    crossings = nm[1:][np.diff(np.sign(ratio - 1)) != 0]
+    window = (nm > 620) & (nm < 720)
+    shifts = [abs(nm[window][np.argmax(ratio[window])] - paper["wavelength of the F/B maximum (nm)"])]
+    shifts += [abs(crossings[np.argmin(abs(crossings - x))] - x) for x in (paper["F = B, electric dipole (nm)"], paper["F = B, magnetic dipole (nm)"])]
+    return dict(x=sig(nm), series=[series("fb", "F/B, PyStratify (Green 2008 silicon)", ratio, "pystratify"),
+                                   series("fb_ref", "printed in the paper (p. 3)", ref, "reference")],
+                worst=float(max(shifts)), worst_label="largest shift of a printed feature [nm]",
+                note="Fu et al., Nat. Commun. 4, 1527 (2013): F/B peaks near 8 at 660 nm (the first Kerker condition) and F = B at 500 nm "
+                     "(electric dipole) and 603 nm (magnetic dipole); the paper names no silicon data, so the peak height depends on the "
+                     "table chosen. From crosscheck/classics/fu_2013.py, which also checks the minimum below 0.5 near 564 nm.")
+
+
+# Other groups' codes (2026-10-12). treams, scattnlay and pyGDM2 install from PyPI ([benchmarks] extra; pyGDM2
+# needs NumPy < 2.4); MNPBEM runs under GNU Octave (mnpbem_octave.py); a figure whose code is missing is skipped.
+
+@figure("treams-chiral", "A chiral shell (κ = 0.05 + 0.01i, 40/55 nm) in water: the helicity T-matrix against treams", "λ [nm]", "|T|")
+def treams_chiral():
+    from mie_codes import CHIRAL, chiral_blocks
+
+    radii, n, kappa, mu, _, l_max = CHIRAL["chiral shell"]
+    lam = np.linspace(400, 900, 101)
+    ours, theirs = zip(*(chiral_blocks(radii, n, kappa, mu, w, l_max) for w in lam))
+    ours, theirs = np.array(ours), np.array(theirs)  # (W, L, 2, 2)
+    pick = (("l1pp", "ℓ = 1, T₊₊", 0, 0, 0), ("l1mm", "ℓ = 1, T₋₋", 0, 1, 1), ("l2pp", "ℓ = 2, T₊₊", 1, 0, 0), ("l2mm", "ℓ = 2, T₋₋", 1, 1, 1))
+    return dict(x=sig(lam), series=[series(k, f"|{lab}|, PyStratify", np.abs(ours[:, l, i, j]), "pystratify") for k, lab, l, i, j in pick]
+                + [series(f"{k}_ref", f"|{lab}|, treams", np.abs(theirs[:, l, i, j]), "reference") for k, lab, l, i, j in pick],
+                worst=float(np.max(np.abs(ours - theirs)) / np.max(np.abs(theirs))), worst_label="largest |T − T_treams| / max |T|",
+                note="treams (Beutel et al.) builds a chiral multilayer's T-matrix in the helicity basis from its own vector spherical waves; "
+                     "the two helicities differ because the shell is chiral. The test covers three chiral multilayers (gold, magnetic, gain in κ).")
+
+
+@figure("treams-near-field", "A nanoshell (10 nm silica core, 10 nm shell of ε = −10 + i) in air, 600 nm: the scattered field outside it against treams", "distance from the centre [nm]", "|E_sca|²", log=True)
+def treams_near_field():
+    from mie_codes import CASES, WAVELENGTH, stratify_fields, treams_scattered_fields
+
+    radii, n = CASES["nanoshell, 10 nm shell"]
+    r = np.linspace(20.5, 60, 80)
+    polar, azimuth = np.radians(30.0), np.radians(40.0)
+    points = r[:, None] * np.array([np.sin(polar) * np.cos(azimuth), np.sin(polar) * np.sin(azimuth), np.cos(polar)])
+    l_max = ps.truncation_order(radii[-1], n[-1], WAVELENGTH, regime="near") + 20
+    sol = ps.solve(radii, np.array([n], complex), np.array([WAVELENGTH]), l_max=l_max)
+    e, _ = stratify_fields(sol, points, np.real(n[-1]), incident=False)
+    e_ref, _ = treams_scattered_fields(radii, n, points, l_max)
+    ours, ref = np.sum(np.abs(e) ** 2, 1), np.sum(np.abs(e_ref) ** 2, 1)
+    return dict(x=sig(r), series=[series("e", "|E_sca|², PyStratify", ours, "pystratify"), series("e_ref", "|E_sca|², treams", ref, "reference")],
+                worst=float(np.max(np.linalg.norm(e - e_ref, axis=1) / np.linalg.norm(e, axis=1))), worst_label="largest relative difference (vector field)",
+                note="Along a line at 30° from the incidence axis: treams applies its T-matrix to the expanded plane wave and evaluates the "
+                     "scattered waves; PyStratify its own near field without the incident wave. The test covers six spheres, 1.05–3 radii, five angles.")
+
+
+@figure("scattnlay-matryoshka", "A gold-like matryoshka (ε = −10 + i / silica / ε = −10 + i, radii in proportion 1 : 2 : 3) in water, 600 nm: against scattnlay", "outer radius [nm]", "Q")
+def scattnlay_matryoshka():
+    from mie_codes import CASES, scattnlay_values, stratify
+
+    radii, n = CASES["matryoshka metal/silica/metal in water"]
+    scale = np.linspace(0.3, 4.0, 120)
+    ours = [stratify(list(np.array(radii) * s), n) for s in scale]
+    theirs = [scattnlay_values(list(np.array(radii) * s), n) for s in scale]
+    keys = ("Q_ext", "Q_sca")
+    got = {k: np.array([o[k] for o in ours]) for k in keys}
+    ref = {k: np.array([float(t[k]) for t in theirs]) for k in keys}
+    return dict(x=sig(scale * radii[-1]), series=[series(k, f"{k}, PyStratify", got[k], "pystratify") for k in keys]
+                + [series(f"{k}_ref", f"{k}, scattnlay", ref[k], "reference") for k in keys],
+                worst=max(worst(got[k], ref[k], relative=True) for k in keys), worst_label="largest relative difference",
+                note="scattnlay (Peña & Pal; Ladutenko et al.) evaluates the multilayer Mie coefficients by its own recursion; both at the "
+                     "default truncation. The test covers ten spheres to x = 1000, in double and multiple precision.")
+
+
+@figure("scattnlay-pattern", "A lossless water-like sphere (m = 1.33) at x = 200: the scattering amplitudes against scattnlay", "scattering angle [°]", "|S|", log=True)
+def scattnlay_pattern():
+    from mie_codes import CASES, EXTRA_ORDERS, WAVELENGTH, scattnlay_values
+
+    radii, n = CASES["large lossless, x = 200"]
+    angles = np.linspace(0, 180, 721)
+    l_max = ps.truncation_order(radii[-1], n[-1], WAVELENGTH) + EXTRA_ORDERS
+    sol = ps.solve(radii, np.array([n], complex), np.array([WAVELENGTH]), l_max=l_max)
+    s1, s2, _, _ = ps.amplitude_matrix(sol, np.radians(angles))
+    theirs = scattnlay_values(radii, n, angles_deg=angles)
+    ours = {"S1": np.abs(s1[0]), "S2": np.abs(s2[0])}
+    ref = {k: np.abs(np.asarray(theirs[k])) for k in ours}
+    return dict(x=sig(angles), series=[series(k, f"|{k}|, PyStratify", ours[k], "pystratify") for k in ours]
+                + [series(f"{k}_ref", f"|{k}|, scattnlay", ref[k], "reference") for k in ours],
+                worst=max(float(np.max(np.abs(ours[k] - ref[k]) / np.max(ref[k]))) for k in ours), worst_label="largest difference relative to the forward peak",
+                note="Six decades from the forward peak to the backward glory, with the rainbow near 138°; PyStratify 20 orders beyond "
+                     "Wiscombe's truncation, scattnlay at its own.")
+
+
+@figure("scattnlay-near-field", "The matryoshka (ε = −10 + i / silica / ε = −10 + i, 10/20/30 nm) in water, 600 nm: |E|² through every layer against scattnlay", "x [nm]", "|E|²", log=True)
+def scattnlay_near_field():
+    from mie_codes import CASES, EXTRA_ORDERS, WAVELENGTH, scattnlay_fields, stratify_fields
+
+    radii, n = CASES["matryoshka metal/silica/metal in water"]
+    x = np.linspace(-60, 60, 241)
+    points = np.column_stack([x, np.full_like(x, 1.0), np.zeros_like(x)])  # along the polarisation, 1 nm off the axis
+    l_max = ps.truncation_order(radii[-1], n[-1], WAVELENGTH, regime="near") + EXTRA_ORDERS
+    sol = ps.solve(radii, np.array([n], complex), np.array([WAVELENGTH]), l_max=l_max)
+    e, _ = stratify_fields(sol, points, np.real(n[-1]))
+    e_ref, _ = scattnlay_fields(radii, n, points, l_max)
+    ours, ref = np.sum(np.abs(e) ** 2, 1), np.sum(np.abs(np.asarray(e_ref)) ** 2, 1)
+    return dict(x=sig(x), series=[series("e", "|E|², PyStratify", ours, "pystratify"), series("e_ref", "|E|², scattnlay (fieldnlay)", ref, "reference")],
+                worst=float(np.max(np.linalg.norm(e - e_ref, axis=1) / np.linalg.norm(e, axis=1))), worst_label="largest relative difference (vector field)",
+                note="Through the gold core, the silica spacer, the gold shell and out into the water, along the polarisation. scattnlay's "
+                     "fields are double precision; in the 10-layer graded sphere of the report it returns nan in the three inner layers, "
+                     "where PyStratify's logarithmic coefficients stay finite (shown there, not asserted).")
+
+
+@figure("gdm-spectrum", "An absorbing dielectric sphere (n = 2 + 0.1i, R = 40 nm) in air: cross sections against pyGDM2's volume discretization", "λ [nm]", "C [nm²]")
+def gdm_spectrum():
+    from gdm_spheres import gdm_simulation
+    from pyGDM2 import linear
+
+    lam = np.linspace(400, 800, 17)
+    simulation, dipoles, r_eff = gdm_simulation(40.0, 2.0 + 0.1j, 6.0, lam)
+    theirs = np.array([[float(v) for v in linear.extinct(simulation, i)][:2] for i in range(len(lam))])
+    dense = np.linspace(400, 800, 161)
+    cs = ps.cross_sections(ps.solve([r_eff], np.array([[2.0 + 0.1j, 1.0]] * dense.size), dense, l_max=20))
+    area = np.pi * r_eff ** 2
+    ext_ref, sca_ref = np.full(dense.size, np.nan), np.full(dense.size, np.nan)
+    ext_ref[::10], sca_ref[::10] = theirs[:, 0], theirs[:, 1]
+    ours_ext, ours_sca = cs.q_ext * area, cs.q_sca * area
+    return dict(x=sig(dense), series=[series("ext", "C_ext, PyStratify", ours_ext, "pystratify"), series("sca", "C_sca, PyStratify", ours_sca, "pystratify"),
+                                      series("ext_ref", f"C_ext, pyGDM2 ({len(dipoles)} dipoles)", ext_ref, "reference"),
+                                      series("sca_ref", f"C_sca, pyGDM2 ({len(dipoles)} dipoles)", sca_ref, "reference")],
+                worst=float(max(np.max(np.abs(theirs[:, 0] / ours_ext[::10] - 1)), np.max(np.abs(theirs[:, 1] / ours_sca[::10] - 1)))),
+                worst_label="largest relative difference (the lattice's error at this mesh)",
+                note="pyGDM2 (Wiecha) fills the sphere with point dipoles on a hexagonal lattice and solves their coupling; PyStratify is "
+                     "evaluated for the sphere of the same volume (r_eff = %.2f nm). A volume lattice stays ~3%% high at the meshes this "
+                     "machine affords; the test asserts a band, and the report follows four meshes." % r_eff)
+
+
+@figure("mnpbem-spectrum", "A 40 nm sphere of ε = −10 + i in vacuum: cross sections against MNPBEM's boundary elements", "λ [nm]", "C [nm²]")
+def mnpbem_spectrum_figure():
+    from mnpbem_spheres import METAL, mnpbem_spectrum
+
+    lam = np.linspace(400, 800, 161)
+    faces, ext, sca = mnpbem_spectrum("sphere in vacuum", 1024, lam[::10])
+    cs = ps.cross_sections(ps.solve([20.0], np.array([[np.sqrt(METAL + 0j), 1.0]] * lam.size), lam))
+    area = np.pi * 20.0 ** 2
+    ext_ref, sca_ref = np.full(lam.size, np.nan), np.full(lam.size, np.nan)
+    ext_ref[::10], sca_ref[::10] = ext, sca
+    return dict(x=sig(lam), series=[series("ext", "C_ext, PyStratify", cs.q_ext * area, "pystratify"), series("sca", "C_sca, PyStratify", cs.q_sca * area, "pystratify"),
+                                    series("ext_ref", f"C_ext, MNPBEM ({faces} faces)", ext_ref, "reference"), series("sca_ref", f"C_sca, MNPBEM ({faces} faces)", sca_ref, "reference")],
+                worst=float(max(np.max(np.abs(ext / (cs.q_ext[::10] * area) - 1)), np.max(np.abs(sca / (cs.q_sca[::10] * area) - 1)))),
+                worst_label="largest relative difference (the mesh's error)",
+                note="MNPBEM (Hohenester & Trügler) discretizes the surface into triangles and solves the retarded boundary integral "
+                     "equations; a constant permittivity, so both codes see the same ε at every wavelength. Percent-level by design: the "
+                     "test checks the difference shrinks as the mesh is refined (0.45–4.4% at 2044 faces).")
+
+
+@figure("mnpbem-thin-nanoshell", "A thin nanoshell (15 nm silica core, 5 nm shell of ε = −10 + i) in vacuum: three Mie codes and MNPBEM", "λ [nm]", "C_ext [nm²]")
+def mnpbem_thin_nanoshell():
+    from mie_codes import treams_values, scattnlay_values
+    import mie_codes
+    from mnpbem_spheres import METAL, SILICA, mnpbem_spectrum
+
+    radii, n = [15.0, 20.0], [np.sqrt(SILICA + 0j), np.sqrt(METAL + 0j), 1.0]
+    lam = np.linspace(400, 800, 161)
+    cs = ps.cross_sections(ps.solve(radii, np.array([n] * lam.size), lam))
+    area = np.pi * radii[-1] ** 2
+    ours = cs.q_ext * area
+    t_ref, s_ref = np.full(lam.size, np.nan), np.full(lam.size, np.nan)
+    for i in range(0, lam.size, 10):
+        mie_codes.WAVELENGTH = lam[i]  # the Mie wrappers read the module's wavelength
+        t_ref[i] = float(treams_values(radii, n)["Q_ext"]) * area
+        s_ref[i] = float(scattnlay_values(radii, n)["Q_ext"]) * area
+    mie_codes.WAVELENGTH = 600.0
+    faces, ext, _ = mnpbem_spectrum("thin nanoshell", 256, lam[5::10])
+    m_ref = np.full(lam.size, np.nan)
+    m_ref[5::10] = ext
+    mie = max(np.nanmax(np.abs(t_ref / ours - 1)), np.nanmax(np.abs(s_ref / ours - 1)))
+    return dict(x=sig(lam), series=[series("ext", "C_ext, PyStratify", ours, "pystratify"),
+                                    series("treams", "C_ext, treams", t_ref, "reference"), series("scattnlay", "C_ext, scattnlay", s_ref, "reference"),
+                                    series("mnpbem", f"C_ext, MNPBEM ({faces} faces)", m_ref, "reference")],
+                worst=float(mie), worst_label="largest relative difference among the Mie codes",
+                note="Shown, not asserted. The three Mie codes agree to all printed digits; MNPBEM, with elements of 2–4 nm on surfaces 5 nm "
+                     "apart, stays about 12% low and barely moves with the mesh: a resolution limit of the boundary elements at the "
+                     "meshes this machine affords, not a disagreement about the physics.")
+
+
 # --- spheres, point dipole --------------------------------------------------------------------------------------
 
 @figure("sphere-decay-mpmath", "A dipole beside a 25 nm sphere of m = 0.05 + 3.5i at 600 nm: decay rates against the 40-digit series", "distance from the surface [nm]", "Γ / Γ₀", log=True)
@@ -269,6 +744,429 @@ def treams_dipole_nanoshell():
         series("perp_ref", "radial, treams", ref[:, 0], "reference"), series("par_ref", "tangential, treams", ref[:, 1], "reference")],
         worst=worst(ours, ref, relative=True), worst_label="largest relative difference",
         note="treams translates the dipole's ℓ = 1 singular wave to the sphere's centre, scatters it with the T-matrix (50 orders; closer than 5 nm its truncation no longer converges, PyStratify's adaptive order does) and reads the scattered field back at the dipole; PyStratify places the jump in its transfer-matrix recursion.")
+
+
+@figure("silver-decay-mie", "A dipole 1–100 nm from a 50 nm silver sphere (n = 0.093 + 4i), 633 nm: the decay rates against Mie's series in 40 digits", "distance from the surface [nm]", "Γ / Γ₀", log=True)
+def silver_decay_mie():
+    from pystratify.references import sphere_decay_rates
+
+    radius, ag, lam = 50.0, 0.093 + 4j, 633.0
+    gaps = np.geomspace(1, 100, 41)
+    ours = ps.decay_rates([radius], [ag, 1.0], lam, radius + gaps, tol=1e-10)
+    ref = np.array([sphere_decay_rates(radius, ag, lam, radius + g, orders=int(min(1400, 40 + 30 * radius / g))) for g in gaps])
+    got = np.column_stack([ours.total, ours.radiative])
+    return dict(x=sig(gaps), series=[
+        series("tot_perp", "total, radial, PyStratify", ours.total[:, 0], "pystratify"), series("tot_par", "total, tangential, PyStratify", ours.total[:, 1], "pystratify"),
+        series("rad_perp", "radiative, radial, PyStratify", ours.radiative[:, 0], "pystratify"), series("rad_par", "radiative, tangential, PyStratify", ours.radiative[:, 1], "pystratify"),
+        series("tot_perp_ref", "total, radial, Mie (40 digits)", ref[:, 0], "reference"), series("tot_par_ref", "total, tangential, Mie (40 digits)", ref[:, 1], "reference"),
+        series("rad_perp_ref", "radiative, radial, Mie (40 digits)", ref[:, 2], "reference"), series("rad_par_ref", "radiative, tangential, Mie (40 digits)", ref[:, 3], "reference")],
+        worst=worst(got, ref, relative=True), worst_label="largest relative difference over the four rates",
+        note="Majic & Le Ru's Eqs. 34–37 summed in mpmath (up to 1400 orders at 1 nm) against PyStratify's adaptive order; "
+             "at contact the total rate is quenching, the nonradiative part, while the radiative rate stays finite.")
+
+
+@figure("nanoshell-decay-layers", "An electric dipole inside and outside a nanoshell (50 nm silica core, 5 nm gold shell, in water), 614 nm: the rates against 60-digit transfer matrices", "distance from the centre [nm]", "Γ / Γ₀", log=True)
+def nanoshell_decay_layers():
+    from pystratify.references import layered_decay_rates
+
+    radii, n, lam = [50.0, 55.0], [1.45, 0.27 + 2.93j, 1.33], 614.0
+    r = np.r_[np.linspace(5, 48, 22), np.geomspace(57, 150, 22)]  # not in the gold: an emitter in an absorbing shell has no rate
+    ours = ps.decay_rates(radii, n, lam, r, normalization="shell", tol=1e-10)
+
+    def orders(rd):
+        gap = min(abs(rd - v) for v in radii)
+        return int(min(1200, 40 + 30 * radii[-1] / gap))
+
+    ref = np.array([np.concatenate(layered_decay_rates(radii, n, lam, rd, orders(rd), 60)) for rd in r])
+    got = np.column_stack([ours.total, ours.radiative])
+    return dict(x=sig(r), series=[
+        series("tot_perp", "total, radial, PyStratify", ours.total[:, 0], "pystratify"), series("tot_par", "total, tangential, PyStratify", ours.total[:, 1], "pystratify"),
+        series("tot_perp_ref", "total, radial, 60 digits", ref[:, 0], "reference"), series("tot_par_ref", "total, tangential, 60 digits", ref[:, 1], "reference")],
+        worst=worst(got, ref, relative=True), worst_label="largest relative difference (total and radiative)",
+        note="Rates relative to the dipole in the layer it sits in (the silica core or the water), against transfer "
+             "matrices evaluated in 60-digit arithmetic. The test also asserts 0.5–1 nm from the gold, with 1250–2400 orders.")
+
+
+@figure("silicon-magnetic-decay", "A magnetic dipole outside a 100 nm silicon sphere (n = 3.7 + 0.005i), 800 nm: the rates against 60-digit transfer matrices", "distance from the surface [nm]", "Γ / Γ₀", log=True)
+def silicon_magnetic_decay():
+    from pystratify.references import layered_decay_rates
+
+    radius, n, lam = 100.0, [3.7 + 0.005j, 1.0], 800.0
+    gaps = np.geomspace(2, 300, 41)
+    ours = ps.decay_rates([radius], n, lam, radius + gaps, [1, 1], dipole="magnetic", normalization="shell", tol=1e-10)
+    ref = np.array([np.concatenate(layered_decay_rates([radius], n, lam, radius + g, int(min(800, 40 + 30 * radius / g)), 60, mu=[1, 1], dipole="magnetic"))
+                    for g in gaps])
+    got = np.column_stack([ours.total, ours.radiative])
+    return dict(x=sig(gaps), series=[
+        series("tot_perp", "total, radial, PyStratify", ours.total[:, 0], "pystratify"), series("tot_par", "total, tangential, PyStratify", ours.total[:, 1], "pystratify"),
+        series("tot_perp_ref", "total, radial, 60 digits", ref[:, 0], "reference"), series("tot_par_ref", "total, tangential, 60 digits", ref[:, 1], "reference")],
+        worst=worst(got, ref, relative=True), worst_label="largest relative difference (total and radiative)",
+        note="A magnetic dipole couples to the sphere's magnetic Mie mode; the reference is the same transfer-matrix formulation in 60-digit arithmetic.")
+
+
+@figure("radiated-power-rates", "An emitter in a magnetic multilayer (50/70/90 nm; μ = 1.3, 1, 1.7 in μ = 1.1), 614 nm: far-field power against the radiative rate", "distance from the centre [nm]", "Γ_rad / Γ₀", log=True)
+def radiated_power_rates():
+    radii, n, mu = [50.0, 70.0, 90.0], [1.45, 0.27 + 2.93j, 1.6, 1.33], [1.3, 1.0, 1.7, 1.1]
+    r = np.r_[np.linspace(5, 47, 12), np.linspace(73, 87, 6), np.geomspace(93, 400, 20)]
+    out = {}
+    for dipole in ("electric", "magnetic"):
+        rates = ps.decay_rates(radii, n, 614.0, r, mu, dipole=dipole, tol=1e-10)
+        power = np.array([ps.dipole_far_field(radii, n, 614.0, [0.0, 0.0, r0], [0.0, 0.0, 1.0], 0.0, 0.0, mu, dipole=dipole).power for r0 in r])
+        out[dipole] = rates.radiative[:, 0], power
+    return dict(x=sig(r), series=[
+        series("e", "electric, radiative rate (PyStratify)", out["electric"][0], "pystratify"), series("m", "magnetic, radiative rate (PyStratify)", out["magnetic"][0], "pystratify"),
+        series("e_ref", "electric, power in the far field", out["electric"][1], "reference"), series("m_ref", "magnetic, power in the far field", out["magnetic"][1], "reference")],
+        worst=max(worst(*out["electric"], relative=True), worst(*out["magnetic"], relative=True)), worst_label="largest relative difference",
+        note="Two routes to the same number for a radial dipole: the radiative rate from the decay-rate sums, and the power of the "
+             "far field the dipole radiates through every layer. The gaps in r are the gold shell, where an emitter is not placed.")
+
+
+@figure("two-point-green", "Points 56 and 60 nm from the centre of a gold nanoshell (50 nm silica core, 5 nm gold) in water, 614 nm: the two-point Green's dyadic per order against 80 digits", "order ℓ", "|g_ℓ|", log=True)
+def two_point_green():
+    from pystratify.solver import TE, TM
+    from sphere_emitter_checks import two_point_terms
+
+    terms = two_point_terms(56.0, 60.0)
+    l = np.arange(1, 121)
+    (tm, tm_ref), (te, te_ref) = terms[TM], terms[TE]
+    w = 2 * l + 1
+    return dict(x=[int(v) for v in l], series=[
+        series("tm", "TM, PyStratify", np.abs(tm), "pystratify"), series("te", "TE, PyStratify", np.abs(te), "pystratify"),
+        series("tm_ref", "TM, 80 digits", np.abs(tm_ref), "reference"), series("te_ref", "TE, 80 digits", np.abs(te_ref), "reference")],
+        worst=float(max(np.sum(w * np.abs(tm - tm_ref)) / np.sum(w * np.abs(tm_ref)), np.sum(w * np.abs(te - te_ref)) / np.sum(w * np.abs(te_ref)))),
+        worst_label="Σ(2ℓ+1)|g − g₈₀| / Σ(2ℓ+1)|g₈₀|",
+        note="The radial part of the Green's dyadic between two points, per order and polarisation, which every dipole–dipole coupling near the sphere "
+             "is built from: PyStratify's normalized form against transfer matrices in 80-digit arithmetic.")
+
+
+@figure("quadrupole-coupling", "A quadrupole 47 nm from the centre (k = 0.013 nm⁻¹): its coupling to each multipole order against finite differences", "order ℓ", "|coupling|", log=True)
+def quadrupole_coupling_figure():
+    from sphere_emitter_checks import quadrupole_values
+
+    orders = list(range(1, 9))
+    rows = {key: ([], []) for key in (("psi", 1), ("xi", 1))}  # M - N has the same magnitudes for the axial family
+    for l in orders:
+        values = quadrupole_values(l)
+        for (kind, sign), (ours, ref) in rows.items():
+            got, exact = values[kind, (0, "e"), sign]
+            ours.append(abs(got)), ref.append(abs(exact))
+    label = {("psi", 1): "regular wave (ψ)", ("xi", 1): "outgoing wave (ξ)"}
+    out = [series(f"{k}{s}", f"{label[k, s]}, PyStratify", rows[k, s][0], "pystratify") for k, s in rows]
+    ref = [series(f"{k}{s}_ref", f"{label[k, s]}, finite differences", rows[k, s][1], "reference") for k, s in rows]
+    every = [abs(g - r) / max(abs(r), 1e-300) for l in orders for g, r in quadrupole_values(l).values()]
+    return dict(x=orders, series=out + ref, worst=float(max(every)), worst_label="largest relative difference over every family",
+                note="(1/6) Σ Q_ij ∂_j W_i of the vector spherical waves W = M + N (Bohren & Huffman's, the axial m = 0 family shown; the "
+                     "difference covers all five families and M − N), PyStratify's closed-form functional against central differences "
+                     "of the 40-digit waves. The regular wave fades with order at this distance and the outgoing one grows.")
+
+
+@figure("casimir-non-retarded", "An atom near a 200 nm Drude sphere: the Casimir–Polder potential against the non-retarded limit −C₃/d³", "distance from the surface [nm]", "|U| [J]", log=True)
+def casimir_non_retarded():
+    from scipy.integrate import quad
+    from sphere_emitter_checks import _alpha, _eps
+    from pystratify.casimir import HBAR
+
+    f = lambda u: (lambda x: x * _alpha(x) * (_eps(x)[0] - 1) / (_eps(x)[0] + 1))(np.exp(u))  # noqa: E731
+    c3 = HBAR / (4 * np.pi) * quad(f, np.log(1e6), np.log(1e21), limit=500, epsabs=0, epsrel=1e-12)[0]
+    R = 200.0
+    d = np.geomspace(0.5, 50, 25)
+    out = ps.casimir_polder([R], _eps, R + d, _alpha, nodes=64)
+    ref = c3 / d ** 3
+    return dict(x=sig(d), series=[series("u", "|U|, PyStratify", np.abs(out.energy), "pystratify"), series("u_ref", "C₃/d³, non-retarded limit", ref, "reference")],
+                worst=float(np.max(np.abs(-out.energy[:2] * d[:2] ** 3 / c3 - 1))), worst_label="relative difference within 0.6 nm",
+                note="Within a nanometre the potential is the flat-surface, non-retarded −C₃/d³ with C₃ = (ħ/4π)∫α(iξ)(ε − 1)/(ε + 1) dξ; "
+                     "further out retardation and the sphere's curvature weaken it, so the curves part by design: 0.3% at 0.5 nm, "
+                     "3% at 5 nm, 37% at 50 nm.")
+
+
+@figure("layered-magnetic-balance", "A dipole in the shell of a layered magnetic sphere (radii 1, 11; (ε, μ) = (2, 8), (1, 1), (8, 2); k₀ = 1) [Y24]: total against radiative", "distance from the centre", "Γ / Γ₀", log=True)
+def layered_magnetic_balance():
+    eps, mu = np.array([2, 1, 8.0]), np.array([8, 1, 2.0])
+    r = np.geomspace(1.01, 10.99, 60)
+    rates = ps.decay_rates([1.0, 11.0], np.sqrt(eps * mu), 2 * np.pi, r, mu=mu, tol=1e-9, normalization="shell")
+    return dict(x=sig(r), series=[
+        series("tot_perp", "total, radial (PyStratify, from the LDOS)", rates.total[:, 0], "pystratify"),
+        series("tot_par", "total, tangential (PyStratify, from the LDOS)", rates.total[:, 1], "pystratify"),
+        series("rad_perp", "radiative, radial (power reaching infinity)", rates.radiative[:, 0], "reference"),
+        series("rad_par", "radiative, tangential (power reaching infinity)", rates.radiative[:, 1], "reference")],
+        worst=worst(rates.total, rates.radiative, relative=True), worst_label="largest relative difference",
+        note="Yuan, Zhu & Zhu's Table 1 configuration: every layer is lossless, so all the power the dipole emits reaches infinity "
+             "and the total rate (from the local density of states) must equal the radiative one. Close to an interface the total "
+             "carries the rounding of the reactive near field, as Majic & Le Ru note (the report: 5.5e-8 at 0.001 from it).")
+
+
+@figure("guzatov-chiral-molecule", "A chiral molecule beside a small chiral sphere (ε = −4 + 0.3i, χ = 0.1, k₀a = 0.01): its radiative rate against Guzatov & Klimov's Eq. 46", "distance from the centre / radius", "Γ_rad / Γ₀")
+def guzatov_chiral_molecule():
+    from sphere_emitter_checks import guzatov_klimov_rate
+
+    d = np.linspace(1.3, 4, 55)
+    out, refs, diffs = [], [], []
+    for xi in (0.1, -0.1):
+        pairs = np.array([guzatov_klimov_rate(-4.0 + 0.3j, 1.0, 0.1, 0.01, di, xi) for di in d])
+        label = f"ξ = {xi:+g}"
+        out.append(series(f"x{len(out)}", f"{label}, PyStratify", pairs[:, 0], "pystratify"))
+        refs.append(series(f"x{len(refs)}_ref", f"{label}, Eq. 46", pairs[:, 1], "reference"))
+        diffs.append(np.max(np.abs(pairs[:, 0] / pairs[:, 1] - 1)))
+    return dict(x=sig(d), series=out + refs, worst=float(max(diffs)), worst_label="largest relative difference",
+                note="Guzatov & Klimov, New J. Phys. 14, 123009 (2012): a molecule with electric moment d₀ and magnetic moment −iξd₀ "
+                     "(the two handednesses, ξ = ±0.1) beside a chiral plasmonic sphere radiates at different rates: chiral discrimination. "
+                     "Their quasi-static Eq. 46 against PyStratify's full chiral solution; agreement to O((k₀a)²).")
+
+
+@figure("anger-2006-excitation", "A molecule beside an 80 nm gold sphere (ε = −12.99 + 1.09i), 650 nm: excitation and quantum yield, Anger et al. 2006, Fig. 1a", "distance from the surface [nm]", "rate / free space")
+def anger_2006_excitation():
+    curve, paper = classic_curve("anger_2006_fig1"), classic_values("anger_2006")
+    z = curve["z_um"] * 1e3
+    exc, qy = curve["excitation d=80nm"], curve["quantum_yield d=80nm"]
+    pick = lambda what: {float(m.group(1)): v for k, v in paper.items() if (m := __import__("re").match(rf"80 nm: {what} at z = (\d+) nm", k))}  # noqa: E731
+    exc_ref, qy_ref = at(z, pick("excitation")), at(z, pick("quantum yield"))
+    diffs = [abs(a - b) / b for a, b in zip(np.r_[exc, qy], np.r_[exc_ref, qy_ref]) if np.isfinite(b)]
+    return dict(x=sig(z), series=[series("exc", "excitation |E|²/|E₀|², PyStratify", exc, "pystratify"), series("qy", "quantum yield, PyStratify", qy, "pystratify"),
+                                  series("exc_ref", "excitation, read off Fig. 1a", exc_ref, "reference"), series("qy_ref", "quantum yield, read off Fig. 1a", qy_ref, "reference")],
+                worst=float(max(diffs)), worst_label="largest relative difference from the read values (±5%)",
+                note="Anger, Bharadwaj & Novotny, Phys. Rev. Lett. 96, 113002 (2006): the excitation rate grows toward the gold and the "
+                     "quantum yield falls (quenching); values read off Fig. 1a to ±5%, from crosscheck/classics/anger_2006.py.")
+
+
+@figure("anger-2006-fluorescence", "Fluorescence beside gold spheres of 20, 60, 80 and 100 nm, 650 nm: Anger et al. 2006, Fig. 1b", "distance from the surface [nm]", "fluorescence / free space")
+def anger_2006_fluorescence():
+    curve, paper = classic_curve("anger_2006_fig1"), classic_values("anger_2006")
+    z = curve["z_um"] * 1e3
+    out = [series(f"d{d}", f"{d} nm sphere, PyStratify", curve[f"fluorescence d={d}nm"], "pystratify") for d in (20, 60, 80, 100)]
+    peak = at(z, {paper["80 nm: z of the maximum (nm)"]: paper["80 nm: fluorescence maximum"]})
+    fl80 = curve["fluorescence d=80nm"]
+    i = int(np.argmax(fl80))
+    return dict(x=sig(z), series=out + [series("peak_ref", "80 nm maximum, read off Fig. 1b (z ≈ 10 nm)", peak, "reference")],
+                worst=float(abs(fl80[i] / paper["80 nm: fluorescence maximum"] - 1)), worst_label="80 nm maximum, relative difference",
+                note="The product of excitation and quantum yield peaks near 10 nm: enhancement turns into quenching. The paper prints the "
+                     "maxima of all four sizes (5.3, 3.5, 2.3, 1.05 from the largest; PyStratify 5.27, 3.52, 2.20, 1.04) but the position "
+                     "only for 80 nm, so that is the point marked.")
+
+
+@figure("gdm-decay", "A dipole beside a dielectric sphere (n = 2, R = 40 nm) in air, 600 nm: total decay rates against pyGDM2", "distance from the surface [nm]", "Γ / Γ₀")
+def gdm_decay():
+    from gdm_spheres import gdm_rates, gdm_simulation
+
+    gaps = np.linspace(10, 100, 10)
+    simulation, dipoles, r_eff = gdm_simulation(40.0, 2.0, 6.0)
+    radial, tangential = gdm_rates(simulation, dipoles, 40.0, gaps)
+    dense = np.linspace(10, 100, 91)
+    rates = ps.decay_rates([r_eff], [2.0, 1.0], 600.0, 40.0 + dense)
+    rad_ref, tan_ref = np.full(dense.size, np.nan), np.full(dense.size, np.nan)
+    rad_ref[::10], tan_ref[::10] = radial, tangential
+    rel = max(np.max(np.abs(radial / rates.total[::10, 0] - 1)), np.max(np.abs(tangential / rates.total[::10, 1] - 1)))
+    return dict(x=sig(dense), series=[series("rad", "radial, PyStratify", rates.total[:, 0], "pystratify"), series("tan", "tangential, PyStratify", rates.total[:, 1], "pystratify"),
+                                      series("rad_ref", f"radial, pyGDM2 ({len(dipoles)} dipoles)", rad_ref, "reference"),
+                                      series("tan_ref", f"tangential, pyGDM2 ({len(dipoles)} dipoles)", tan_ref, "reference")],
+                worst=float(rel), worst_label="largest relative difference",
+                note="pyGDM2's decay_rate couples the emitter to the dipole lattice through the Green dyadic; distances from the centroid of "
+                     "the lattice, PyStratify for the sphere of the same volume. The lattice is coarse close to the surface (the test: 10% at "
+                     "20 nm, 0.5% at 40 nm).")
+
+
+@figure("mnpbem-decay", "A dipole 5–40 nm from a 40 nm sphere of ε = −10 + i in vacuum, 600 nm: decay rates against MNPBEM", "distance from the surface [nm]", "Γ / Γ₀", log=True)
+def mnpbem_decay():
+    from mnpbem_spheres import METAL, mnpbem_rates
+
+    gaps = np.geomspace(5, 40, 8)  # from the test's 5 nm: closer, the triangles (~2 nm) no longer resolve the near field
+    faces, total, radiative = mnpbem_rates(1024, gaps)
+    dense = np.geomspace(5, 40, 71)
+    rates = ps.decay_rates([20.0], [np.sqrt(METAL + 0j), 1.0], 600.0, 20.0 + dense)
+    def sparse(values):
+        out = np.full(dense.size, np.nan)
+        out[::10] = values
+        return out
+    rel = np.max(np.abs(total / rates.total[::10] - 1))
+    return dict(x=sig(dense), series=[
+        series("tot_rad", "total, radial, PyStratify", rates.total[:, 0], "pystratify"), series("tot_tan", "total, tangential, PyStratify", rates.total[:, 1], "pystratify"),
+        series("rad_rad", "radiative, radial, PyStratify", rates.radiative[:, 0], "pystratify"),
+        series("tot_rad_ref", f"total, radial, MNPBEM ({faces} faces)", sparse(total[:, 0]), "reference"),
+        series("tot_tan_ref", "total, tangential, MNPBEM", sparse(total[:, 1]), "reference"),
+        series("rad_rad_ref", "radiative, radial, MNPBEM", sparse(radiative[:, 0]), "reference")],
+        worst=float(rel), worst_label="largest relative difference in the total rates (the mesh's error)",
+        note="MNPBEM's dipoleret solves the boundary integral equations for the dipole's field; its triangles are ~2 nm, so the "
+             "difference grows toward the surface (33% for the radial rate at 2 nm, not shown). The test follows four meshes at 5 nm (1.4% radial, 0.04% tangential at 2044 faces).")
+
+
+@figure("meep-axial-sphere", "A dipole 100 nm outside an n = 2, 150 nm sphere, on its axis: total decay rate against Meep (FDTD, 100 px/µm)", "λ [µm]", "Γ / Γ₀")
+def meep_axial_sphere():
+    import meep as mp
+    from fdtd_meep import AXIAL_CASES, meep_ldos_axial
+
+    case = "sphere n = 2, R = 150 nm, dipole 100 nm outside on its axis"
+    _, dimensions, n, source, names = AXIAL_CASES[case]
+    mp.verbosity(0)
+    coarse = 1 / np.linspace(0.85, 1.65, 17)
+    theirs = {o: meep_ldos_axial(case, o, 100, wavelengths=coarse) / meep_ldos_axial(case, o, 100, False, wavelengths=coarse) for o in names}
+    dense = 1 / np.linspace(0.85, 1.65, 161)
+    ours = np.array([ps.solve_problem(ps.Problem("spheres", dimensions, n, w, ps.PointDipole(source, "electric", 1), 1e-8))["total"][:2] for w in dense])
+    out, refs, rel = [], [], []
+    for i, o in enumerate(names):
+        ref = np.full(dense.size, np.nan)
+        ref[::10] = theirs[o]
+        out.append(series(o, f"{o}, PyStratify", ours[:, i], "pystratify"))
+        refs.append(series(f"{o}_ref", f"{o}, Meep", ref, "reference"))
+        rel.append(np.max(np.abs(theirs[o] / ours[::10, i] - 1)))
+    return dict(x=sig(dense), series=out + refs, worst=float(max(rel)), worst_label="largest relative difference (the grid's error)",
+                note="Meep in cylindrical coordinates (m = 0 for the radial dipole, m = 1 for the tangential), a Gaussian pulse and its "
+                     "local density of states at the dipole, over the same run without the sphere so the grid's own dispersion cancels. "
+                     "A curved surface on a square grid converges in an oscillating way: 5.5% at 25 px/µm, 1.6–1.7% at 50–100 (the test).")
+
+
+# smuthi (benchmarks/smuthi_spheres.py): each of its four cases swept outward from the case's own gap. smuthi's
+# truncation l_max converges geometrically, as (R / (R + gap))^(2 l_max) close to the sphere and above the size
+# parameter of the sphere in its host further away; it is taken from that estimate for ~1e-9, and capped at 40
+# (the report's ladder: 1.8e-6 for the metal-like sphere at 5 nm, 2.6e-5 for the large one at 50 nm).
+SMUTHI_SWEEPS = (
+    # slug, case, gaps [nm], logarithmic axis, description
+    ("dielectric", "dielectric, n = 2, R = 150 nm, 100 nm away", (100, 1000), False,
+     "a dielectric sphere, n = 2, R = 150 nm, in air, 800 nm"),
+    ("metal", "metal-like, eps = -10 + i, R = 20 nm, 5 nm away", (5, 60), True,
+     "a metal-like sphere, ε = −10 + i, R = 20 nm, in air, 600 nm"),
+    ("water", "in water, n = 1.5, R = 100 nm, 20 nm away", (20, 300), False,
+     "a sphere of n = 1.5, R = 100 nm, in water (n = 1.33), 633 nm"),
+    ("large", "large high-index, n = 3.5 + 0.01i, R = 500 nm, 50 nm away", (50, 1000), False,
+     "a large high-index sphere, n = 3.5 + 0.01i, R = 500 nm, in air, 800 nm"),
+)
+
+
+def smuthi_l_max(case, gap):
+    from smuthi_spheres import CASES
+
+    wavelength, radius, _, host, _, _ = CASES[case]
+    x = 2 * np.pi * host * radius / wavelength
+    near = 9 * np.log(10) / (2 * np.log1p(gap / radius))
+    return int(min(40, max(10, np.ceil(near), np.ceil(x + 4 * x ** (1 / 3) + 2))))
+
+
+def smuthi_sweep(case, gaps):
+    """PyStratify as a line (151 gaps) and smuthi at every tenth of them (16): the reference series is null between."""
+    import smuthi_spheres as ss
+
+    import smuthi  # noqa: F401  (ImportError: the figure is skipped)
+    dense = np.geomspace(*gaps, 151)
+    ours = np.array([ss.stratify(case, g) for g in dense])
+    sampled = dense[::10]
+    theirs = np.array([ss.smuthi_rates(case, smuthi_l_max(case, g), g) for g in sampled])
+    rel = float(np.max(np.abs(theirs / ours[::10] - 1)))
+    sparse = np.full_like(ours, np.nan)
+    sparse[::10] = theirs
+    return dict(x=sig(dense), series=[
+        series("radial", "radial, PyStratify", ours[:, 0], "pystratify"), series("tangential", "tangential, PyStratify", ours[:, 1], "pystratify"),
+        series("radial_ref", "radial, smuthi", sparse[:, 0], "reference"), series("tangential_ref", "tangential, smuthi", sparse[:, 1], "reference")],
+        worst=rel, worst_label="largest relative difference",
+        note=f"smuthi's T-matrix truncated at l_max = {smuthi_l_max(case, sampled[0])} nearest the sphere, "
+             f"{smuthi_l_max(case, sampled[-1])} farthest; PyStratify at tolerance 1e-10.")
+
+
+for _slug, _case, _gaps, _log, _what in SMUTHI_SWEEPS:
+    def _make(case=_case, gaps=_gaps):
+        return smuthi_sweep(case, gaps)
+    _make.__name__ = f"smuthi_{_slug}"
+    figure(f"smuthi-sphere-{_slug}", f"A dipole {_gaps[0]}–{_gaps[1]} nm from {_what}: PyStratify against smuthi",
+           "gap [nm]", "Γ / Γ₀", log=_log)(_make)
+
+
+# --- spheres, focused beam --------------------------------------------------------------------------------------
+
+@figure("focused-sphere-superposition", "A coated sphere (0.8/1.4 µm) under a focused beam (NA 0.6/0.2, collection 0.8/0.1): against plane-wave superposition", "λ [µm]", "power / incident")
+def focused_sphere_superposition():
+    from focused_checks import SPHERE, brute_sphere
+    from pystratify import focused as F
+
+    radii, n = SPHERE
+    beam = ps.FocusedBeam(0.6, 0.2, collection_na=0.8, collection_obscuration=0.1, polarization="x")
+    lam = np.linspace(2.5, 6.0, 15)
+    ours = F.focused_spheres(radii, n, lam, beam)
+    ref = [brute_sphere(radii, n, w, beam) for w in lam]
+    keys = ("extinction", "scattering", "detected")
+    got = {k: np.ravel(ours[k]) for k in keys}
+    exact = {k: np.array([r[k] for r in ref]) for k in keys}
+    return dict(x=sig(lam), series=[series(k, f"{k}, PyStratify", got[k], "pystratify") for k in keys]
+                + [series(f"{k}_ref", f"{k}, superposition of plane waves", exact[k], "reference") for k in keys],
+                worst=max(worst(got[k], exact[k], relative=True) for k in keys), worst_label="largest relative difference",
+                note="The reference sums the sphere's amplitude matrix over a grid of incident and scattered directions in the pupil "
+                     "(focused_checks.py); PyStratify uses its closed-form beam coefficients. The incident power is 1.")
+
+
+@figure("focused-na-limit", "The same coated sphere, λ = 3 µm: a focused beam as its NA closes, against the plane wave", "NA", "extinction / (|E(0)|² σ_ext)")
+def focused_na_limit():
+    from focused_checks import SPHERE
+    from pystratify import focused as F
+
+    radii, n = SPHERE
+    lam = 3.0
+    sigma = ps.cross_sections(ps.solve(radii, n, lam)).ext[0]
+    nas = np.linspace(0.01, 0.6, 60)
+    ratios = []
+    for na in nas:
+        out = F.focused_spheres(radii, n, lam, ps.FocusedBeam(na))
+        focus = (1 / lam) ** 2 * F.focal_amplitude((0.0, na)) ** 2
+        ratios.append(float(np.ravel(out["extinction"])[0] / focus / sigma))
+    ratios = np.array(ratios)
+    return dict(x=sig(nas), series=[series("ratio", "focused extinction / (|E(0)|² σ_ext), PyStratify", ratios, "pystratify"),
+                                    series("plane", "plane wave (= 1)", np.ones_like(ratios), "reference")],
+                worst=float(abs(ratios[0] - 1)), worst_label="difference from 1 at NA 0.01",
+                note="A focused beam's extinction, divided by its intensity at the focus and the plane-wave cross section, tends to 1 as the NA "
+                     "closes and the beam becomes a plane wave across the sphere; a tightly focused beam sees less of it.")
+
+
+@figure("focused-axis-path", "The coated sphere at λ = 3 µm, focus moved along the axis: the fast on-axis path against the general one", "focus position z [µm]", "power / incident")
+def focused_axis_path():
+    from focused_checks import SPHERE
+    from pystratify import focused as F
+
+    radii, n = SPHERE
+    lam = np.array([3.0])
+    sol = ps.solve(radii, n, lam)
+    k = 2 * np.pi / lam
+    z = np.linspace(-3, 3, 61)
+    axis, general = {}, {}
+    for zi in z:
+        a = F._sphere_axis(sol.t, k, sol.orders, (0.23, 0.5), (0.1, 0.7), zi)
+        g = F._sphere_general(sol.t, k, sol.orders, (0.23, 0.5), (0.1, 0.7), (0.0, 0.0, zi), (1.0, 0.0), False)
+        for key, value in (("extinction", lambda d: np.sum(d["ext_by_order"])), ("detected", lambda d: np.ravel(d["detected"])[0])):
+            axis.setdefault(key, []).append(float(value(a))), general.setdefault(key, []).append(float(value(g)))
+    return dict(x=sig(z), series=[series(k_, f"{k_}, on-axis path (PyStratify)", axis[k_], "pystratify") for k_ in ("extinction", "detected")]
+                + [series(f"{k_}_ref", f"{k_}, general path", general[k_], "reference") for k_ in ("extinction", "detected")],
+                worst=max(worst(axis[k_], general[k_], relative=True) for k_ in ("extinction", "detected")), worst_label="largest relative difference",
+                note="On the axis the beam couples only to azimuthal orders m = ±1, and PyStratify takes a shortcut; the general path, for a focus "
+                     "anywhere, must give the same numbers. NA 0.5/0.23 in, 0.7/0.1 collected.")
+
+
+@figure("koehler-cone-average", "The coated sphere under Köhler illumination (NA 0.6/0.2, field stop 25 µm): against a cone average of plane waves", "λ [µm]", "power / incident")
+def koehler_cone_average():
+    from focused_checks import SPHERE, sphere_koehler_reference
+    from pystratify import focused as F
+
+    radii, n = SPHERE
+    beam = ps.FocusedBeam(0.6, 0.2, collection_na=0.7, collection_obscuration=0.3, illumination="kohler", field_stop=25.0)
+    lam = np.linspace(2.5, 6.0, 15)
+    ours = F.focused_spheres(radii, n, lam, beam)
+    ref = [sphere_koehler_reference(w) for w in lam]
+    keys = ("extinction", "detected")
+    got = {k: np.ravel(ours[k]) for k in keys}
+    exact = {k: np.array([r[k] for r in ref]) for k in keys}
+    return dict(x=sig(lam), series=[series(k, f"{k}, PyStratify", got[k], "pystratify") for k in keys]
+                + [series(f"{k}_ref", f"{k}, cone average of plane waves", exact[k], "reference") for k in keys],
+                worst=max(worst(got[k], exact[k], relative=True) for k in keys), worst_label="largest relative difference",
+                note="Köhler illumination is incoherent across the pupil, so a sphere sees an average of plane waves over the illumination cone; "
+                     "the reference does that average with the plane-wave cross sections and the amplitude matrix.")
+
+
+@figure("focused-near-field", "A coated sphere (0.6/1.2 µm) under a focused beam (NA 0.6/0.2, y polarized, focus off-centre), λ = 3 µm: |E|² along a line against plane-wave near fields", "x [µm]", "|E|²")
+def focused_near_field():
+    from focused_checks import sphere_near_field_pair
+
+    x = np.linspace(-2.5, 2.5, 101)
+    points = np.column_stack([x, np.full_like(x, 0.2), np.full_like(x, 0.25)])
+    field, E, _ = sphere_near_field_pair(points)
+    ours = np.sum(np.abs(np.asarray(field.e[0])) ** 2, -1)
+    ref = np.sum(np.abs(E) ** 2, -1)
+    return dict(x=sig(x), series=[series("e2", "|E|², PyStratify", ours, "pystratify"), series("e2_ref", "|E|², superposition of plane-wave near fields", ref, "reference")],
+                worst=worst(ours, ref, relative=True), worst_label="largest relative difference",
+                note="Along y = 0.2, z = 0.25 µm through the sphere (core radius 0.6, shell 1.2 µm): the beam's field from PyStratify's beam "
+                     "coefficients against 2016 plane waves from the pupil, each solved by the plane-wave near field and summed.")
 
 
 # --- cylinders --------------------------------------------------------------------------------------------------

@@ -756,23 +756,26 @@ def load_verification(root, examples):
         if link["example"] not in examples:
             raise ContentError(f"docs/verification.md: no example {link['example']!r} in docs/examples/")
         rows[key]["example"] = link["example"]
-    # Comparison figures (benchmarks/figures.py writes docs/figures/<name>.json): one per row that names one.
+    # Comparison figures (benchmarks/figures.py writes docs/figures/<name>.json): a row names one, or a list, one per
+    # case it compares. The row carries `figures` (the list) and `figure` (the first).
     figures = {}
     for link in meta.get("figures", []):
         key = (link["geometry"], link["source"], link["reference"])
+        names = [link["figure"]] if isinstance(link["figure"], str) else list(link["figure"])
         if key not in rows:
-            raise ContentError(f"docs/verification.md: no MATRIX.md row {key} for figure {link['figure']!r}")
-        path = root / "docs" / "figures" / f"{link['figure']}.json"
-        if not path.exists():
-            raise ContentError(f"docs/verification.md: no {path.relative_to(root)}; run `python benchmarks/figures.py {link['figure']}`")
-        data = json.loads(path.read_text())
-        for field in ("id", "title", "x_label", "y_label", "x", "series", "worst", "worst_label", "note", "script", "function"):
-            if field not in data:
-                raise ContentError(f"{path.relative_to(root)}: missing {field}")
-        if any(len(s["y"]) != len(data["x"]) for s in data["series"]):
-            raise ContentError(f"{path.relative_to(root)}: a series does not match the x grid")
-        rows[key]["figure"] = link["figure"]
-        figures[link["figure"]] = data
+            raise ContentError(f"docs/verification.md: no MATRIX.md row {key} for figure {names!r}")
+        for name in names:
+            path = root / "docs" / "figures" / f"{name}.json"
+            if not path.exists():
+                raise ContentError(f"docs/verification.md: no {path.relative_to(root)}; run `python benchmarks/figures.py {name}`")
+            data = json.loads(path.read_text())
+            for field in ("id", "title", "x_label", "y_label", "x", "series", "worst", "worst_label", "note", "script", "function"):
+                if field not in data:
+                    raise ContentError(f"{path.relative_to(root)}: missing {field}")
+            if any(len(s["y"]) != len(data["x"]) for s in data["series"]):
+                raise ContentError(f"{path.relative_to(root)}: a series does not match the x grid")
+            figures[name] = data
+        rows[key]["figure"], rows[key]["figures"] = names[0], names
     page = {"title": meta["title"], "summary": meta["summary"], "body": body,
             **{k: matrix[k] for k in ("kinds", "statuses", "coverage", "findings")}, "figures": figures}
     return page, matrix["records"]

@@ -45,19 +45,59 @@ SHELL_MESHES = (144, 256, 484)
 SHELLS = {"nanoshell": 10.0, "thin nanoshell": 15.0}  # core radius in nm; the shell ends at 20 nm
 
 
+def _particle(case):
+    """The Octave line that builds ``p``, the case's particle, for a mesh of ``nv`` vertices."""
+    if case in SHELLS:
+        return ("p = comparticle( { epsconst( 1 ), epsconst( %s ), epsconst( %s ) }, "
+                "{ trisphere( nv, %g ), trisphere( nv, 40 ) }, [ 3, 2; 2, 1 ], 1, 2, op );"
+                % (_matlab(METAL), _matlab(SILICA), 2 * SHELLS[case]))
+    host = 1.0 if case == "sphere in vacuum" else 1.33 ** 2
+    return ("p = comparticle( { epsconst( %s ), epsconst( %s ) }, { trisphere( nv, 40 ) }, [ 2, 1 ], 1, op );"
+            % (_matlab(host), _matlab(METAL)))
+
+
+def mnpbem_spectrum(case, nv, wavelengths):
+    """MNPBEM's (faces, C_ext, C_sca) per wavelength on one mesh of ``nv`` vertices (constant permittivities)."""
+    script = f"""
+op = bemoptions( 'sim', 'ret', 'interp', 'curv', 'waitbar', 0 );
+nv = {nv};
+{_particle(case)}
+bem = bemsolver( p, op );
+exc = planewave( [ 1, 0, 0 ], [ 0, 0, 1 ], op );
+for enei = [ {' '.join(f'{w:.10g}' for w in wavelengths)} ]
+  sig = bem \\ exc( p, enei );
+  printf( 'spectrum %d %.12g %.12g\\n', p.n, exc.ext( sig ), exc.sca( sig ) );
+  fflush( stdout );
+end
+"""
+    rows = [line.split()[1:] for line in mnpbem_octave.run(script).splitlines() if line.startswith("spectrum ")]
+    return int(rows[0][0]), np.array([float(r[1]) for r in rows]), np.array([float(r[2]) for r in rows])
+
+
+def mnpbem_rates(nv, gaps):
+    """MNPBEM's (faces, total, radiative) decay rates, columns radial and tangential, of a dipole at ``gaps`` from
+    the 40 nm sphere of METAL in vacuum, on one mesh of ``nv`` vertices, at WAVELENGTH."""
+    positions = "; ".join(f"0, 0, {20 + g:.10g}" for g in gaps)
+    script = f"""
+op = bemoptions( 'sim', 'ret', 'interp', 'curv', 'waitbar', 0 );
+nv = {nv};
+{_particle("sphere in vacuum")}
+bem = bemsolver( p, op );
+dip = dipoleret( compoint( p, [ {positions} ] ), [ 0, 0, 1; 1, 0, 0 ], op );
+[ tot, rad ] = dip.decayrate( bem \\ dip( p, {WAVELENGTH} ) );
+for i = 1 : size( tot, 1 )
+  printf( 'rates %d %.12g %.12g %.12g %.12g\\n', p.n, tot( i, 1 ), tot( i, 2 ), rad( i, 1 ), rad( i, 2 ) );
+end
+"""
+    rows = [list(map(float, line.split()[1:])) for line in mnpbem_octave.run(script).splitlines() if line.startswith("rates ")]
+    rows = np.array(rows)
+    return int(rows[0, 0]), rows[:, 1:3], rows[:, 3:5]
+
+
 def mnpbem(case):
     """MNPBEM's results per mesh: {vertices: {quantity: value}}."""
-    if case in SHELLS:
-        core = 2 * SHELLS[case]
-        particle = ("p = comparticle( { epsconst( 1 ), epsconst( %s ), epsconst( %s ) }, "
-                    "{ trisphere( nv, %g ), trisphere( nv, 40 ) }, [ 3, 2; 2, 1 ], 1, 2, op );"
-                    % (_matlab(METAL), _matlab(SILICA), core))
-        meshes, dipole = SHELL_MESHES, False
-    else:
-        host = 1.0 if case == "sphere in vacuum" else 1.33 ** 2
-        particle = ("p = comparticle( { epsconst( %s ), epsconst( %s ) }, { trisphere( nv, 40 ) }, [ 2, 1 ], 1, op );"
-                    % (_matlab(host), _matlab(METAL)))
-        meshes, dipole = SPHERE_MESHES, case == "sphere in vacuum"
+    particle = _particle(case)
+    meshes, dipole = (SHELL_MESHES, False) if case in SHELLS else (SPHERE_MESHES, case == "sphere in vacuum")
     script = f"""
 op = bemoptions( 'sim', 'ret', 'interp', 'curv', 'waitbar', 0 );
 for nv = [ {' '.join(str(m) for m in meshes)} ]

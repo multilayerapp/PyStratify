@@ -107,7 +107,7 @@ outside a database page or a table is refused, as the API refuses it.
 **Figure** (`figures/<name>.json`, written by `python benchmarks/figures.py`): PyStratify against one row's reference as
 curves on a common axis: `id`, `title`, `x_label`, `y_label`, `log`, `x`, `series` of `{key, label, y, role}` with `role`
 `pystratify` or `reference`, `worst`, `worst_label`, `note`, `script`, `function`. `verification.md` lists `figures:
-[{geometry, source, reference, figure}]` to attach one to a row; the build refuses a missing file or a mismatched grid.
+[{geometry, source, reference, figure}]` to attach one to a row (`figure` may be a list, one figure per case the row compares; the row then carries `figures`, and `figure` is the first); the build refuses a missing file or a mismatched grid.
 
 **Benchmark** — one per row of the geometry tables of `benchmarks/MATRIX.md`, which stays the one place the
 matrix is written (the site shows the rows that are tested: a status of `to build`, `out of scope` or `branch`

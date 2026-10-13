@@ -139,7 +139,8 @@ def test_every_matrix_row_is_one_benchmark_record(manifest):
     assert {r["reference_kind"] for r in rows} >= {"analytic", "precision", "method", "code", "paper", "lineage"}
     assert sum("example" in r for r in rows) == 3  # docs/verification.md's links, each to an existing example
     figures = manifest["verification"]["figures"]
-    assert {r["figure"] for r in rows if "figure" in r} == set(figures)
+    assert {name for r in rows for name in r.get("figures", [])} == set(figures)
+    assert all(r["figure"] == r["figures"][0] for r in rows if "figure" in r)
     for name, f in figures.items():
         assert (ROOT / "docs" / "figures" / f"{name}.json").exists()
         assert f["worst"] >= 0 and all(len(s["y"]) == len(f["x"]) for s in f["series"])
