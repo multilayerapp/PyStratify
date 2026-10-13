@@ -70,8 +70,8 @@ def fixed_coh_matmul(carry, phase_r_t):
     return result, result
 
 
-def tmmax_rt(n, d, polarization, fixed=False):
-    """tmmax's (R, T) on the wavelength x angle grid."""
+def tmmax_rt(n, d, polarization, fixed=False, wavelengths=WAVELENGTHS, angles_deg=ANGLES_DEG):
+    """tmmax's (R, T) on the wavelength x angle grid (nm, degrees)."""
     import jax.numpy as jnp
     import tmmax.cascaded_matmul as cascaded
     from tmmax.tmm import tmm
@@ -83,16 +83,16 @@ def tmmax_rt(n, d, polarization, fixed=False):
         cascaded.coh_matmul = fixed_coh_matmul
     jax.clear_caches()  # tmmax's jit would otherwise reuse a scan traced with the other step
     try:
-        R, T = tmm(_materials(n), jnp.array(np.array(d) * 1e-9), jnp.array(np.array(WAVELENGTHS) * 1e-9),
-                   jnp.array(np.radians(ANGLES_DEG)), polarization=polarization)
+        R, T = tmm(_materials(n), jnp.array(np.array(d) * 1e-9), jnp.array(np.array(wavelengths) * 1e-9),
+                   jnp.array(np.radians(angles_deg)), polarization=polarization)
     finally:
         cascaded.coh_matmul = original
         jax.clear_caches()
     return np.asarray(R, float).T, np.asarray(T, float).T  # tmmax returns (angle, wavelength)
 
 
-def stratify_rt(n, d, polarization):
-    out = [[coh_tmm(polarization, n, [np.inf, *d, np.inf], np.radians(a), w) for a in ANGLES_DEG] for w in WAVELENGTHS]
+def stratify_rt(n, d, polarization, wavelengths=WAVELENGTHS, angles_deg=ANGLES_DEG):
+    out = [[coh_tmm(polarization, n, [np.inf, *d, np.inf], np.radians(a), w) for a in angles_deg] for w in wavelengths]
     return np.array([[o["R"] for o in line] for line in out]), np.array([[o["T"] for o in line] for line in out])
 
 

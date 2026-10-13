@@ -131,6 +131,661 @@ def sommerfeld_film_emitter():
         note="The reference integrates the Chance–Prock–Silbey integrands with Parratt's recursion for r_s and r_p, written without PyStratify; quenching rises as d⁻³ at contact and the surface plasmon of the silver sets the breakpoint of the evanescent integral.")
 
 
+# --- films, plane wave: closed forms, internal methods, other codes (2026-10-12, second batch) -----------------
+
+@figure("opaque-film", "A metal film (n = 0.2 + 3i) in air at 600 nm, normal incidence: thickening it toward the bulk Fresnel reflectance", "thickness [nm]", "R, T")
+def opaque_film():
+    n = 0.2 + 3j
+    t = np.linspace(1, 150, 150)
+    rows = [planar.coh_tmm("s", [1, n, 1], [inf, w * 1e-3, inf], 0, 0.6) for w in t]
+    R, T = np.array([r["R"] for r in rows]), np.array([r["T"] for r in rows])
+    bulk = abs((1 - n) / (1 + n)) ** 2
+    thick = planar.coh_tmm("s", [1, n, 1], [inf, 20.0, inf], 0, 0.6)
+    return dict(x=sig(t), series=[series("R", "R, PyStratify", R, "pystratify"), series("T", "T, PyStratify", T, "pystratify"),
+                                  series("R_ref", "|(1 − n)/(1 + n)|², the bulk Fresnel reflectance", np.full(t.size, bulk), "reference")],
+                worst=float(abs(thick["R"] - bulk)), worst_label="|R − R_bulk| at 20 µm (the test's opaque film)",
+                note="A thin metal film transmits; as it thickens T falls exponentially and R settles on the reflectance of the bulk metal. "
+                     "The test takes the film to 20 µm, where T must be exactly 0 and R, the Poynting vector at 0, 10 and 20 µm finite (no "
+                     "overflow of exp(Im(k_z) d)), and checks Fresnel's 0.04 and 0.96 for glass at normal incidence.")
+
+
+def _bare_substrate(part):
+    from planar_checks import bare_substrate_rho
+
+    angles = np.linspace(1, 89, 89)
+    cases = ((1.5 + 0j, "n = 1.5"), (1.5 + 0.3j, "n = 1.5 + 0.3i"), (0.2 + 3j, "n = 0.2 + 3i"))
+    out, refs, diffs = [], [], []
+    for i, (n_sub, label) in enumerate(cases):
+        pairs = [bare_substrate_rho(n_sub, a) for a in angles]
+        ours, theirs = np.array([p[0] for p in pairs]), np.array([p[1] for p in pairs])
+        f = (lambda z: np.degrees(np.arctan(np.abs(z)))) if part == "psi" else (lambda z: np.degrees(np.angle(z)) % 360)
+        out.append(series(f"c{i}", f"{label}, PyStratify", f(ours), "pystratify"))
+        refs.append(series(f"c{i}_ref", f"{label}, −r_p / r_s from Fresnel", f(theirs), "reference"))
+        diffs.append(np.max(np.abs(ours - theirs)))
+    return dict(x=sig(angles), series=out + refs, worst=float(max(diffs)), worst_label="largest |ρ − (−r_p / r_s)|",
+                note="Ellipsometry's ratio ρ = tan Ψ e^{iΔ} of a bare substrate is the ratio of its Fresnel coefficients, −r_p / r_s in "
+                     "PyStratify's sign convention; the test asserts four (substrate, angle) pairs to 1e-12, the plot sweeps the angle, at 633 nm. "
+                     "For the lossless n = 1.5 Δ jumps by 180° at Brewster's angle, 56.3°.")
+
+
+for _part, _what, _unit in (("psi", "Ψ", "Ψ [°]"), ("delta", "Δ", "Δ [°]")):
+    def _make(part=_part):
+        return _bare_substrate(part)
+    _make.__name__ = f"bare_substrate_{_part}"
+    figure(f"bare-substrate-{_part}", f"Bare substrates in air at 633 nm: the ellipsometric angle {_what} against the Fresnel ratio", "angle of incidence [°]", _unit)(_make)
+
+
+def _smatrix_figure(stack, angles, what):
+    from planar_checks import smatrix_rt
+
+    n, d, lam = stack
+    ours, theirs = {}, {}
+    for pol in ("s", "p"):
+        rows = [planar.coh_tmm(pol, n, d, np.radians(a), lam) for a in angles]
+        ours[pol] = np.array([[r["R"], r["T"]] for r in rows])
+        theirs[pol] = np.array([smatrix_rt(pol, n, d, np.radians(a), lam) for a in angles])
+    out = [series(f"{q}_{p}", f"{q}_{p}, PyStratify", ours[p][:, i], "pystratify") for p in "sp" for i, q in enumerate("RT")]
+    refs = [series(f"{q}_{p}_ref", f"{q}_{p}, S-matrix", theirs[p][:, i], "reference") for p in "sp" for i, q in enumerate("RT")]
+    return dict(x=sig(angles), series=out + refs, worst=max(worst(ours[p], theirs[p]) for p in "sp"), worst_label="largest |R − R_S|, |T − T_S|",
+                note=f"{what} The reference chains the interfaces' and layers' two-port scattering matrices by Redheffer's star product "
+                     "(planar_checks.py), a different algebra from PyStratify's transfer matrices that never multiplies by exp(+Im(k_z) d); "
+                     "the test also takes 120 µm of n = 2 + 0.5i, where T is below 1e-30 in both.")
+
+
+@figure("smatrix-metal-stack", "Air / 100 nm silica / 40 nm metal (n = 0.05 + 3i) / glass at 600 nm: against the scattering-matrix star product", "angle of incidence [°]", "R, T")
+def smatrix_metal_stack():
+    from planar_checks import METAL_STACK
+    return _smatrix_figure(METAL_STACK, np.linspace(0, 89, 90), "An absorbing stack, s and p.")
+
+
+@figure("smatrix-beyond-critical", "Glass / 400 nm air / 130 nm of n = 2 / glass at 550 nm: through the critical angle against the scattering-matrix star product", "angle of incidence in glass [°]", "R, T")
+def smatrix_beyond_critical():
+    from planar_checks import BEYOND_CRITICAL
+    return _smatrix_figure(BEYOND_CRITICAL, np.linspace(0, 89, 90), "Beyond 41.8° the air gap is evanescent and light tunnels through it to the n = 2 layer and the glass.")
+
+
+INCOHERENT = ([1.0, 2.08 + 0.03j, 1.47 + 0.001j, 1.82 + 0.02j, 1.56], [inf, 0.09, 12.0, 0.11, inf], ["i", "c", "i", "c", "i"])
+
+
+@figure("incoherent-phase-average", "Coherent films on both sides of a 12 µm incoherent layer, on glass, 640 nm: against an explicit average over its phase", "angle of incidence [°]", "R, T")
+def incoherent_phase_average():
+    from planar_checks import explicit_phase_average
+
+    n, d, c = INCOHERENT
+    angles = np.linspace(0, 80, 33)
+    ours, ref = {}, {}
+    for pol in ("s", "p"):
+        rows = [planar.pim_tmm(pol, n, d, c, np.radians(a), 0.64) for a in angles]
+        ours[pol] = np.array([[r["R"], r["T"]] for r in rows])
+        sampled = [explicit_phase_average(pol, n, d, c, a, 0.64, samples_per_layer=301) for a in angles]
+        ref[pol] = np.array([[e["reflectance"], e["transmittance"]] for e in sampled])
+    out = [series(f"{q}_{p}", f"{q}_{p}, PyStratify", ours[p][:, i], "pystratify") for p in "sp" for i, q in enumerate("RT")]
+    refs = [series(f"{q}_{p}_ref", f"{q}_{p}, phase average of coherent solves", ref[p][:, i], "reference") for p in "sp" for i, q in enumerate("RT")]
+    return dict(x=sig(angles), series=out + refs, worst=max(worst(ours[p], ref[p]) for p in "sp"), worst_label="largest |difference|",
+                note="An incoherent layer is a coherent one whose round-trip phase is averaged out: the reference solves the whole stack "
+                     "coherently 301 times with that layer's phase spread over one period (its absorption kept) and averages R and T; "
+                     "PyStratify's incoherent transfer matrix does it in closed form. The test also compares the absorption in each layer.")
+
+
+@figure("inc-tmm-lineage", "The same stack: PyStratify's incoherent solver against inc_tmm, the lineage it replaced (GTMM in the backend tests)", "λ [nm]", "R, T, A")
+def inc_tmm_lineage():
+    n, d, c = INCOHERENT
+    lam = np.linspace(450, 900, 91)
+    ours, ref = [], []
+    for w in lam:
+        a = planar.pim_tmm("s", n, d, c, np.radians(31), w * 1e-3)
+        b = planar.inc_tmm("s", n, d, c, np.radians(31), w * 1e-3)
+        ours.append([a["R"], a["T"], 1 - a["R"] - a["T"]]), ref.append([b["R"], b["T"], 1 - b["R"] - b["T"]])
+    ours, ref = np.array(ours), np.array(ref)
+    labels = ("R", "T", "A")
+    return dict(x=sig(lam), series=[series(q, f"{q}, PyStratify (pim_tmm)", ours[:, i], "pystratify") for i, q in enumerate(labels)]
+                + [series(f"{q}_ref", f"{q}, inc_tmm", ref[:, i], "reference") for i, q in enumerate(labels)],
+                worst=worst(ours, ref), worst_label="largest |difference|",
+                note="inc_tmm is the incoherent transfer matrix of S. J. Byrnes' tmm package, from which PyStratify's planar engine "
+                     "descends; it is kept as a lineage check, not an independent one. 31°, s polarization; the backend's tests run 120 random "
+                     "stacks as well.")
+
+
+@figure("rcwa-unpatterned", "A three-layer filter (n = 2.35 / 1.46 / 2.35, 95/110/95 nm) on n = 1.5: against meent's RCWA with zero patterning", "λ [nm]", "R, T")
+def rcwa_unpatterned():
+    from rcwa_meent import meent_rt, stratify_rt
+
+    lam = np.linspace(400, 800, 81)
+    ours = np.array([stratify_rt(w * 1e-3) for w in lam])
+    theirs = np.array([meent_rt(w * 1e-3) for w in lam])
+    return dict(x=sig(lam), series=[series("R", "R, PyStratify", ours[:, 0], "pystratify"), series("T", "T, PyStratify", ours[:, 1], "pystratify"),
+                                    series("R_ref", "R, meent RCWA", theirs[:, 0], "reference"), series("T_ref", "T, meent RCWA", theirs[:, 1], "reference")],
+                worst=worst(ours, theirs), worst_label="largest |difference|",
+                note="Rigorous coupled-wave analysis, the calculator's grating engine (meent, MIT), with uniform layers and one Fourier order "
+                     "must reduce to the transfer matrix. Normal incidence, s; rcwa_meent.py, which the test runs at 0° and 30°, s and p.")
+
+
+@figure("position-resolved-absorption", "An absorbing four-layer stack at 30°: the absorption density integrated through each layer against its Poynting difference", "λ [nm]", "absorptance per layer")
+def position_resolved_absorption_figure():
+    from planar_checks import integrated_absorption
+
+    lam = np.linspace(400, 1000, 61)
+    pairs = [integrated_absorption("p", w * 1e-3) for w in lam]
+    ours, ref = np.array([p[0] for p in pairs]), np.array([p[1] for p in pairs])
+    labels = ("120 nm n = 2.1 + 0.08i", "250 nm n = 1.46 + 0.01i", "20 nm n = 0.2 + 3.2i")
+    return dict(x=sig(lam), series=[series(f"l{i}", f"{lab}, ∫ density (PyStratify)", ours[:, i], "pystratify") for i, lab in enumerate(labels)]
+                + [series(f"l{i}_ref", f"{lab}, Poynting difference", ref[:, i], "reference") for i, lab in enumerate(labels)],
+                worst=worst(ours, ref), worst_label="largest |difference|",
+                note="position_resolved gives the field and the absorption density at any depth; integrated through a layer (200 Gauss–"
+                     "Legendre points) it must equal the power the Poynting flux loses across that layer. p polarization, air above, glass "
+                     "below. The focused-beam near field builds on the same fields (its Parseval check is the focused-beam row).")
+
+
+# --- films, plane wave: other codes ----------------------------------------------------------------------------
+
+@figure("pyelli-bragg-mirror", "A ten-pair Bragg mirror (n = 2.35 / 1.46) on glass at 30°: R_s against pyElli's 2×2 and 4×4 solvers", "λ [nm]", "R_s")
+def pyelli_bragg_mirror():
+    from planar_codes import CASES, elli_result, stratify
+
+    case = CASES["Bragg mirror, 10 pairs"]
+    lam = np.linspace(450, 850, 81)
+    theta = np.radians(30)
+    ours = np.array([stratify(case, w, theta, "s")["R"] for w in lam])
+    two = np.array([elli_result(case, w, theta, "two")["Rs"] for w in lam])
+    four = np.array([elli_result(case, w, theta, "four")["Rs"] for w in lam])
+    four[1::2] = np.nan
+    two[::2] = np.nan
+    return dict(x=sig(lam), series=[series("R", "R_s, PyStratify", ours, "pystratify"), series("two", "R_s, pyElli 2×2", two, "reference"),
+                                    series("four", "R_s, pyElli 4×4", four, "reference")],
+                worst=float(np.nanmax(np.abs(np.r_[ours - two, ours - four]))), worst_label="largest |difference|",
+                note="pyElli (an ellipsometry package) solves layered stacks with Berreman's 4×4 matrices and with 2×2 ones; the two solvers "
+                     "are drawn at alternate points. The test runs nine stacks (an AR pair, this mirror, thin and opaque gold, a 20 µm absorber, "
+                     "beyond critical, frustrated TIR) at four angles and three wavelengths for R, Ψ and Δ.")
+
+
+@figure("pyelli-gold-ellipsometry", "20 nm of gold (n = 0.27 + 2.93i) on glass at 633 nm: Ψ and Δ against pyElli's 4×4 solver", "angle of incidence [°]", "angle [°]")
+def pyelli_gold_ellipsometry():
+    from planar_codes import CASES, _split, _wrap, elli_result
+
+    layers, d, _ = case = CASES["Au 20 nm on glass"]
+    n, _ = _split(layers)
+    angles = np.linspace(1, 85, 85)
+    psi, delta, psi_ref, delta_ref = [], [], [], []
+    for a in angles:
+        e = planar.ellips(n, d, np.radians(a), 633.0)
+        theirs = elli_result(case, 633.0, np.radians(a), "four")
+        psi.append(np.degrees(e["psi"])), delta.append(_wrap(180.0 - np.degrees(e["Delta"])))
+        psi_ref.append(theirs["psi"]), delta_ref.append(_wrap(theirs["delta"]))
+    psi, delta, psi_ref, delta_ref = map(np.array, (psi, delta, psi_ref, delta_ref))
+    return dict(x=sig(angles), series=[series("psi", "Ψ, PyStratify", psi, "pystratify"), series("delta", "Δ, PyStratify (pyElli's convention)", delta, "pystratify"),
+                                       series("psi_ref", "Ψ, pyElli 4×4", psi_ref, "reference"), series("delta_ref", "Δ, pyElli 4×4", delta_ref, "reference")],
+                worst=float(max(np.max(np.abs(psi - psi_ref)), np.max(np.abs(_wrap(delta - delta_ref))))), worst_label="largest difference [°]",
+                note="pyElli reports Δ with the opposite sign convention for r_p, so PyStratify's is drawn as 180° − Δ, wrapped to ±180°, as "
+                     "the test compares it (to 1e-10°).")
+
+
+@figure("pymoosh-bragg-mirror", "A ten-pair Bragg mirror (n = 2.35 / 1.46) on glass at 30°: R and T against PyMoosh", "λ [nm]", "R, T")
+def pymoosh_bragg_mirror():
+    from planar_codes import CASES, moosh, stratify
+
+    case = CASES["Bragg mirror, 10 pairs"]
+    lam = np.linspace(450, 850, 81)
+    out, refs, diffs = [], [], []
+    for pol in "sp":
+        ours = np.array([[stratify(case, w, np.radians(30), pol)[q] for q in "RT"] for w in lam])
+        theirs = np.array([[moosh(case, w, np.radians(30), pol)[q] for q in "RT"] for w in lam])
+        out += [series(f"{q}_{pol}", f"{q}_{pol}, PyStratify", ours[:, i], "pystratify") for i, q in enumerate("RT")]
+        refs += [series(f"{q}_{pol}_ref", f"{q}_{pol}, PyMoosh", theirs[:, i], "reference") for i, q in enumerate("RT")]
+        diffs.append(worst(ours, theirs))
+    return dict(x=sig(lam), series=out + refs, worst=float(max(diffs)), worst_label="largest |difference|",
+                note="PyMoosh (Langevin, Moreau et al.) solves stacks with its own scattering matrices. The test runs nine stacks at four "
+                     "angles and three wavelengths for R, T, r, t and the absorption in every layer.")
+
+
+@figure("pymoosh-magnetic-layer", "A 150 nm layer with n = 1.5 and μ = 2 on glass at 633 nm: R and T against PyMoosh", "angle of incidence [°]", "R, T")
+def pymoosh_magnetic_layer():
+    from planar_codes import CASES, moosh, stratify
+
+    case = CASES["magnetic layer (n 1.5, mu 2)"]
+    angles = np.linspace(0, 89, 90)
+    out, refs, diffs = [], [], []
+    for pol in "sp":
+        ours = np.array([[stratify(case, 633.0, np.radians(a), pol)[q] for q in "RT"] for a in angles])
+        theirs = np.array([[moosh(case, 633.0, np.radians(a), pol)[q] for q in "RT"] for a in angles])
+        out += [series(f"{q}_{pol}", f"{q}_{pol}, PyStratify", ours[:, i], "pystratify") for i, q in enumerate("RT")]
+        refs += [series(f"{q}_{pol}_ref", f"{q}_{pol}, PyMoosh", theirs[:, i], "reference") for i, q in enumerate("RT")]
+        diffs.append(worst(ours, theirs))
+    return dict(x=sig(angles), series=out + refs, worst=float(max(diffs)), worst_label="largest |difference|",
+                note="A magnetic layer changes the Fresnel coefficients through its impedance √(μ/ε), not only its index; PyMoosh takes ε and μ "
+                     "separately, an independent check of PyStratify's permeability.")
+
+
+@figure("pymoosh-field", "An AR pair (64 nm n = 2.35, 105 nm n = 1.46) on glass at 633 nm, 60°: the field through the stack against PyMoosh", "depth below the surface [nm]", "field")
+def pymoosh_field():
+    from planar_codes import CASES, moosh_field, stratify_field
+
+    case = CASES["AR pair on glass"]
+    _, d, _ = case
+    out, refs, diffs = [], [], []
+    for pol, label in (("s", "E_y (s)"), ("p", "H_y (p)")):
+        samples, theirs = moosh_field(case, 633.0, np.radians(60), pol, step=2.0)
+        ours = stratify_field(case, 633.0, np.radians(60), pol, samples)
+        start = np.cumsum([0.0] + list(d[1:-1]))
+        depth = np.array([start[layer - 1] + z for layer, z in samples])
+        if pol == "s":
+            x = depth
+        out += [series(f"re_{pol}", f"Re {label}, PyStratify", ours.real, "pystratify"), series(f"im_{pol}", f"Im {label}, PyStratify", ours.imag, "pystratify")]
+        refs += [series(f"re_{pol}_ref", f"Re {label}, PyMoosh", theirs.real, "reference"), series(f"im_{pol}_ref", f"Im {label}, PyMoosh", theirs.imag, "reference")]
+        diffs.append(np.max(np.abs(ours - theirs)))
+    return dict(x=sig(x), series=out + refs, worst=float(max(diffs)), worst_label="largest |difference|",
+                note="PyMoosh's field routine with one Fourier order is a single plane wave; sampled every 2 nm through both layers and 200 nm "
+                     "into the glass (E_y for s, H_y for p, as each code normalizes them). The test runs every stack at every angle and "
+                     "wavelength every 5 nm.")
+
+
+@figure("pymoosh-incoherent", "80 nm of TiO₂ (n = 2.3 + 0.01i) on 1 mm of incoherent glass, in air: R and T against PyMoosh's incoherent solver", "λ [nm]", "R, T")
+def pymoosh_incoherent():
+    from planar_codes import CASES, moosh, stratify
+
+    case = CASES["TiO2 on 1 mm incoherent glass"]
+    lam = np.linspace(400, 1000, 61)
+    out, refs, diffs = [], [], []
+    for pol, a in (("s", 0.0), ("p", 60.0)):
+        ours = np.array([[stratify(case, w, np.radians(a), pol)[q] for q in "RT"] for w in lam])
+        theirs = np.array([[moosh(case, w, np.radians(a), pol)[q] for q in "RT"] for w in lam])
+        out += [series(f"{q}_{pol}", f"{q}, {a:g}° {pol}, PyStratify", ours[:, i], "pystratify") for i, q in enumerate("RT")]
+        refs += [series(f"{q}_{pol}_ref", f"{q}, {a:g}° {pol}, PyMoosh", theirs[:, i], "reference") for i, q in enumerate("RT")]
+        diffs.append(worst(ours, theirs))
+    return dict(x=sig(lam), series=out + refs, worst=float(max(diffs)), worst_label="largest |difference|",
+                note="A coherent film on a thick substrate whose back reflection adds in power, not in amplitude: PyMoosh's incoherent.py "
+                     "is the first incoherent reference independent of PyStratify's lineage (inc_tmm).")
+
+
+def _tmmax_figure(name, versions):
+    from tmmax_films import STACKS, stratify_rt, tmmax_rt
+
+    n, d = STACKS[name]
+    lam = np.linspace(400, 900, 101)
+    R0, _ = stratify_rt(n, d, "s", lam, (0.0,))
+    out = [series("R", "R, PyStratify", R0[:, 0], "pystratify")]
+    diffs = []
+    for label, fixed in versions:
+        R, _ = tmmax_rt(n, d, "s", fixed, lam, (0.0,))
+        out.append(series(f"R_{int(fixed)}", f"R, tmmax 1.1.4 {label}", R[:, 0], "reference"))
+        diffs.append(float(np.max(np.abs(R[:, 0] - R0[:, 0]))))
+    return lam, out, diffs
+
+
+@figure("tmmax-single-layer", "100 nm of n = 2.1 in air, normal incidence: R against tmmax (JAX, float32) as shipped", "λ [nm]", "R")
+def tmmax_single_layer():
+    lam, out, diffs = _tmmax_figure("single layer n = 2.1 in air", (("as shipped", False),))
+    return dict(x=sig(lam), series=out, worst=diffs[0], worst_label="largest |R − R_tmmax| (float32)",
+                note="tmmax computes in single precision (its scan carries complex64), so agreement stops near 1e-7; single layers are "
+                     "asserted as shipped, to 2e-6.")
+
+
+@figure("tmmax-bragg-mirror", "A five-pair quarter-wave mirror (n = 2.35 / 1.46) on glass, normal incidence: R against tmmax, as shipped and with its scan step fixed", "λ [nm]", "R")
+def tmmax_bragg_mirror():
+    lam, out, diffs = _tmmax_figure("quarter-wave mirror, 5 pairs", (("with the scan step fixed", True), ("as shipped", False)))
+    return dict(x=sig(lam), series=out, worst=diffs[0], worst_label="largest |R − R_tmmax| (fixed step, float32)",
+                note="tmmax 1.1.4, the version on PyPI, is wrong for two or more layers: its scan step broadcasts the 2×2 matrices as a "
+                     "stack of column vectors (reported upstream, bahremsd/tmmax #44, #45; fixed on its main branch, not released). With the "
+                     f"step rebuilt (tmmax_films.py) it agrees to float32; as shipped it is off by up to {diffs[1]:.2f}. The test asserts the "
+                     "fixed step on multilayers.")
+
+
+# --- films, point dipole ----------------------------------------------------------------------------------------
+
+@figure("film-dipole-homogeneous", "A dipole inside a 200 nm film of n = 1.5 between half-spaces of n = 1.5, 600 nm: the rates of free space", "depth in the film [nm]", "|Γ / Γ₀ − 1|", log=True)
+def film_dipole_homogeneous():
+    z = np.linspace(.005, .195, 39)
+    out = {}
+    for dipole in ("electric", "magnetic"):
+        for zi in z:
+            r = ps.solve_problem(ps.Problem("films", [inf, .2, inf], [1.5] * 3, .6, ps.PointDipole(zi, dipole, 1, .4), 1e-6))
+            out.setdefault(dipole, []).append(max(float(np.max(np.abs(r["total"] - 1))), 1e-17))
+    return dict(x=sig(z * 1e3), series=[series(d, f"{d} dipole, max over orientations, PyStratify", out[d], "pystratify") for d in out],
+                worst=float(max(max(v) for v in out.values())), worst_label="largest |Γ / Γ₀ − 1|",
+                note="A film of the surrounding index is no film: every rate is the free-space one, 1, wherever the dipole sits; the test also "
+                     "checks escape = 1, no guided or absorbed power and the quantum yield 0.4 passed through. Floored at 1e-17 for the "
+                     "logarithmic axis.")
+
+
+def _film_coating_budget(dipole):
+    h = np.geomspace(.005, .4, 30)
+    total, channels = [], []
+    for hi in h:
+        r = ps.solve_problem(ps.Problem("films", [inf, .1, inf], [1, .2 + 3j, 1], .6, ps.PointDipole(-hi, dipole, 0), 1e-5))
+        total.append(r["total"][:2]), channels.append((r["escape"] + r["guided"] + r["absorbed"])[:2])
+    total, channels = np.array(total), np.array(channels)
+    names = ("perpendicular", "parallel")
+    return dict(x=sig(h * 1e3), series=[series(o, f"{o}, total (PyStratify)", total[:, i], "pystratify") for i, o in enumerate(names)]
+                + [series(f"{o}_ref", f"{o}, escape + guided + absorbed", channels[:, i], "reference") for i, o in enumerate(names)],
+                worst=worst(total, channels, relative=True), worst_label="largest relative difference",
+                note=f"A {dipole} dipole in air above a free-standing 100 nm film of n = 0.2 + 3i, 600 nm. The total rate comes from the "
+                     "reflected Green's function at the source; the channels separately, from the power escaping to either side, the power "
+                     "in guided modes and the power absorbed in the film, so their sum is an independent budget. Quenching rises as h⁻³ at contact.")
+
+
+for _dipole in ("electric", "magnetic"):
+    def _make(dipole=_dipole):
+        return _film_coating_budget(dipole)
+    _make.__name__ = f"film_coating_budget_{_dipole}"
+    figure(f"film-coating-budget-{_dipole}", f"{'An' if _dipole == 'electric' else 'A'} {_dipole} dipole above 100 nm of an absorbing film (n = 0.2 + 3i) in air, 600 nm: the total against its channels",
+           "height above the film [nm]", "Γ / Γ₀", log=True)(_make)
+
+
+@figure("film-guided-pole-tolerance", "A dipole in a 0.8 µm film of n = 3.5 in air (18 guided modes), 600 nm: the error PyStratify reports against the accuracy asked for", "tolerance asked for", "error", log=True)
+def film_guided_pole_tolerance():
+    from pystratify.planar_emission import FilmSource
+
+    tolerances = np.geomspace(1e-3, 1e-8, 11)
+    reported, budget, poles, converged = [], [], [], []
+    for tol in tolerances:
+        rates = FilmSource([1, 3.5, 1], [inf, .8, inf], .6, 1, .4).rates(tol)
+        reported.append(rates.error), budget.append(tol * max(1, np.max(abs(rates.total)))), poles.append(len(rates.poles))
+        converged.append(rates.converged)
+    reported, budget, converged = np.array(reported), np.array(budget), np.array(converged)
+    failed = ", ".join(f"{t:.0e}" for t in tolerances[~converged])
+    return dict(x=[float(t) for t in tolerances], series=[series("error", "error reported, PyStratify", reported, "pystratify"),
+                                                          series("asked", "tolerance × max(1, |Γ / Γ₀|), the accuracy asked for", budget, "reference")],
+                worst=float(np.max((reported / budget)[converged])), worst_label="largest reported error / accuracy asked where it reports convergence (must stay below 1)",
+                note="Eighteen guided poles sit on the real axis of the spectral integral; PyStratify takes their residues and charges "
+                     "the uncertainty of each pole's position to the error. Where it reports convergence the error stays within the tolerance, "
+                     f"with all {poles[-1]} poles found; where it cannot reach it ({failed or 'none'}) it says so, not converged, rather than "
+                     "claiming the accuracy. The test asserts 1e-6 and checks total = escape + guided to the tolerance.")
+
+
+@figure("film-guide-budget", "A dipole inside a lossless 200 nm film of n = 1.5 in air, 600 nm: the total against escape + guided", "depth in the film [nm]", "Γ / Γ₀")
+def film_guide_budget():
+    z = np.linspace(.005, .195, 39)
+    total, escape, guided = [], [], []
+    for zi in z:
+        r = ps.solve_problem(ps.Problem("films", [inf, .2, inf], [1, 1.5, 1], .6, ps.PointDipole(zi, "electric", 1), 1e-5))
+        total.append(r["total"][2]), escape.append(r["escape"][2]), guided.append(r["guided"][2])
+    total, escape, guided = map(np.array, (total, escape, guided))
+    return dict(x=sig(z * 1e3), series=[series("total", "total, PyStratify", total, "pystratify"), series("escape", "escape", escape, "pystratify"),
+                                        series("guided", "guided", guided, "pystratify"), series("total_ref", "escape + guided", escape + guided, "reference")],
+                worst=worst(total, escape + guided, relative=True), worst_label="largest relative difference",
+                note="An isotropic electric dipole inside the guide: a point source (unlike a line source) puts a finite share of its power "
+                     f"into the guided modes, here up to {np.max(guided / total):.2f} of the total; the total from the Green's function must equal "
+                     "what escapes plus what is guided, since nothing absorbs.")
+
+
+@figure("film-pattern-free-space", "A dipole in a film of n = 1 in n = 1, 600 nm: the emission pattern against the free dipole's", "polar angle θ [°]", "power per solid angle")
+def film_pattern_free_space():
+    theta = np.linspace(0, np.pi, 91)
+    r = ps.solve_problem(ps.Problem("films", [inf, .2, inf], [1, 1, 1], .6, ps.PointDipole(.1, "electric", 1)), ("rates", "pattern"),
+                         theta=theta[:, None], phi=np.array([[0.0]]))
+    perp, par = r["pattern"][:, 0, 0], r["pattern"][:, 0, 1]
+    exact_perp, exact_par = 3 / (8 * np.pi) * np.sin(theta) ** 2, 3 / (8 * np.pi) * np.cos(theta) ** 2
+    deg = np.degrees(theta)
+    return dict(x=sig(deg), series=[series("perp", "perpendicular, PyStratify", perp, "pystratify"), series("par", "parallel, in its plane (φ = 0), PyStratify", par, "pystratify"),
+                                    series("perp_ref", "(3/8π) sin²θ", exact_perp, "reference"), series("par_ref", "(3/8π) cos²θ", exact_par, "reference")],
+                worst=float(max(np.max(np.abs(perp - exact_perp)), np.max(np.abs(par - exact_par)))), worst_label="largest |difference|",
+                note="Normalized to the free dipole's total power, the pattern of a dipole in an empty stack is the textbook one. The test "
+                     "integrates PyStratify's pattern (Gauss–Legendre × 64 azimuths) for films, cylinders and spheres and compares it with "
+                     "the escape rate (1e-7), and checks the grazing limit of the perpendicular dipole.")
+
+
+@figure("image-dipole-mirror", "A dipole above a perfect mirror: the Sommerfeld reference against the image dipole (Drexhage; Chance, Prock & Silbey)", "kd = 4πh/λ", "Γ / Γ₀")
+def image_dipole_mirror():
+    import emitter_references as er
+
+    x = np.linspace(0.3, 20, 80)
+    heights = x * er.WAVELENGTH / (4 * np.pi)
+    electric = np.array([er.reference_rates([1.0, 1.0], [inf, inf], h, mirror=True) for h in heights])
+    magnetic = np.array([er.reference_rates([1.0, 1.0], [inf, inf], h, dipole="magnetic", mirror=True) for h in heights])
+    exact = np.array([er.image_dipole(v) for v in x])
+    out = [series("e_perp", "electric ⊥, Sommerfeld integrals", electric[:, 0], "pystratify"), series("e_par", "electric ∥, Sommerfeld integrals", electric[:, 1], "pystratify"),
+           series("m_par", "magnetic ∥, Sommerfeld integrals", magnetic[:, 1], "pystratify"),
+           series("e_perp_ref", "electric ⊥, image dipole", exact[:, 0], "reference"), series("e_par_ref", "electric ∥, image dipole", exact[:, 1], "reference"),
+           series("m_par_ref", "magnetic ∥, 2 − image dipole", 2 - exact[:, 1], "reference")]
+    return dict(x=sig(x), series=out, worst=float(max(np.max(np.abs(electric - exact)), np.max(np.abs(magnetic - (2 - exact))))), worst_label="largest |difference|",
+                note="This row checks the reference, not PyStratify: the Sommerfeld integrals written without PyStratify (emitter_references.py), "
+                     "given a perfect mirror (r_s = −1, r_p = 1), must give the image dipole's closed form, Drexhage's oscillations; a magnetic "
+                     "dipole sees the mirror with the opposite sign. The same integrals are then PyStratify's reference for real stacks "
+                     "(the Sommerfeld row, 1e-10).")
+
+
+@figure("weak-guide-sommerfeld", "A dipole above 200 nm of TiO₂ (n = 2.3 + 0.001i) on glass, 633 nm: against the Sommerfeld integrals with the guide's quasi-poles", "height above the film [nm]", "Γ / Γ₀")
+def weak_guide_sommerfeld():
+    import emitter_references as er
+    from pystratify.planar_emission import FilmSource
+
+    n, d = er.GUIDES["air above 200 nm TiO2 on glass"]
+    poles = np.array(FilmSource(n, d, er.WAVELENGTH, 1, d[1] / 2).guided_poles()) * n[1]
+    absorbing = er.guide_with_loss(n, 1e-3)
+    h = np.geomspace(10, 400, 30)
+    ours = np.array([er.stratify_rates(absorbing, d, hi) for hi in h])
+    ref = np.array([er.reference_rates(absorbing, d, hi, poles=poles) for hi in h])
+    return dict(x=sig(h), series=[series("perp", "perpendicular, PyStratify", ours[:, 0], "pystratify"), series("par", "parallel, PyStratify", ours[:, 1], "pystratify"),
+                                  series("perp_ref", "perpendicular, Sommerfeld integrals", ref[:, 0], "reference"), series("par_ref", "parallel, Sommerfeld integrals", ref[:, 1], "reference")],
+                worst=worst(ours, ref, relative=True), worst_label="largest relative difference",
+                note="A guide with a little loss turns its guided poles into sharp quasi-poles just off the real axis; the reference integrates "
+                     "through them with their positions as breakpoints. The test asserts both guides at 50 nm to 1e-8.")
+
+
+@figure("lossless-guide-limit", "A dipole above 200 nm of TiO₂ (n = 2.3) on glass, 633 nm: the lossless guide against the k → 0 limit of an absorbing one", "height above the film [nm]", "Γ / Γ₀")
+def lossless_guide_limit():
+    import emitter_references as er
+
+    n, d = er.GUIDES["air above 200 nm TiO2 on glass"]
+    h = np.geomspace(10, 400, 30)
+    lossless = np.array([er.stratify_rates(n, d, hi, tolerance=1e-8) for hi in h])
+    limit = np.array([er.stratify_rates(er.guide_with_loss(n, 1e-7), d, hi, tolerance=1e-8) for hi in h])
+    return dict(x=sig(h), series=[series("perp", "perpendicular, lossless guide", lossless[:, 0], "pystratify"), series("par", "parallel, lossless guide", lossless[:, 1], "pystratify"),
+                                  series("perp_ref", "perpendicular, core loss k = 1e-7", limit[:, 0], "reference"), series("par_ref", "parallel, core loss k = 1e-7", limit[:, 1], "reference")],
+                worst=worst(lossless, limit, relative=True), worst_label="largest relative difference",
+                note="From outside a lossless guide the power coupled into its modes must still be counted: with real poles PyStratify takes "
+                     "their residues; with a trace of loss the same power is absorbed along the guide instead. The two must agree (1e-5 in the "
+                     "test, both guides, electric and magnetic, from above and below). Before 0.10.3 the guided power was dropped here.")
+
+
+def _guide_modes(reference):
+    from planar_codes import GUIDES, guided_mode_sets, slab_modes
+    from pystratify.planar_emission import FilmSource
+
+    n, d, lam = GUIDES["symmetric slab, n 2.0 in air, 500 nm"]
+    thickness = np.linspace(100, 600, 26)
+    ours, theirs = [], []
+    for t in thickness:
+        dd = [inf, float(t), inf]
+        if reference == "pymoosh":
+            a, b, _ = guided_mode_sets((n, dd, lam))
+        else:
+            source = FilmSource(n, dd, lam, 1, t / 3)
+            a, b = sorted(np.array(source.guided_poles()) * source.ns), slab_modes(n[0], n[1], n[2], t, lam)
+        ours.append(sorted(a, reverse=True)), theirs.append(sorted(b, reverse=True))
+    width = max(len(v) for v in ours + theirs)
+    pad = lambda rows: np.array([v + [np.nan] * (width - len(v)) for v in rows])  # noqa: E731
+    ours, theirs = pad(ours), pad(theirs)
+    diffs = np.abs(ours - theirs)
+    return thickness, ours, theirs, float(np.nanmax(diffs)), width
+
+
+@figure("pymoosh-guided-modes", "A symmetric slab of n = 2 in air, 633 nm: the guided modes PyStratify finds against PyMoosh's mode solver", "thickness [nm]", "n_eff")
+def pymoosh_guided_modes():
+    t, ours, theirs, diff, width = _guide_modes("pymoosh")
+    return dict(x=sig(t), series=[series(f"m{i}", f"mode {i + 1}, PyStratify", ours[:, i], "pystratify") for i in range(width)]
+                + [series(f"m{i}_ref", f"mode {i + 1}, PyMoosh", theirs[:, i], "reference") for i in range(width)],
+                worst=diff, worst_label="largest |n_eff − n_eff(PyMoosh)|",
+                note="Every TE and TM mode, numbered from the highest index: the poles PyStratify finds behind a dipole's guided channel "
+                     "against PyMoosh's guided_modes (its search stops at 1e-10). A mode appears at its cutoff, n_eff = 1. The test runs four guides.")
+
+
+@figure("slab-dispersion-modes", "The same slab: the guided modes against the three-layer dispersion relation", "thickness [nm]", "n_eff")
+def slab_dispersion_modes():
+    t, ours, theirs, diff, width = _guide_modes("analytic")
+    return dict(x=sig(t), series=[series(f"m{i}", f"mode {i + 1}, PyStratify", ours[:, i], "pystratify") for i in range(width)]
+                + [series(f"m{i}_ref", f"mode {i + 1}, dispersion relation", theirs[:, i], "reference") for i in range(width)],
+                worst=diff, worst_label="largest |n_eff − n_eff(relation)|",
+                note="κd = mπ + atan(ρ₁γ₁/κ) + atan(ρ₃γ₃/κ), ρ = 1 for TE and (n_core/n_clad)² for TM, solved by bisection (planar_codes.py "
+                     "slab_modes).")
+
+
+@figure("smuthi-film-guide", "A dipole above 200 nm of TiO₂ (n = 2.3) on glass, 633 nm: total rates against smuthi", "height above the film [nm]", "Γ / Γ₀")
+def smuthi_film_guide():
+    import emitter_references as er
+
+    n, d = er.GUIDES["air above 200 nm TiO2 on glass"]
+    h = np.linspace(30, 300, 28)
+    ours = np.array([er.stratify_rates(n, d, hi, tolerance=1e-8) for hi in h])
+    ref = np.full(ours.shape, np.nan)
+    for i in range(0, h.size, 3):
+        ref[i] = er.smuthi_rates(n, d, h[i])
+    m = np.isfinite(ref[:, 0])
+    return dict(x=sig(h), series=[series("perp", "perpendicular, PyStratify", ours[:, 0], "pystratify"), series("par", "parallel, PyStratify", ours[:, 1], "pystratify"),
+                                  series("perp_ref", "perpendicular, smuthi", ref[:, 0], "reference"), series("par_ref", "parallel, smuthi", ref[:, 1], "reference")],
+                worst=float(np.max(np.abs(ref[m] / ours[m] - 1))), worst_label="largest relative difference (smuthi's contour)",
+                note="smuthi's DipoleSource.dissipated_power integrates along its own Sommerfeld contour deflected around the guide's poles "
+                     "(resolution 2e-3), a method independent of PyStratify's residues; agreement is set by that contour's resolution.")
+
+
+@figure("meep-axial-film", "A dipole 100 nm above 200 nm of n = 2.3 on glass: total decay rate against Meep (cylindrical coordinates, 100 px/µm)", "λ [µm]", "Γ / Γ₀")
+def meep_axial_film():
+    import meep as mp
+    from fdtd_meep import AXIAL_CASES, meep_ldos_axial
+
+    case = "film: dipole 100 nm above 200 nm of n = 2.3 on glass"
+    _, dimensions, n, source, names = AXIAL_CASES[case]
+    mp.verbosity(0)
+    coarse = 1 / np.linspace(0.85, 1.65, 17)
+    theirs = {o: meep_ldos_axial(case, o, 100, wavelengths=coarse) / meep_ldos_axial(case, o, 100, False, wavelengths=coarse) for o in names}
+    dense = 1 / np.linspace(0.85, 1.65, 161)
+    ours = np.array([ps.solve_problem(ps.Problem("films", dimensions, n, w, ps.PointDipole(-source, "electric", 0), 1e-8))["total"][:2] for w in dense])
+    out, refs, rel = [], [], []
+    for i, o in enumerate(names):
+        ref = np.full(dense.size, np.nan)
+        ref[::10] = theirs[o]
+        out.append(series(o, f"{o}, PyStratify", ours[:, i], "pystratify"))
+        refs.append(series(f"{o}_ref", f"{o}, Meep", ref, "reference"))
+        rel.append(np.max(np.abs(theirs[o] / ours[::10, i] - 1)))
+    return dict(x=sig(dense), series=out + refs, worst=float(max(rel)), worst_label="largest relative difference (the grid's error)",
+                note="Meep in cylindrical coordinates around the dipole (m = 0 perpendicular, m = 1 parallel), the film and substrate infinite "
+                     "in r, 1 µm of PML; the local density of states over the same run without the film. The film is 20 pixels thick at 100 "
+                     "px/µm and converges at about first order: worst 16.9% → 7.4% → 3.7% at 25, 50 and 100 px/µm (FDTD_MEEP.md); the "
+                     "test asserts < 5% at 100 and closer than 25.")
+
+
+@figure("lukosz-kunz-1977", "Dipoles in air near a lossless half-space of n = 1.5 and n = 3: total radiated power, Lukosz & Kunz 1977, Fig. 4", "distance z₀ / λ₁", "L / L∞")
+def lukosz_kunz_1977():
+    curve, paper = classic_curve("lukosz_kunz_1977_fig4"), classic_values("lukosz_kunz_1977")
+    x = curve["z0_over_lambda1"]
+    keys = (("electric perp n=1.5", "electric ⊥, n = 1.5"), ("electric par n=1.5", "electric ∥, n = 1.5"),
+            ("electric par n=3.0", "electric ∥, n = 3"), ("magnetic perp n=1.5", "magnetic ⊥, n = 1.5"))
+    e3 = curve["electric par n=3.0"]
+
+    def turn(lo, hi, low=True):
+        m = (x >= lo) & (x <= hi)
+        return float(x[m][np.argmin(e3[m]) if low else np.argmax(e3[m])])
+
+    refs = {"electric perp n=1.5": {float(x[0]): paper["e, perp, n = 1.5, at contact"], 0.4: paper["e, perp, n = 1.5, z0/λ1 = 0.4: back to ~1"]},
+            "electric par n=1.5": {float(x[0]): paper["e, par, n = 1.5, at contact"]},
+            "electric par n=3.0": {paper["e, par, n = 3: z0/λ1 of the first minimum"]: paper["e, par, n = 3: first minimum"],
+                                   turn(0.25, 0.45, False): paper["e, par, n = 3: maximum near z0/λ1 = 0.35"],
+                                   turn(0.5, 0.75): paper["e, par, n = 3: second minimum near z0/λ1 = 0.6"]},
+            "magnetic perp n=1.5": {float(x[0]): paper["m, perp, n = 1.5, at contact"]}}
+    return dict(x=sig(x), series=[series(f"s{i}", f"{lab}, PyStratify", curve[k], "pystratify") for i, (k, lab) in enumerate(keys)]
+                + [series(f"s{i}_ref", f"{lab}, read off Figs. 4 and 6", at(x, refs[k]), "reference") for i, (k, lab) in enumerate(keys)],
+                worst=_read_worst("lukosz_kunz_1977"), worst_label="largest relative difference from the read values",
+                note="Lukosz & Kunz, J. Opt. Soc. Am. 67, 1607 (1977): the power a dipole radiates near a plane interface, against its "
+                     "distance in units of the wavelength in its own medium. Values read off the figures to ±0.05; positions not printed are "
+                     "marked where PyStratify's curve turns. From crosscheck/classics/lukosz_kunz_1977.py.")
+
+
+@figure("neyts-1998-microcavity", "A dipole in 190 nm of ZnS (n = 2.3) on aluminium, 600 nm: emission into air and total rate across the layer, Neyts 1998, Figs. 9–11", "distance from the mirror [nm]", "fraction, rate")
+def neyts_1998_microcavity():
+    curve, paper = classic_curve("neyts_1998_fig10_column"), classic_values("neyts_1998")
+    z = curve["z_from_mirror_um"] * 1e3
+    e, f = curve["E_appl_isotropic"], curve["F_isotropic"]
+    m = z > 15  # F diverges as z⁻³ at the mirror
+    z, e, f = z[m], e[m], f[m]
+    return dict(x=sig(z), series=[series("e", "E_appl, escape into air (PyStratify)", e, "pystratify"), series("f", "F, total rate (PyStratify)", f, "pystratify"),
+                                  series("e_ref", "E_appl = 0.38, printed (dipole at the air side)", at(z, {float(z[-1]): paper["maximum E_appl (dipole at the air side)"]}), "reference"),
+                                  series("f_ref", "F = 0.817, printed", at(z, {float(z[-1]): paper["F at that point"]}), "reference")],
+                worst=float(max(abs(e[-1] - 0.38) / 0.38, abs(f[-1] - 0.817) / 0.817)), worst_label="largest relative difference from the printed values",
+                note="Neyts, J. Opt. Soc. Am. A 15, 962 (1998): an isotropic dipole in the ZnS layer of an electroluminescent device on an "
+                     "Al mirror (n = 1 + 6i), the layer at the optimum thickness n_e d_e / λ = 0.73 (PyStratify finds 0.725). The printed "
+                     "maximum outcoupling 0.38 and F = 0.817 are for the dipole at the air side; F grows as z⁻³ toward the mirror (not drawn "
+                     "below 15 nm). From crosscheck/classics/neyts_1998.py.")
+
+
+# --- films, focused beam ----------------------------------------------------------------------------------------
+
+def _film_cone(mode):
+    from focused_checks import film_brute
+    from pystratify import focused as F
+
+    n = np.array([1.0, 1.55 + 0.03j, 1.42, 1.0 if mode == "transmission" else 0.3 + 18j])
+    d = np.array([inf, 1.2, 3.0, inf])
+    beam = ps.FocusedBeam(0.6, 0.2, collection_na=0.7 if mode == "transmission" else None,
+                          collection_obscuration=0.35 if mode == "transmission" else None, mode=mode)
+    lam = np.linspace(2.5, 6.0, 15)
+    r = F.focused_films(n, d, lam, beam)
+    ours = np.stack([np.ravel(r["reflectance"]), np.ravel(r["transmittance"]), np.ravel(r.detected)], -1)
+    ref = np.array([film_brute(n, d, None, w, beam, (1.0, 0.0))[:3] for w in lam])
+    keys = ("reflectance", "transmittance", "detected")
+    return dict(x=sig(lam), series=[series(k, f"{k}, PyStratify", ours[:, i], "pystratify") for i, k in enumerate(keys)]
+                + [series(f"{k}_ref", f"{k}, 2D pupil grid", ref[:, i], "reference") for i, k in enumerate(keys)],
+                worst=worst(ours, ref, relative=True), worst_label="largest relative difference",
+                note=f"In {mode}: a 1.2 µm film of n = 1.55 + 0.03i on 3 µm of n = 1.42, "
+                     + ("in air, detected by a 0.35–0.7 condenser. " if mode == "transmission" else "on a metal (n = 0.3 + 18i), detected in reflection. ")
+                     + "PyStratify reduces the beam to a one-dimensional quadrature over the cone angle; the reference sums a two-dimensional "
+                       "pupil grid of x- and y-directed plane waves, each split into s and p and solved separately (focused_checks.py). The "
+                       "test also compares every layer's absorption, for both pupil polarizations.")
+
+
+for _mode in ("transmission", "reflection"):
+    def _make(mode=_mode):
+        return _film_cone(mode)
+    _make.__name__ = f"film_cone_{_mode}"
+    figure(f"film-cone-{_mode}", f"A two-layer film under a focused beam (NA 0.6/0.2), in {_mode}: the cone quadrature against a 2D pupil grid", "λ [µm]", "power / incident")(_make)
+
+
+@figure("film-path-factor", "A weak absorber (α = 10 cm⁻¹, 1 µm) in n = 1.5 under an aplanatic NA 0.23–0.5 cone: the path factor", "λ [µm]", "ln10 A / (α d)")
+def film_path_factor_figure():
+    from pystratify import focused as F
+
+    alpha, lam = 1e-5, np.linspace(2.0, 10.0, 33)
+    kappa = alpha * lam / (4 * np.pi)
+    n = np.stack((np.full(lam.size, 1.5), 1.5 + 1j * kappa, np.full(lam.size, 1.5)), 1)
+    r = F.focused_films(n, [inf, 1.0, inf], lam, ps.FocusedBeam(0.5, 0.23), reference=([1.5, 1.5], [inf, inf]))
+    factor = np.ravel(r.apparent_absorbance) * np.log(10) / alpha
+    return dict(x=sig(lam), series=[series("factor", "ln10 A / (α d), PyStratify", factor, "pystratify"),
+                                    series("factor_ref", "⟨1 / cos θ⟩ of the aplanatic cone, 1.0357", np.full(lam.size, 1.0357), "reference")],
+                worst=float(np.max(np.abs(factor - 1.0357))), worst_label="largest |difference| (1.0357 is printed to 5 digits)",
+                note="A focused beam crosses a film obliquely, so a weak absorber looks thicker by the cone's mean path factor ⟨1 / cos θ⟩, "
+                     "1.0357 for an aplanatic NA 0.23–0.5 pupil in n = 1.5, the ruling the test pins. The test also checks that an empty stack, "
+                     "or a sample that is its own reference, has zero absorbance and that Köhler illumination equals coherent for a film.")
+
+
+@figure("film-koehler-coherent", "A film (1.2 µm, n = 1.55 + 0.03i) in air under NA 0.5/0.23: Köhler illumination against a coherent focus", "λ [µm]", "apparent absorbance")
+def film_koehler_coherent():
+    from pystratify import focused as F
+
+    n, d = [1.0, 1.55 + 0.03j, 1.0], [inf, 1.2, inf]
+    lam = np.linspace(2.5, 8.0, 23)
+    beams = [ps.FocusedBeam(0.5, 0.23), ps.FocusedBeam(0.5, 0.23, illumination="kohler", field_stop=40.0)]
+    r = F.focused_films(n, d, lam, beams, reference=([1.0, 1.0], [inf, inf]))
+    coherent, kohler = np.ravel(r.apparent_absorbance[0]), np.ravel(r.apparent_absorbance[1])
+    return dict(x=sig(lam), series=[series("coherent", "coherent focus, PyStratify", coherent, "pystratify"),
+                                    series("kohler", "Köhler (field stop 40 µm)", kohler, "reference")],
+                worst=float(np.max(np.abs(coherent - kohler))), worst_label="largest |difference|",
+                note="A laterally uniform film cannot tell how the pupil's plane waves are phased: coherent and Köhler illumination see the same "
+                     "cone and must give the same detected power.")
+
+
+@figure("film-focused-near-field", "A two-layer film (0.8 µm n = 1.6 + 0.05i, 2 µm n = 1.42) in air under a focused beam (NA 0.6/0.2, focus off-axis), 3 µm: |E|² along the depth", "z [µm]", "|E|²")
+def film_focused_near_field():
+    from focused_checks import film_near_field_pair
+
+    z = np.linspace(-1.5, 4.5, 121)
+    field, pair = film_near_field_pair(np.column_stack([np.full_like(z, 0.1), np.zeros_like(z), z]))
+    ours = np.sum(np.abs(np.asarray(field.e[0])) ** 2, -1)
+    ref = np.sum(np.abs(pair[0]) ** 2, -1)
+    return dict(x=sig(z), series=[series("e2", "|E|², PyStratify", ours, "pystratify"), series("e2_ref", "|E|², position-resolved plane waves summed", ref, "reference")],
+                worst=worst(ours, ref, relative=True), worst_label="largest relative difference",
+                note="Along x = 0.1, y = 0 µm from the air above, through both layers (0–0.8 and 0.8–2.8 µm) into the air below; x-polarized "
+                     "pupil, focus at (0.3, −0.2, 0.5) µm. The reference sums a 48 × 48 pupil grid of plane waves, each from position_resolved. "
+                     "The test also checks Parseval: the lateral integral of |E|² at a depth against the pupil's.")
+
+
 # --- spheres, plane wave ----------------------------------------------------------------------------------------
 
 @figure("mie-homogeneous", "A homogeneous sphere, m = 1.5: Mie's series, one shell and fifty identical shells", "size parameter x", "Q_ext")

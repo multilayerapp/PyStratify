@@ -13,6 +13,33 @@ figures:
 - {geometry: films, source: plane_wave, reference: "Airy slab; quarter-wave Bragg mirror", figure: airy-slab}
 - {geometry: films, source: plane_wave, reference: "R + T = 1 for lossless stacks, below and beyond the critical angle; reciprocity under reversal", figure: energy-conservation}
 - {geometry: films, source: dipole, reference: "Sommerfeld integrals over s = k_ρ/k₁ with Parratt-recursion r_s, r_p, written without `pystratify`", figure: sommerfeld-film-emitter}
+- {geometry: films, source: plane_wave, reference: "Fresnel, single interface, incl. opaque", figure: opaque-film}
+- {geometry: films, source: plane_wave, reference: "bare-substrate Fresnel ratio", figure: [bare-substrate-psi, bare-substrate-delta]}
+- {geometry: films, source: plane_wave, reference: "scattering matrix (Redheffer star product)", figure: [smatrix-metal-stack, smatrix-beyond-critical]}
+- {geometry: films, source: plane_wave, reference: "explicit phase average of coherent solves", figure: incoherent-phase-average}
+- {geometry: films, source: plane_wave, reference: "RCWA with zero patterning", figure: rcwa-unpatterned}
+- {geometry: films, source: plane_wave, reference: "position-resolved field against Parseval", figure: position-resolved-absorption}
+- {geometry: films, source: plane_wave, reference: '`inc_tmm` ("GTMM" in the backend tests)', figure: inc-tmm-lineage}
+- {geometry: films, source: plane_wave, reference: "**pyElli**, 2×2 and 4×4 solvers", figure: [pyelli-bragg-mirror, pyelli-gold-ellipsometry]}
+- {geometry: films, source: plane_wave, reference: "**PyMoosh** (independent S-matrix code)", figure: [pymoosh-bragg-mirror, pymoosh-magnetic-layer]}
+- {geometry: films, source: plane_wave, reference: "**PyMoosh** `field` (one Fourier order: a single plane wave)", figure: pymoosh-field}
+- {geometry: films, source: plane_wave, reference: "**PyMoosh** `incoherent.py`", figure: pymoosh-incoherent}
+- {geometry: films, source: plane_wave, reference: "**tmmax** (JAX transfer matrix, float32)", figure: [tmmax-single-layer, tmmax-bragg-mirror]}
+- {geometry: films, source: dipole, reference: "dipole in a homogeneous film = free space", figure: film-dipole-homogeneous}
+- {geometry: films, source: dipole, reference: "independent flux budget (escape + guided + absorbed = total)", figure: [film-coating-budget-electric, film-coating-budget-magnetic]}
+- {geometry: films, source: dipole, reference: "guided-pole uncertainty within tolerance; 3D sources are not line sources", figure: [film-guided-pole-tolerance, film-guide-budget]}
+- {geometry: films, source: dipole, reference: "emission pattern normalization; grazing limit", figure: film-pattern-free-space}
+- {geometry: films, source: dipole, reference: "image dipole at a perfect mirror (Drexhage; Chance, Prock & Silbey)", figure: image-dipole-mirror}
+- {geometry: films, source: dipole, reference: "the same reference on a weakly absorbing guide (k = 1e-3), quasi-poles as breakpoints", figure: weak-guide-sommerfeld}
+- {geometry: films, source: dipole, reference: "lossless limit: a source outside a lossless guide equals the k → 0 limit of an absorbing one", figure: lossless-guide-limit}
+- {geometry: films, source: dipole, reference: "**PyMoosh** `modes.guided_modes`", figure: pymoosh-guided-modes}
+- {geometry: films, source: dipole, reference: "three-layer slab dispersion, κd = mπ + atan(ρ₁γ₁/κ) + atan(ρ₃γ₃/κ)", figure: slab-dispersion-modes}
+- {geometry: films, source: dipole, reference: "**smuthi** `DipoleSource.dissipated_power`", figure: smuthi-film-guide}
+- {geometry: films, source: dipole, reference: "**Meep**, cylindrical coordinates, dipole on the axis (m = 0 perpendicular, m = 1 parallel)", figure: meep-axial-film}
+- {geometry: films, source: dipole, reference: "OLED outcoupling papers (e.g. Furno et al. 2012; Neyts 1998)", figure: [lukosz-kunz-1977, neyts-1998-microcavity]}
+- {geometry: films, source: focused, reference: "cone quadrature against a pupil grid", figure: [film-cone-transmission, film-cone-reflection]}
+- {geometry: films, source: focused, reference: "aplanatic path factor; transparent stack has zero absorbance; Köhler = coherent", figure: [film-path-factor, film-koehler-coherent]}
+- {geometry: films, source: focused, reference: "near field against position-resolved plane waves and Parseval", figure: film-focused-near-field}
 - {geometry: spheres, source: plane_wave, reference: "textbook Mie (homogeneous); identical shells = one sphere", figure: mie-homogeneous}
 - {geometry: spheres, source: plane_wave, reference: "**BHMIE**", figure: bhmie-large-spheres}
 - {geometry: spheres, source: plane_wave, reference: "60-digit transfer matrices", figure: sixty-digit-coefficients}

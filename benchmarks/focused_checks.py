@@ -569,18 +569,22 @@ def cylinder_near_field():
     return [close("coated cylinder, focused near field at 3 points: against plane-wave fields", "E", field.e[0], E, 1e-7, 1e-8)]
 
 
-def film_near_field_and_parseval():
-    n, d, lam = np.array([1.0, 1.6 + 0.05j, 1.42, 1.0]), np.array([inf, 0.8, 2.0, inf]), 3.0
-    beam = ps.FocusedBeam(0.6, 0.2, offset=(0.3, -0.2, 0.5))
-    points = np.array([[0.1, 0.0, -0.7], [0.9, 0.4, 0.3], [-0.6, 0.2, 1.5], [0.3, -0.8, 3.2]])
+FILM_NEAR = (np.array([1.0, 1.6 + 0.05j, 1.42, 1.0]), np.array([inf, 0.8, 2.0, inf]), 3.0)
+FILM_NEAR_BEAM = ps.FocusedBeam(0.6, 0.2, offset=(0.3, -0.2, 0.5))
+
+
+def film_near_field_pair(points):
+    """(PyStratify's focused near field of FILM_NEAR under FILM_NEAR_BEAM, [E for Jones x, E for Jones y] summed from
+    position-resolved plane waves over a 48 x 48 pupil grid) at points (P, 3); z = 0 is the first interface."""
+    n, d, lam = FILM_NEAR
+    beam = FILM_NEAR_BEAM
     field = F.focused_field_films(n, d, lam, beam, points)
     k = 2 * np.pi / lam
     u, w = pupil_grid(0.2, 0.6, 48, 48)
     located = [find_in_structure_with_inf(d, z) if z >= 0 else (0, z) for z in points[:, 2]]
-    name = "film stack, focused near field at 4 depths: against position-resolved plane waves"
     out = []
-    for index, jones in enumerate(((1.0, 0.0), (0.0, 1.0))):
-        E = np.zeros((4, 3), complex)
+    for jones in ((1.0, 0.0), (0.0, 1.0)):
+        E = np.zeros((len(points), 3), complex)
         cache = {}
         for ui, wi in zip(u, w):
             s = np.hypot(ui[0], ui[1])
@@ -595,7 +599,17 @@ def film_near_field_and_parseval():
             lab = np.stack((local[:, 0] * cf - local[:, 1] * sf, local[:, 0] * sf + local[:, 1] * cf, local[:, 2]), -1)
             lateral = np.exp(1j * k * s * ((points[:, 0] - beam.offset[0]) * cf + (points[:, 1] - beam.offset[1]) * sf))
             E += wi * a * lateral[:, None] * lab
-        out.append(close(name, f"E, Jones {jones}", field.e[index], E / F.focal_amplitude((0.2, 0.6)), 1e-10, 1e-12))
+        out.append(E / F.focal_amplitude((0.2, 0.6)))
+    return field, out
+
+
+def film_near_field_and_parseval():
+    n, d, lam = FILM_NEAR
+    points = np.array([[0.1, 0.0, -0.7], [0.9, 0.4, 0.3], [-0.6, 0.2, 1.5], [0.3, -0.8, 3.2]])
+    field, pair = film_near_field_pair(points)
+    k = 2 * np.pi / lam
+    name = "film stack, focused near field at 4 depths: against position-resolved plane waves"
+    out = [close(name, f"E, Jones {jones}", field.e[index], pair[index], 1e-10, 1e-12) for index, jones in enumerate(((1.0, 0.0), (0.0, 1.0)))]
     # Parseval: the lateral integral of |E|^2 at a depth is (2pi/k)^2 Int |A|^2 |E_plane(z)|^2 / cos t dOmega
     depth = 1.5
     radius = np.linspace(0, 60 * lam, 6001)
