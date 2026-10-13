@@ -2185,25 +2185,27 @@ def meep_cylinder_fibre():
 @figure("ngsolve-cylinder-fibre", "A dipole 100 nm outside a step-index fibre (n = 2, radius 150 nm) in vacuum: total decay rates against NGSolve (3D finite elements)", "λ [µm]", "Γ / Γ₀", env="ngsolve")
 def ngsolve_cylinder_fibre():
     import ngsolve  # noqa: F401
-    from fem_ngsolve import MESHES, ORIENTATIONS, RADIUS, INDEX, SOURCE, ngsolve_rates
+    from fem_ngsolve import CELL, MESHES, ORIENTATIONS, PML_THICKNESS, RADIUS, INDEX, SOURCE, ngsolve_rates
 
-    points = (0.75, 0.8, 0.9, 1.0, 1.1, 1.2)  # longer than the TE01/TM01 cutoff (0.678 um), whose modes reach the PML
+    points = (0.62, 0.645, 0.66, 0.7, 0.75, 0.8, 0.9, 1.0, 1.1, 1.2)  # both sides of the TE01/TM01 cutoff, 0.678 um
     theirs = {w: ngsolve_rates(w, *MESHES[1])[0] for w in points}
-    dense = np.round(np.linspace(0.74, 1.2, 47), 6)
+    dense = np.unique(np.round(np.r_[np.linspace(0.62, 1.2, 59), points], 6))  # NGSolve's wavelengths exactly on the grid
     ours = np.array([ps.solve_problem(ps.Problem("cylinders", [RADIUS], [INDEX, 1.0], w, ps.PointDipole(SOURCE, "electric"), 1e-6))["total"][:3] for w in dense])
+    index = {w: int(np.flatnonzero(np.isclose(dense, w))[0]) for w in points}
     out, refs, rel = [], [], []
     for i, o in enumerate(ORIENTATIONS):
         out.append(series(o, f"{o}, PyStratify", ours[:, i], "pystratify"))
         refs.append(series(f"{o}_ref", f"{o}, NGSolve", at(dense, {w: theirs[w][i] for w in points}), "reference"))
-        rel.append(max(abs(theirs[w][i] / ours[int(np.argmin(np.abs(dense - w))), i] - 1) for w in points))
-    return dict(x=sig(dense), series=out + refs, worst=float(max(rel)), worst_label="largest relative difference (the cell, not the mesh)",
-                note="Second-order Nédélec elements on a sphere of 0.8 µm with a 0.5 µm radial PML shell, the fibre running through it; "
-                     "the rate is Im(p·E) at the dipole over the same on the same mesh with the fibre's permittivity set to 1; the 126k-unknown "
-                     "mesh (0.25 µm in vacuum, 0.06 µm in the fibre). At 0.8 µm it agrees to 1.5% and converges with the mesh (FEM_NGSOLVE.md; "
-                     "the test runs the coarsest mesh there). Elsewhere the cell, which 8 GB allows, sets the difference, up to 7% with "
-                     "alternating sign: moving the PML from 0.8 to 1.0 µm turns +8% into −6% at 0.75 µm on the same mesh, while a stronger or "
-                     "thicker PML changes nothing. Beyond 1 µm the HE₁₁ mode's evanescent tail (1/e length 0.37–0.96 µm) reaches the PML; "
-                     "at 0.75 µm TE₀₁ and TM₀₁ have just turned leaky. Meep's 3D grid, with Cartesian PML, agrees to 0.74% over the whole band.")
+        rel.append(max(abs(theirs[w][i] / ours[index[w], i] - 1) for w in points))
+    return dict(x=sig(dense), series=out + refs, worst=float(max(rel)), worst_label="largest relative difference (the middle mesh)",
+                note=f"Second-order Nédélec elements in a cylindrical cell (radius and half-height {CELL:g} µm) inside a {PML_THICKNESS:g} µm PML, "
+                     "radial in ρ and Cartesian in z, which the fibre runs through; mirror symmetry halves it twice, so each orientation "
+                     "is a quarter problem (~100k unknowns, the middle mesh: 0.25 µm in vacuum, 0.06 µm in the fibre). The rate is Im(p·E) at "
+                     "the dipole over the same on the same mesh with the fibre's permittivity set to 1. TE₀₁ and TM₀₁ are cut off at 0.678 µm; "
+                     "just above it their fields reach far into the vacuum. The difference shrinks with the mesh: worst 1.4% → 0.8% → 0.5% at 0.8 µm "
+                     "and 4.4% → 1.3% → 0.8% at 0.645 µm (FEM_NGSOLVE.md). "
+                     "An earlier spherical cell with a radial PML met the guided modes badly and was off by up to 8–11% here; Meep agrees "
+                     "to 0.74% over the same band.")
 
 
 # --- cylinders, focused beam ------------------------------------------------------------------------------------

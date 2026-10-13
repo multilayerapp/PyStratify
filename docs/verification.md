@@ -2,8 +2,8 @@
 title: How PyStratify is verified
 summary: >-
   Every check behind multilayer.app's engine, geometry by geometry and source by source: closed forms,
-  extended-precision references, independent methods, other groups' codes and published papers, each with its
-  script, its tolerance and whether it runs on every test.
+  extended-precision references, independent methods, other groups' codes and published papers, each plotted
+  against PyStratify, with the script that reruns it.
 examples:
 - {geometry: films, source: plane_wave, reference: "Fresnel at oblique incidence; Brewster zero; s = p at normal", example: fresnel-air-glass}
 - {geometry: films, source: plane_wave, reference: "Airy slab; quarter-wave Bragg mirror", example: bragg-mirror}
@@ -84,7 +84,7 @@ figures:
 - {geometry: cylinders, source: plane_wave, reference: "Bessel boundary equations solved directly", figure: cylinder-bessel-direct}
 - {geometry: cylinders, source: dipole, reference: "step-index fibre dispersion relations (TE₀₁, TM₀₁; Snyder & Love)", figure: [fibre-dispersion, fibre-rates-cutoff]}
 - {geometry: cylinders, source: plane_wave, reference: "homogeneous cylinder fields; index-matched limit", figure: cylinder-index-matched}
-- {geometry: cylinders, source: plane_wave, reference: "grazing light-line caps, bounded error", figure: [cylinder-grazing-caps-electric, cylinder-grazing-caps-magnetic]}
+- {geometry: cylinders, source: dipole, reference: "grazing light-line caps, bounded error", figure: [cylinder-grazing-caps-electric, cylinder-grazing-caps-magnetic]}
 - {geometry: cylinders, source: plane_wave, reference: "canonical cylinder papers (Bohren & Huffman's infinite cylinder; coated fibres)", figure: [bohren-huffman-cylinder, ruan-fan-superscattering, ruan-fan-lossy, ruppin-sodium-wire]}
 - {geometry: cylinders, source: dipole, reference: "homogeneous medium; independent flux budget; guided channels", figure: [cylinder-dipole-homogeneous, cylinder-coating-budget-electric, cylinder-coating-budget-magnetic, cylinder-guide-budget]}
 - {geometry: cylinders, source: dipole, reference: "grazing endpoint continuation within the error budget", figure: cylinder-grazing-tolerance}
@@ -98,13 +98,16 @@ figures:
 ---
 
 The calculator computes every film, cylinder and sphere with PyStratify, an open-source Python package (GPL-3.0).
-This page lists what PyStratify is checked against. One row is one comparison: a reference, the quantity compared,
-the script that runs it, the tolerance it must meet and whether the test suite asserts it on every change.
+This page shows what PyStratify is checked against: closed forms and conservation laws, extended-precision
+references, independent methods, other groups' codes and published papers.
+
+Coverage at a glance places every test for the geometry the switch at the top picks: one circle per test, by the
+kind of reference and the source of light. A circle opens the test's page: what exactly is calculated, the agreement
+required, and a plot for each case, PyStratify as lines and the reference as circles on the same axes, with the
+largest difference beneath it. The replication corpus is plotted record by record in the Replications.
 
 A check counts as independent only when the reference shares no code with PyStratify. Closed forms and conservation
 laws are independent of any code; extended-precision references prove the numerics; another group's code or a
 different method (finite differences in time, finite elements, boundary elements, volume integrals) proves the
-formulation. Every comparison is a script in the PyStratify repository, so anyone can rerun it and see the numbers;
-the rows marked *suite* run on every commit.
-
-Rows the calculator can open show a worked example; the switch at the top shows one geometry at a time.
+formulation. Every plot is computed by a script in the PyStratify repository, linked from its page, so anyone can
+rerun it and see the numbers; one command, `benchmarks/verify_all.py`, reruns the whole study.

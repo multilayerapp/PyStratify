@@ -27,4 +27,4 @@ everywhere at once, with nothing reinstalled.
   (and `conda list -p <env> --explicit`), then commit the files with the figures they produced.
 
 On an 8 GB Mac run one heavy job at a time (the runner does): the Meep figures take ~25 minutes and 0.5 GB, the
-NGSolve figure ~7 minutes and ~3.2 GB.
+NGSolve figure ~8 minutes and ~1.6 GB.

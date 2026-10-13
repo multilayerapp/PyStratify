@@ -1,28 +1,28 @@
 """Point dipoles beside a cylinder against NGSolve's finite elements (benchmarks/MATRIX.md, cylinders).
 
-    pip install ngsolve                          # 6.2; its own environment with `pip install -e .` is simplest
-    python benchmarks/fem_ngsolve.py             # prints FEM_NGSOLVE.md (two meshes: ~3 min, ~3.2 GB)
-    python benchmarks/fem_ngsolve.py 3           # three meshes (adds 196k unknowns: ~4.1 GB, keep it free)
+    pip install ngsolve                          # 6.2; its own environment (benchmarks/envs/README.md)
+    python benchmarks/fem_ngsolve.py             # prints FEM_NGSOLVE.md (three meshes, two wavelengths: ~9 min, ~2.5 GB)
 
 A second volume method beside Meep's FDTD (``fdtd_meep.py``): 3D Maxwell finite elements, sharing nothing
-with PyStratify's cylindrical-wave expansion or with FDTD. The cell is a sphere around the dipole and the
-cylinder's axis with a radial PML shell; the cylinder runs through the PML, so it stays infinite. The total
-field of a point dipole p at r0 is solved with second-order Nedelec elements, the source assembled from the
-basis functions of the element holding r0; the radiated power is Im(p . E(r0)), finite although Re E
-diverges there, and the decay rate is its ratio to the same mesh with the cylinder's permittivity set to
-the host's (so most discretisation error cancels, as with Meep's LDOS ratio).
+with PyStratify's cylindrical-wave expansion or with FDTD. The total field of a point dipole p at r0 is solved with
+second-order Nedelec elements, the source assembled from the basis functions of the element holding r0; the radiated
+power is Im(p . E(r0)), finite although Re E diverges there, and the decay rate is its ratio to the same mesh with the
+fibre's permittivity set to the host's (so most discretisation error cancels, as with Meep's LDOS ratio).
 
-A scattered-field formulation (the dipole's analytic field as the source inside the cylinder) was tried
-first and rejected: it must stop the source where the cylinder enters the PML, and that cut radiates back
-(the result swung by +-6% with the PML radius and grew with the PML's strength). The total field moves by
-~2% over PML radii 0.6-1.0 um; that, not the mesh, is the floor at the meshes 8 GB allows, so agreement is
-at the percent level by design and the check is that it approaches PyStratify as the mesh is refined.
+**The cell is a cylinder around the fibre** (radius and half-height CELL = 1.2 um) inside a PML 1 um thick that is the
+tensor product of a radial PML in rho and a Cartesian one in z (``pml.Compound``): the fibre runs through the z-PML,
+which meets its guided modes head on, and stays infinite. **Mirror symmetry** cuts it to a quarter: the planes y = 0
+and z = 0 through the dipole are a magnetic wall (natural boundary) where the dipole lies in the plane and an electric
+wall (tangential E = 0) where it is normal to it, so each orientation is its own quarter problem; a source on the
+walls carries a quarter of its strength, which the rate's ratio cancels. A quarter of a larger cell costs a quarter of
+the unknowns: ~100k at the middle mesh, ~1 min and ~1.6 GB per wavelength.
 
-At 0.645 um the fibre's TE01 and TM01 modes sit just above cutoff (n_eff 1.0098 and 1.043): their fields
-reach ~0.7 um into the vacuum, into a PML that starts at 0.8 um, so this cell cannot resolve them (-8%);
-it is shown, not asserted. Even so the radial rate sides with 0.10.4 (NGSolve 1.443, 0.10.4 1.406, 0.10.3
-1.257). The CI-sized test runs 0.8 um on the coarsest mesh. NGSolve threads by itself (its TaskManager);
-peak memory is set by the mesh, ~3.2 GB at 126k unknowns.
+The first cell (until 2026-10-13) was a sphere of 0.8 um with a 0.5 um radial PML. It agreed to 1.5% at 0.8 um but,
+swept over 0.75-1.2 um, differed by up to 7% with alternating sign, set by where the PML began (0.8 -> 1.0 um turned
++8% into -6% at 0.75 um) and not by the mesh or the PML's strength; just above the TE01/TM01 cutoff (0.645 um) it was
+8-11% low. The cylindrical cell converges toward PyStratify as the mesh is refined, worst 1.4% -> 0.8% -> 0.5% at
+0.8 um and 4.4% -> 1.3% -> 0.8% at 0.645 um (FEM_NGSOLVE.md), and hardly moves when it grows (1.2 -> 1.6 um); the
+coarsest mesh is too coarse for the far-reaching modes just above cutoff. NGSolve threads by itself (its TaskManager).
 """
 
 from __future__ import annotations
@@ -38,10 +38,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import pystratify as ps  # noqa: E402
 
 RADIUS, INDEX, SOURCE = 0.15, 2.0, 0.25  # um: an n = 2, 150 nm fibre in vacuum, the dipole 100 nm outside
-WAVELENGTHS = (0.8, 0.645)  # um; 0.645: just above the TE01/TM01 cutoffs, where 0.10.3 was 12% low (shown only)
+WAVELENGTHS = (0.8, 0.645)  # um; 0.645: just above the TE01/TM01 cutoff (0.678 um), modes reaching far out
 ORIENTATIONS = ("radial", "azimuthal", "axial")  # dipole along x, y, z at (r0, 0, 0); the axis is z
-MESHES = ((0.32, 0.08), (0.25, 0.06), (0.22, 0.05))  # (maximum element size in vacuum, in the cylinder), um
-PML_RADIUS, PML_THICKNESS, ORDER = 0.8, 0.5, 2
+MESHES = ((0.32, 0.08), (0.25, 0.06), (0.2, 0.05))  # (maximum element size in vacuum and the PML, in the fibre), um
+CELL, PML_THICKNESS, ORDER = 1.2, 1.0, 2  # um: the cell's radius and half-height, the PML around it
+# each orientation's electric wall among the two mirror planes (the other is a magnetic wall)
+WALLS = {"radial": "", "azimuthal": "ysym", "axial": "zsym"}
 
 
 def stratify(wavelength):
@@ -51,14 +53,21 @@ def stratify(wavelength):
 
 
 def ngsolve_rates(wavelength, h_vacuum, h_cylinder):
-    """(decay rates radial/azimuthal/axial, degrees of freedom) from one mesh."""
-    from netgen.occ import Cylinder, Glue, OCCGeometry, Pnt, Sphere, Z
+    """(decay rates radial/azimuthal/axial, the largest number of free unknowns) from one mesh."""
+    from netgen.occ import Box, Cylinder, Glue, OCCGeometry, Pnt, Sphere, Y, Z
     from ngsolve import BilinearForm, ElementId, GridFunction, HCurl, Mesh, VOL, curl, dx, pml
 
     k = 2 * np.pi / wavelength
-    outer, inner = Sphere(Pnt(0, 0, 0), PML_RADIUS + PML_THICKNESS), Sphere(Pnt(0, 0, 0), PML_RADIUS)
-    rod = Cylinder(Pnt(0, 0, -(PML_RADIUS + PML_THICKNESS) - 0.1), Z, r=RADIUS, h=2 * (PML_RADIUS + PML_THICKNESS) + 0.2)
-    near = Sphere(Pnt(SOURCE, 0, 0), 0.06)
+    big = CELL + PML_THICKNESS + 1
+    quarter = Box(Pnt(-big, 0, 0), Pnt(big, big, big))  # y >= 0, z >= 0
+    quarter.faces.Min(Y).name = "ysym"
+    quarter.faces.Min(Z).name = "zsym"
+    whole = Cylinder(Pnt(0, 0, -CELL - PML_THICKNESS), Z, r=CELL + PML_THICKNESS, h=2 * (CELL + PML_THICKNESS))
+    whole.faces.name = "outer"
+    outer = whole * quarter
+    inner = Cylinder(Pnt(0, 0, -CELL), Z, r=CELL, h=2 * CELL) * quarter
+    rod = Cylinder(Pnt(0, 0, -big), Z, r=RADIUS, h=2 * big) * quarter
+    near = Sphere(Pnt(SOURCE, 0, 0), 0.06) * quarter
     core = rod * inner
     core.mat("cylinder")
     core.maxh = h_cylinder
@@ -73,35 +82,39 @@ def ngsolve_rates(wavelength, h_vacuum, h_cylinder):
     shell.mat("pml")
     mesh = Mesh(OCCGeometry(Glue([core, core_pml, source, vacuum, shell])).GenerateMesh(maxh=h_vacuum))
     mesh.Curve(ORDER)
-    mesh.SetPML(pml.Radial(rad=PML_RADIUS, alpha=1j, origin=(0, 0, 0)), "pml|cylinder pml")
-    space = HCurl(mesh, order=ORDER, complex=True)
-    u, v = space.TnT()
+    mesh.SetPML(pml.Compound(pml.Radial(rad=CELL, alpha=1j, origin=(0, 0)),
+                             pml.Cartesian(mins=[-CELL], maxs=[CELL], alpha=1j), dims1=(1, 2), dims2=(3,)),
+                "pml|cylinder pml")
     point = mesh(SOURCE, 0, 0)
-    dofs = space.GetDofNrs(ElementId(VOL, point.nr))
-    basis = GridFunction(space)
-    values = []
-    for d in dofs:  # the point source: every basis function of r0's element, evaluated at r0
-        basis.vec[:] = 0
-        basis.vec[d] = 1
-        values.append(np.real(basis(point)))
-    powers = {}
-    for case, permittivity in (("cylinder", INDEX ** 2), ("reference", 1.0)):
-        eps = mesh.MaterialCF({"cylinder": permittivity, "cylinder pml": permittivity}, default=1)
-        form = BilinearForm(space, symmetric=True)
-        form += (curl(u) * curl(v) - k ** 2 * eps * u * v) * dx
-        form.Assemble()
-        inverse = form.mat.Inverse(space.FreeDofs(), inverse="sparsecholesky")
-        powers[case] = []
-        for p in np.eye(3):
+    out, unknowns = [], 0
+    for i, orientation in enumerate(ORIENTATIONS):
+        space = HCurl(mesh, order=ORDER, complex=True, dirichlet="|".join(w for w in ("outer", WALLS[orientation]) if w))
+        unknowns = max(unknowns, sum(space.FreeDofs()))
+        u, v = space.TnT()
+        dofs = space.GetDofNrs(ElementId(VOL, point.nr))
+        basis = GridFunction(space)
+        values = []
+        for d in dofs:  # the point source: every basis function of r0's element, evaluated at r0
+            basis.vec[:] = 0
+            basis.vec[d] = 1
+            values.append(float(np.real(basis(point)) @ np.eye(3)[i]))
+        powers = []
+        for permittivity in (INDEX ** 2, 1.0):  # with the fibre, then without it on the same mesh
+            eps = mesh.MaterialCF({"cylinder": permittivity, "cylinder pml": permittivity}, default=1)
+            form = BilinearForm(space, symmetric=True)
+            form += (curl(u) * curl(v) - k ** 2 * eps * u * v) * dx
+            form.Assemble()
+            inverse = form.mat.Inverse(space.FreeDofs(), inverse="sparsecholesky")
             f = basis.vec.CreateVector()
             f[:] = 0
             for d, value in zip(dofs, values):
-                f[d] += float(value @ p)
+                f[d] += value
             field = basis.vec.CreateVector()
             field.data = inverse * f
-            powers[case].append(np.imag(np.dot(f.FV().NumPy(), field.FV().NumPy())))
-        del inverse
-    return np.array(powers["cylinder"]) / np.array(powers["reference"]), space.ndof
+            powers.append(np.imag(np.dot(f.FV().NumPy(), field.FV().NumPy())))
+            del inverse
+        out.append(powers[0] / powers[1])
+    return np.array(out), unknowns
 
 
 def compare(wavelengths=WAVELENGTHS, meshes=MESHES):
@@ -126,10 +139,11 @@ def report(results):
     print("Generated by `python benchmarks/fem_ngsolve.py` (NGSolve 6.2, its own threads). Total decay rate relative to")
     print(f"free space of a dipole {SOURCE - RADIUS:g} um from an n = {INDEX:g}, {RADIUS * 1000:g} nm fibre in vacuum;")
     print("NGSolve's is Im(p . E(r0)) with the fibre over the same with the fibre's permittivity set to 1, on the")
-    print(f"same mesh; order-{ORDER} Nedelec elements, PML from r = {PML_RADIUS:g} um, {PML_THICKNESS:g} um thick.")
-    print("Relative difference NGSolve / PyStratify - 1; the floor (~1-2%) is the cell's size, see the script.")
-    print("At 0.645 um the TE01/TM01 modes, just above cutoff, reach the PML: shown, not asserted (the radial")
-    print("rate still sides with 0.10.4: 0.10.3 gave 1.257).")
+    print(f"same mesh; order-{ORDER} Nedelec elements in a cylindrical cell of radius and half-height {CELL:g} um inside a")
+    print(f"{PML_THICKNESS:g} um PML (radial in rho, Cartesian in z), a quarter of it by mirror symmetry (unknowns: the")
+    print("largest of the three orientations' quarter problems). Relative difference NGSolve / PyStratify - 1; it")
+    print("shrinks as the mesh is refined. At 0.645 um TE01 and TM01 sit just above their cutoff, their fields far out in")
+    print("the vacuum: the coarsest mesh is too coarse there (the old spherical cell was 8-11% low at any mesh).")
     for wavelength, (exact, runs) in results.items():
         print(f"\n## {wavelength:g} um\n")
         print("| mesh (vacuum / fibre, um) | unknowns | time | " + " | ".join(ORIENTATIONS) + " |")
@@ -143,4 +157,4 @@ def report(results):
 
 
 if __name__ == "__main__":
-    report(compare(meshes=MESHES[:int(sys.argv[1]) if sys.argv[1:] else 2]))
+    report(compare(meshes=MESHES[:int(sys.argv[1]) if sys.argv[1:] else 3]))
