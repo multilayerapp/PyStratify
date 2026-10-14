@@ -207,9 +207,9 @@ def verification():
     right.plot([], [], "o", mfc="none", color=GREY, label="Meep, 3D FDTD")
     right.set(title="A dipole outside a fibre: against 3D FDTD", xlabel="wavelength (µm)",
               ylabel="decay rate / free-space rate")
-    right.legend(loc="upper right")
-    right.text(0.02, 0.03, "n = 2, radius 150 nm, dipole 100 nm outside", transform=right.transAxes, color=GREY,
-               fontsize=8.5)
+    # below the axes, as on the left: inside, every corner is crossed by a curve
+    right.legend(loc="upper center", bbox_to_anchor=(0.5, -0.13), ncol=2, fontsize=8, handlelength=1.6,
+                 columnspacing=1, title="fibre n = 2, radius 150 nm; dipole 100 nm outside", title_fontsize=8)
     fig.savefig(HERE / "verification.png")
     plt.close(fig)
 

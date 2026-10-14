@@ -1,7 +1,7 @@
 # PyStratify
 
-[![PyPI](https://img.shields.io/pypi/v/pystratify)](https://pypi.org/project/pystratify/)
-[![Python](https://img.shields.io/pypi/pyversions/pystratify)](https://pypi.org/project/pystratify/)
+[![PyPI](https://img.shields.io/pypi/v/pystratify?cacheSeconds=3600)](https://pypi.org/project/pystratify/)
+[![Python](https://img.shields.io/pypi/pyversions/pystratify?cacheSeconds=3600)](https://pypi.org/project/pystratify/)
 [![tests](https://github.com/multilayerapp/PyStratify/actions/workflows/tests.yml/badge.svg)](https://github.com/multilayerapp/PyStratify/actions/workflows/tests.yml)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23287561.svg)](https://doi.org/10.5281/zenodo.23287561)
 [![License: GPL v3+](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](https://github.com/multilayerapp/PyStratify/blob/main/LICENSE)
