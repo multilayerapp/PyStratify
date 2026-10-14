@@ -30,7 +30,14 @@ def test_manifest_is_current(manifest):
         assert ours["data"]["x"] == example["data"]["x"]
         for key, ys in example["data"]["series"].items():
             np.testing.assert_allclose(ours["data"]["series"][key], ys, rtol=1e-5, atol=1e-9)
-        assert {k: v for k, v in ours.items() if k != "data"} == {k: v for k, v in example.items() if k != "data"}
+        # A check's computed value can be a rounding residual (an energy balance at 2e-16), which differs between
+        # platforms' BLAS/libm in its last bits: compare it to a tolerance, everything else exactly.
+        assert len(ours.get("checks", [])) == len(example.get("checks", []))
+        for mine, theirs in zip(ours.get("checks", []), example.get("checks", [])):
+            np.testing.assert_allclose(mine["computed"], theirs["computed"], rtol=1e-5, atol=1e-12)
+            assert {k: v for k, v in mine.items() if k != "computed"} == {k: v for k, v in theirs.items() if k != "computed"}
+        assert ({k: v for k, v in ours.items() if k not in ("data", "checks")}
+                == {k: v for k, v in example.items() if k not in ("data", "checks")})
     built.pop("examples"), committed.pop("examples")
     built = {k: v for k, v in built.items() if not k.startswith("_")}  # the sweeps' data is written beside the manifest
     assert built == committed, "docs/ changed: run `python -m pystratify.docs build` and commit docs/manifest.json"

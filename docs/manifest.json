@@ -9647,7 +9647,7 @@
    "reference": "replication corpus: 181 published records from 177 papers",
    "reference_kind": "paper",
    "quantity": "R, T, A spectra and angle scans against digitized figures",
-   "script": "`harvester/verify.py` (`AGENTS.md` §5.4)",
+   "script": "multilayer.app's replication pipeline (`harvester/verify.py`, not public); every record is on the [Replications page](https://multilayer.app/replications.html)",
    "tolerance": "fit score per record",
    "status": "corpus"
   },
@@ -10705,7 +10705,7 @@
    "reference": "Dong et al. 2017 nonlocal nanoshells",
    "reference_kind": "paper",
    "quantity": "Q_ext with hydrodynamic Au",
-   "script": "reproduced on `non-local` (`AGENTS.md` §13.6: their efficiencies carry an extra n_host²)",
+   "script": "reproduced on `non-local` (their efficiencies carry an extra n_host²)",
    "tolerance": "plotting precision",
    "status": "branch"
   },

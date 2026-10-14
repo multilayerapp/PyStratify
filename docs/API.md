@@ -1,6 +1,6 @@
 # PyStratify public API — the 1.0 contract
 
-**Status: ruled by Ilia on 2026-10-10** (roadmap WP0.4, `multilayerapp/docs/roadmap/README.md`);
+**Status: ruled by Ilia on 2026-10-10** (roadmap WP0.4);
 it binds from 1.0. Every name in `pystratify.__all__` (72 at 0.10.2) sits in exactly one of the
 four lists below — 56 frozen, 8 provisional, 4 legacy, 4 internal; `tests/test_api_contract.py`
 fails if a name is added to `__all__` without being placed here, or placed twice. The judgement

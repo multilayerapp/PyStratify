@@ -1,0 +1,53 @@
+# Changelog
+
+Notable changes to PyStratify. Every release is on [PyPI](https://pypi.org/project/pystratify/) and
+[Zenodo](https://doi.org/10.5281/zenodo.23287561) (one DOI per version); `git log` has the full history.
+
+## 0.10.5 — cylinder emitters at a mode's cutoff
+
+Next to a light line the reflected spectral density of a cylinder source loses digits: its m = ±1
+TE/TM-coupled terms carry 1/q factors that cancel, ~1e-4 ε/(1 − b)² (1e-5 at 1e-7 from the line, noise
+at 1e-10). A guided mode just above cutoff (HE₁ₙ modes approach it exponentially) puts a sharp feature
+there, and the quadrature chased the noise until its budget ran out; with scipy 1.18 even a plain fibre
+did so at tolerance 1e-7. Within 1e-3 of the host's and the source medium's light lines the real part now
+comes from the power balance at that axial wavenumber, escape + absorbed − direct (direct = ¾(1 + b²)
+transverse, 3/2(1 − b²) axial), which equals the reflected density to ~1e-14 wherever that is accurate;
+elsewhere the balance stays an independent check. Converged results are unchanged.
+
+## 0.10.4 — every guided mode of a cylinder
+
+A point source beside or inside a lossless cylinder could lose the power it couples into some of the
+cylinder's guided modes. The mode search minimised the dispersion determinant on a grid and kept a
+minimum only if the minimiser's last value was below a fixed bar; at a root |det| is V-shaped, Brent's
+parabolic steps stalled just above it, and real modes were dropped while the solve reported convergence.
+Over 60 random lossless cylinders (electric and magnetic sources) the totals moved by more than 1e-3
+in 28 of 97 comparable cases (up to 9.5%), and 11 that raised an error now solve. Roots are now
+bracketed and judged at the root, against the determinant's own scale; the light line, where modes cut
+off, is sampled geometrically and never evaluated within 1e-12 of; the residue's error estimate
+measures the value used. For a step-index fibre the modes found are exactly
+those of its closed-form dispersion relation, and the rates are smooth through a mode's cutoff. Found by
+a 3D FDTD comparison with Meep
+([benchmarks/FDTD_MEEP.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/FDTD_MEEP.md)).
+Near fields are now exact at a sphere's centre ([docs/NUMERICS.md](https://github.com/multilayerapp/PyStratify/blob/main/docs/NUMERICS.md), *Exact field at the centre*).
+
+## 0.10.3 — guided power from a source outside the stack
+
+A point source in an exterior half-space of a film stack (above or below it) lost the power it couples
+into the stack's guided modes: the transverse-resonance search ran at the source plane, where the
+source side has no interface, and found no poles. Total rates near lossless guides were low (by 20%,
+30 nm above 200 nm of TiO2 on glass) while the solve reported convergence; lossy stacks, and sources
+inside a finite layer, were unaffected. The modes are now found inside the stack. smuthi and the
+lossless limit of an absorbing guide confirm it
+([benchmarks/EMITTER_REFERENCES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/EMITTER_REFERENCES.md)).
+
+## 0.10.0 — focused illumination
+
+A fourth source for all three geometries: a beam focused by an aplanatic objective, through an annulus (a
+Cassegrain) or a disc, as in FT-IR microspectroscopy. What it computes, and how it is checked:
+[docs/GUIDE.md, *Focused illumination*](https://github.com/multilayerapp/PyStratify/blob/main/docs/GUIDE.md#focused-illumination).
+
+## 0.9.0 — films, cylinders and spheres unified
+
+`solve_problem(Problem(...))` chooses the geometry's modal basis and uses one response core for films, cylinders and
+spheres, under plane waves and electric and magnetic point dipoles:
+[docs/GUIDE.md, *Films, cylinders and spheres*](https://github.com/multilayerapp/PyStratify/blob/main/docs/GUIDE.md#films-cylinders-and-spheres-one-problem-description).
