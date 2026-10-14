@@ -3,6 +3,14 @@
 Notable changes to PyStratify. Every release is on [PyPI](https://pypi.org/project/pystratify/) and
 [Zenodo](https://doi.org/10.5281/zenodo.23287561) (one DOI per version); `git log` has the full history.
 
+## 0.10.6 — documentation and packaging
+
+No change to any computed number. The README is a front page (figures, a quick start for every geometry and source,
+the comparison with sixteen independent references); its former detail moved to this changelog, `docs/GUIDE.md`,
+`docs/NUMERICS.md`, `benchmarks/README.md` and `tests/README.md`. PyPI now lists authors, keywords, classifiers and
+links to the site, the guide, the issues and the DOI. The test that the committed docs manifest is current compares
+check values to a tolerance (it failed on Linux on a 2e-16 rounding residual).
+
 ## 0.10.5 — cylinder emitters at a mode's cutoff
 
 Next to a light line the reflected spectral density of a cylinder source loses digits: its m = ±1

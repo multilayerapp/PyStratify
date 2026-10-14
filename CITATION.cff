@@ -6,7 +6,7 @@ type: software
 authors:
   - family-names: Rasskazov
     given-names: Ilia
-version: 0.10.5
+version: 0.10.6
 doi: 10.5281/zenodo.23287561
 identifiers:
   - type: doi
@@ -15,7 +15,7 @@ identifiers:
   - type: doi
     value: 10.5281/zenodo.23290491
     description: "PyStratify 0.10.5"
-date-released: 2026-10-10
+date-released: 2026-10-13
 license: GPL-3.0-or-later
 repository-code: "https://github.com/multilayerapp/PyStratify"
 keywords:
