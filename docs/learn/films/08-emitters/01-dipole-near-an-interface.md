@@ -6,6 +6,8 @@ chapter: Emitters in films
 topic: emitters
 sources: [dipole]
 classics: [lukosz-kunz-1977, neyts-1998]
+description: "Emitters in thin films: decay rates by Chance–Prock–Silbey, escaping, substrate and guided power, quenching near metal, and OLED microcavities."
+reviewed:
 summary: >-
   How a molecule, a quantum dot or an OLED emitter radiates when it sits in a stratified medium: the plane-wave
   expansion of a dipole field, the Chance–Prock–Silbey integrals for its decay rate, the channels its power goes to

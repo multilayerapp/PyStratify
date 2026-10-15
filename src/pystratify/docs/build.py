@@ -16,7 +16,9 @@ GEOMETRIES = ("films", "cylinders", "spheres")
 LEARN_GEOMETRIES = GEOMETRIES + ("common",)
 CLASSIC_FIELDS = ("id", "kind", "position", "geometry", "title", "cite", "doi", "figure", "shows", "inputs", "agreement",
                   "perturb", "script", "results", "calculator")
-LEARN_FIELDS = ("id", "title", "geometry", "summary", "references")
+LEARN_FIELDS = ("id", "title", "geometry", "description", "summary", "references")
+# Search engines show about 160 characters of a description; the index cards show it whole.
+DESCRIPTION_LIMIT = 160
 EXAMPLE_FIELDS = ("id", "geometry", "source", "title", "caption", "plot", "calculator")
 AXES = ("wavelength", "angle")
 # What an example can plot, per geometry and source (the website maps each onto the API's response).
@@ -623,6 +625,16 @@ def _ordered_name(path):
     return int(match.group(1)), match.group(2)
 
 
+def _review_date(value, where):
+    """Ilia's review of a section: empty until he has read it, then the date (YAML may hand back a date)."""
+    if value in (None, ""):
+        return None
+    text = str(value)
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+        raise ContentError(f"{where}: reviewed is a date, YYYY-MM-DD, or empty")
+    return text
+
+
 def load_learn(root):
     sections = []
     base = root / "docs" / "learn"
@@ -642,7 +654,10 @@ def load_learn(root):
             "topic": meta.get("topic", chapter_slug), "sources": meta.get("sources", []),
             "examples": meta.get("examples", []), "classics": meta.get("classics", []), "references": meta["references"],
             "status": meta.get("status", "published"), "body": body,
+            "description": " ".join(str(meta["description"]).split()), "reviewed": _review_date(meta.get("reviewed"), where),
         })
+        if len(sections[-1]["description"]) > DESCRIPTION_LIMIT:
+            raise ContentError(f"{where}: description is {len(sections[-1]['description'])} characters, at most {DESCRIPTION_LIMIT}")
         for kind, listed in (("example", sections[-1]["examples"]), ("classic", sections[-1]["classics"])):
             placed = re.findall(rf"^::: {kind} (\S+)\s*$", body, flags=re.M)
             if sorted(placed) != sorted(listed):

@@ -5,6 +5,8 @@ geometry: films
 chapter: Devices
 topic: thermal-emission
 sources: [plane_wave]
+description: "Cooling below ambient by emitting through the 8–13 µm window: the power balance, emissivity from a film calculation, and selective emitters."
+reviewed:
 summary: >-
   A surface that reflects sunlight and emits in the 8–13 µm atmospheric window can cool below ambient: the power
   balance of a radiative cooler and the sky's own emission, Kirchhoff's law and emissivity from a film calculation,

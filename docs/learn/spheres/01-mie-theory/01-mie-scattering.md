@@ -5,6 +5,8 @@ geometry: spheres
 chapter: Mie theory
 topic: mie
 sources: [plane_wave]
+description: "Mie theory for a homogeneous sphere: multipole coefficients, efficiencies, far-field amplitudes, the Rayleigh and geometric limits, and numerics."
+reviewed:
 summary: >-
   How a plane wave scatters off a homogeneous sphere: the plane wave as a sum of multipoles, the coefficients a_ℓ and
   b_ℓ from two boundary conditions per order, the efficiencies and the amplitude functions of the far field, the

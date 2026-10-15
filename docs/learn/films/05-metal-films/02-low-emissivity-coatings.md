@@ -5,6 +5,8 @@ geometry: films
 chapter: Metal films
 topic: low-e
 sources: [plane_wave]
+description: "Dielectric/silver/dielectric glazing: visible transmission, infrared reflection, Hagen–Rubens emissivity, sheet resistance, double and triple silver."
+reviewed:
 summary: >-
   An ultrathin silver film between two dielectric layers lets daylight through and reflects heat: the Drude metal
   below its plasma frequency, the induced-transmission design that antireflects the silver in the visible, Kirchhoff's

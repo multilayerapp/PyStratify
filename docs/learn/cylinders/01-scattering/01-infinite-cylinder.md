@@ -7,6 +7,8 @@ topic: cylinder
 sources: [plane_wave]
 examples: [glass-cylinder]
 classics: [bohren-huffman-1983, ruan-fan-2010]
+description: "Plane-wave scattering by an infinite cylinder: both polarizations, efficiencies per unit length, coated wires, oblique incidence and superscattering."
+reviewed:
 summary: >-
   The plane-wave solution for an infinitely long circular cylinder: cylindrical waves, the two decoupled polarizations
   at normal incidence and their coefficients, efficiencies per unit length, the thin-wire limit with its ε = −1

@@ -5,6 +5,8 @@ geometry: films
 chapter: Metal films
 topic: spr
 sources: [plane_wave]
+description: "Surface plasmons on a gold film in the Kretschmann geometry: dispersion, prism coupling, the reflectance dip and the sensitivity of SPR sensors."
+reviewed:
 summary: >-
   A thin gold film on a prism couples p-polarized light to the surface plasmon at the gold/analyte boundary: the
   plasmon as a pole of the Fresnel coefficient, its dispersion relation and decay lengths, prism coupling in the

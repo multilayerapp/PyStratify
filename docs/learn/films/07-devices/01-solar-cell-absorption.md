@@ -5,6 +5,8 @@ geometry: films
 chapter: Devices
 topic: layer-absorption
 sources: [plane_wave]
+description: "Where a solar cell absorbs light: layer-resolved absorptance, the standing wave in a thin stack, photocurrent from AM1.5, and parasitic losses."
+reviewed:
 summary: >-
   Total absorption is not what a solar cell needs: the absorbed power density from the field, the layer-resolved
   absorptance from the Poynting flux and its conservation check, the standing wave in a thin stack and how it moves

@@ -5,6 +5,8 @@ geometry: films
 chapter: Graded and textured surfaces
 topic: graded-index
 sources: [plane_wave]
+description: "Graded-index antireflection: effective-medium rules, why taper height matters more than shape, Southwell's quintic, and the moth's eye."
+reviewed:
 summary: >-
   A sub-wavelength taper removes the index step instead of cancelling its reflection: the effective-medium picture
   and where it holds, Maxwell Garnett and Bruggeman mixing rules, the WKB view of a graded profile as the Fourier

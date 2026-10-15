@@ -6,6 +6,8 @@ chapter: Emitters near spheres
 topic: sphere-emitters
 sources: [dipole]
 classics: [ruppin-1982, anger-2006]
+description: "A dipole beside or inside a sphere: radiative and non-radiative decay rates, quantum yield, and the trade-off between enhancement and quenching."
+reviewed:
 summary: >-
   A molecule or quantum dot beside, or inside, a sphere: how its field is expanded in multipoles, how the sphere's
   transfer matrices return it, the radiative and non-radiative decay rates that result, the quantum yield, and the

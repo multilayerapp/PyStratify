@@ -5,6 +5,8 @@ geometry: films
 chapter: Metal films
 topic: metal-films
 sources: [plane_wave]
+description: "Thin metal films as beam splitters: the Drude metal and skin depth, unavoidable absorption, potential transmittance and induced transmission."
+reviewed:
 summary: >-
   A few nanometres of silver divide a beam into reflected and transmitted halves: the Drude metal and the skin depth,
   why a metal film is partly transparent, the absorption that no design removes and Macleod's potential

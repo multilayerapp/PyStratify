@@ -6,6 +6,8 @@ chapter: The multilayered sphere
 topic: multilayer-sphere
 sources: [plane_wave, dipole]
 classics: [prodan-2003]
+description: "Mie theory for any number of concentric shells: a 2×2 matrix per interface, stable numerics for thin shells, and plasmon hybridization in nanoshells."
+reviewed:
 summary: >-
   Mie's solution extended to any number of concentric shells: the fields of each shell as regular and outgoing
   multipoles, the 2×2 transfer matrix of one interface written in Riccati–Bessel functions, raising and lowering

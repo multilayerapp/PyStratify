@@ -6,6 +6,8 @@ chapter: Emitters and beams
 topic: cylinder-emitters
 sources: [dipole, focused]
 classics: [ruppin-2001, davis-2011]
+description: "A dipole beside a nanowire or fibre: guided modes, radiated and absorbed power, the thin-wire plasmon, and a fibre under an FT-IR Cassegrain."
+reviewed:
 summary: >-
   A point dipole next to a nanowire or an optical fibre: the continuous spectrum of axial wavenumbers, the guided
   modes as poles, and how the radiated, guided and absorbed powers are separated. The thin metal wire's plasmon at

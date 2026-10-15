@@ -5,6 +5,8 @@ geometry: films
 chapter: Graded and textured surfaces
 topic: gratings
 sources: [plane_wave]
+description: "Diffraction gratings: the grating equation, propagating and evanescent orders, Wood anomalies, sub-wavelength effective films, and RCWA."
+reviewed:
 summary: >-
   A periodic surface couples light into discrete orders: the grating equation from the conservation of in-plane
   momentum modulo 2π/Λ, propagating and evanescent orders and the cutoff, Rayleigh–Wood anomalies, the

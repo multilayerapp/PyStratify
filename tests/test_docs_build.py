@@ -163,3 +163,24 @@ def test_an_example_outside_its_data_is_refused(tmp_path):
     example.write_text(example.read_text().replace("wavelength-end: 800", "wavelength-end: 1000"))
     with pytest.raises(ContentError, match="covers"):
         build_manifest(tmp_path, previous=COMMITTED)
+
+
+def test_learn_descriptions_fit_a_search_snippet_and_reviews_are_dates(manifest, tmp_path):
+    """Every section has a one-line description (the index card, the meta description, llms.txt) that fits the
+    ~160 characters a search engine shows; `reviewed` is a date or empty, and anything else is refused."""
+    from pystratify.docs.build import DESCRIPTION_LIMIT, load_learn
+
+    sections = [r for r in manifest["records"] if r["kind"] == "learn"]
+    assert all(0 < len(s["description"]) <= DESCRIPTION_LIMIT for s in sections)
+    assert all(s["reviewed"] is None or len(s["reviewed"]) == 10 for s in sections)
+    shutil.copytree(ROOT / "docs" / "learn", tmp_path / "docs" / "learn")
+    page = tmp_path / "docs" / "learn" / "films" / "01-interfaces" / "01-fresnel-equations.md"
+    text = page.read_text()
+    page.write_text(text.replace("\nreviewed:\n", "\nreviewed: 2026-10-20\n"))
+    assert next(s for s in load_learn(tmp_path) if s["id"] == "fresnel-equations")["reviewed"] == "2026-10-20"
+    page.write_text(text.replace("\nreviewed:\n", "\nreviewed: soon\n"))
+    with pytest.raises(ContentError, match="reviewed is a date"):
+        load_learn(tmp_path)
+    page.write_text(text.replace('\ndescription: "', '\ndescription: "' + "x" * DESCRIPTION_LIMIT))
+    with pytest.raises(ContentError, match="at most 160"):
+        load_learn(tmp_path)

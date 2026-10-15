@@ -5,6 +5,8 @@ geometry: films
 chapter: Filters and cavities
 topic: fabry-perot
 sources: [plane_wave]
+description: "The Airy function of a spacer between two mirrors: resonances, free spectral range, finesse, mirror absorption, angle tuning and cavity Q."
+reviewed:
 summary: >-
   A transparent spacer between two partial mirrors transmits a comb of narrow peaks: the Airy function derived from
   the multiple reflections, the resonance condition with the mirrors' phases, free spectral range, finesse and

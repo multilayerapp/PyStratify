@@ -5,6 +5,8 @@ geometry: films
 chapter: The transfer matrix
 topic: coherence
 sources: [plane_wave]
+description: "Why thin films show fringes and thick substrates do not: coherence length, incoherent layers as a phase average, and partially coherent stacks."
+reviewed:
 summary: >-
   Why a thin film draws interference fringes and a millimetre-thick substrate does not: the coherence length and the
   fringe spacing, the incoherent sum of intensities derived as a phase average, the intensity transfer matrix that

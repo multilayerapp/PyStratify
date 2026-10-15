@@ -5,6 +5,8 @@ geometry: common
 chapter: Foundations
 topic: foundations
 sources: [plane_wave, dipole, focused]
+description: "Maxwell's equations in layered media, the interface conditions, and how films, cylinders and spheres reduce to one scalar wave equation."
+reviewed:
 summary: >-
   The equations every page of this site rests on: Maxwell's equations in a piecewise homogeneous medium, the time
   convention, the continuity of tangential E and H at an interface, and how separation of variables turns the vector

@@ -5,6 +5,8 @@ geometry: films
 chapter: Periodic stacks
 topic: bragg
 sources: [plane_wave]
+description: "Quarter-wave stacks: peak reflectance, stop-band width from the index contrast, Bloch modes, N-period reflectance and the omnidirectional mirror."
+reviewed:
 summary: >-
   A quarter-wave stack of two materials reflects almost perfectly over a band of wavelengths: the peak reflectance
   from the admittance, Bloch's theorem and the dispersion relation of the one-dimensional crystal, the stop band

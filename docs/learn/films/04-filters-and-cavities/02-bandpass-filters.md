@@ -5,6 +5,8 @@ geometry: films
 chapter: Filters and cavities
 topic: bandpass
 sources: [plane_wave]
+description: "All-dielectric bandpass filters: the half-wave cavity design, bandwidth, multi-cavity square tops, angle shift, blocking, notch and rugate filters."
+reviewed:
 summary: >-
   A half-wave spacer between two quarter-wave mirrors passes one narrow band inside a broad stop band: the design
   (HL)^p 2L (LH)^p and why it transmits, Macleod's half-width formula and what each parameter does, the Lorentzian

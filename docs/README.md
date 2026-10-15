@@ -47,7 +47,9 @@ records (and `common` Learn chapters for every geometry).
 
 | field | |
 |---|---|
-| `id`, `title`, `geometry`, `summary` | `geometry` must match the folder |
+| `id`, `title`, `geometry`, `summary` | `geometry` must match the folder; `summary` is what the section covers, shown as its opening paragraph |
+| `description` | one line, at most 160 characters: the Learn index card, the page's meta description and `llms.txt` (search engines show about 160) |
+| `reviewed` | empty until Ilia has reviewed the section, then the date (`YYYY-MM-DD`); a reviewed page says so and drops the under-development note |
 | `chapter` | the chapter's title (default: from the folder name) |
 | `topic`, `sources` | e.g. `mie`; `[plane_wave, dipole, focused]` |
 | `examples` | ids under `examples/`, each placed with a line `::: example <id>` |

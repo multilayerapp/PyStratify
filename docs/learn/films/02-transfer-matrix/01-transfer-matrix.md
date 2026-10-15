@@ -5,6 +5,8 @@ geometry: films
 chapter: The transfer matrix
 topic: tmm
 sources: [plane_wave]
+description: "The characteristic matrix of a thin film, how a stack multiplies them, admittance, the field inside, and the numerics of thick or absorbing layers."
+reviewed:
 summary: >-
   Abelès' characteristic matrix of a layer, derived from the two boundary conditions; how a stack multiplies them;
   the admittance that gives R and T and Macleod's admittance locus; the amplitude form with interface and propagation

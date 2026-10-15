@@ -5,6 +5,8 @@ geometry: films
 chapter: Graded and textured surfaces
 topic: texture
 sources: [plane_wave]
+description: "Pyramid textures on silicon: double reflection, oblique paths, the 4n² Lambertian limit, and where ray optics takes over from the transfer matrix."
+reviewed:
 summary: >-
   Upright pyramids on silicon give reflected light a second chance: the ray geometry of a facet, the product of two
   reflectances and what a coating on the facets adds, the oblique path inside the wafer, the Lambertian limit of

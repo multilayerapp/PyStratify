@@ -5,6 +5,8 @@ geometry: spheres
 chapter: Mie theory
 topic: multipoles
 sources: [plane_wave]
+description: "Reading a scattering spectrum by its multipoles: electric and magnetic dipoles, the Kerker conditions, Huygens metasurfaces and the anapole."
+reviewed:
 summary: >-
   Reading a spectrum by its electric and magnetic multipoles: each order's share of the scattering and the
   single-channel bound, the small-sphere expansions of a_1 and b_1, how a magnetic dipole arises in a dielectric and

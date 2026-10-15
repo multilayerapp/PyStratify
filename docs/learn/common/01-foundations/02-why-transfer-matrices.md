@@ -5,6 +5,8 @@ geometry: common
 chapter: Foundations
 topic: foundations
 sources: [plane_wave, dipole, focused]
+description: "Why two boundary conditions always give an invertible 2×2 matrix, and how multiplying them solves films, cylinders and spheres alike."
+reviewed:
 summary: >-
   The one idea behind this site's engine: a second-order wave equation has two independent solutions, so the two
   boundary conditions at an interface always give an invertible 2×2 matrix. Multiplying those matrices across the

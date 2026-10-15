@@ -5,6 +5,8 @@ geometry: films
 chapter: Interfaces
 topic: fresnel
 sources: [plane_wave]
+description: "Reflection and transmission at one interface: Snell's law, the Fresnel coefficients, Brewster's angle, total internal reflection and absorbing media."
+reviewed:
 summary: >-
   Reflection and transmission of a plane wave at a single planar interface, derived from the two boundary conditions:
   Snell's law, the Fresnel coefficients for s and p polarization and their phases, the power coefficients and why
