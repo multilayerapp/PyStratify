@@ -13,8 +13,8 @@ identifiers:
     value: 10.5281/zenodo.23287561
     description: "Concept DOI: every version of PyStratify, resolving to the latest"
   - type: doi
-    value: 10.5281/zenodo.23355672
-    description: "PyStratify 0.10.6"
+    value: 10.5281/zenodo.23425575
+    description: "PyStratify 0.11.0"
 date-released: 2026-10-16
 license: GPL-3.0-or-later
 repository-code: "https://github.com/multilayerapp/PyStratify"
