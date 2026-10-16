@@ -32,6 +32,10 @@ three geometries, with a [theory guide](https://multilayer.app/learn/index.html)
 - **Accurate where others break down.** Special functions as complex logarithms and a scaled two-sided recursion
   keep 1e-12 agreement with 60-digit references, energy balance to 1e-14 at 0.05 nm from a lossless interface, and
   absorbing spheres to size parameter 20 000 ([docs/NUMERICS.md](https://github.com/multilayerapp/PyStratify/blob/main/docs/NUMERICS.md)).
+- **Thin-film ellipsometry, end to end.** Dispersion models (Cauchy, Sellmeier, Lorentz, Gaussian,
+  Tauc-Lorentz, Cody-Lorentz, Drude, poles, Bruggeman and Maxwell Garnett mixtures), Ψ/Δ in the instruments'
+  convention with incoherent backside reflection, Woollam and SENTECH files, and least-squares fits with MSE,
+  90 % limits and correlations: fits of real measurements agree with pyElli + lmfit to 4e-7.
 - **Checked in public.** Every comparison with another code is a script in `benchmarks/` that anyone can rerun
   ([below](#verified-against-independent-codes)).
 - **Light to install.** Pure Python on NumPy and SciPy; whole spectra are vectorised.
@@ -98,6 +102,20 @@ result["total"], result["escape"], result["absorbed"]          # perpendicular, 
 
 ![Decay rates of a dipole beside a gold sphere and above a silver mirror](https://raw.githubusercontent.com/multilayerapp/PyStratify/main/docs/images/emitters.png)
 
+**Ellipsometry.** Fit a measured Woollam file: the native oxide on a silicon wafer.
+
+```python
+from pystratify import dispersion as dm, ellipsometry as el
+
+data = el.read_woollam("wafer.dat").select(wavelength=(250, 1000))       # Psi, Delta, sigmas
+silicon = dm.Table.from_refractiveindex("Si_Green-2008.yml")            # a refractiveindex.info page
+oxide = dm.Sellmeier(B=(0.6961663, 0.4079426, 0.8974794), C=(0.0684043**2, 0.1162414**2, 9.896161**2))
+params = el.Parameters().add("d", 5.0, min=0, max=50)                  # nm
+result = el.fit(lambda p: el.Sample([el.Layer(oxide, p["d"])], substrate=silicon), params, data,
+                grid={"d": np.arange(0, 20, 1.0)})
+print(result.report())                                                  # d = 2.245 ± 0.006 nm (90 %), MSE
+```
+
 **Focused beams.** An FT-IR objective (NA 0.5, central obscuration 0.23) on a polymer fibre.
 
 ```python
@@ -110,7 +128,7 @@ fibre.apparent_absorbance
 Far more is in the **[user guide](https://github.com/multilayerapp/PyStratify/blob/main/docs/GUIDE.md)**:
 conventions, every source and output, chiral media, 2D sheets and the full sphere toolbox. The runnable scripts in
 [`examples/`](https://github.com/multilayerapp/PyStratify/tree/main/examples) (multipole spectra, scattering patterns,
-near-field maps, decay rates, circular dichroism, quadrupole emitters, graphene-coated spheres…) each save a figure,
+ellipsometry fits of measured data, near-field maps, decay rates, circular dichroism, quadrupole emitters, graphene-coated spheres…) each save a figure,
 and [`crosscheck/`](https://github.com/multilayerapp/PyStratify/tree/main/crosscheck) recomputes figures of classic
 papers from their stated parameters.
 
@@ -146,7 +164,7 @@ More, and the accuracy to expect in every regime: [docs/NUMERICS.md](https://git
 
 | | |
 |---|---|
-| [User guide](https://github.com/multilayerapp/PyStratify/blob/main/docs/GUIDE.md) | the problem description, focused beams, the sphere toolbox, conventions |
+| [User guide](https://github.com/multilayerapp/PyStratify/blob/main/docs/GUIDE.md) | the problem description, focused beams, ellipsometry and dispersion models, the sphere toolbox, conventions |
 | [API contract](https://github.com/multilayerapp/PyStratify/blob/main/docs/API.md) | which names are stable for 1.x, provisional, legacy or internal |
 | [Numerics](https://github.com/multilayerapp/PyStratify/blob/main/docs/NUMERICS.md) | how accuracy is kept, accuracy to expect, known limitations, timings |
 | [Benchmarks](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/README.md) | every comparison with another code, and how to rerun it |

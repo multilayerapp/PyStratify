@@ -18,6 +18,16 @@ pytest
 * `test_planar_codes.py`: the planar solver, its fields and its guided modes against PyMoosh, pyElli
   and the slab dispersion relation (skipped unless the
   `benchmarks` extra is installed; the CI job `benchmarks` installs it).
+* `test_dispersion.py`: every dispersion model: closed-form real parts (Tauc-Lorentz, Gaussian, Lorentz)
+  against a numerical Kramers–Kronig transform, Cody-Lorentz against QUADPACK's Cauchy-weight principal
+  value, glass-catalogue Sellmeier and Cauchy values, the two Drude forms against each other, Bruggeman on
+  its passive root (residual 1e-13) and both mixtures' limits; pyElli's dispersions when the `benchmarks`
+  extra is installed.
+* `test_ellipsometry.py`: Ψ/Δ against `planar.coh_tmm` in the instrument convention; backside reflection
+  against `planar.inc_tmm` (intensities) and an explicit phase average of coherent solves (the s–p cross
+  term); the Woollam and SENTECH readers; fits of synthetic data (noisy, MSE ≈ 1 with honest errors; a
+  Tauc-Lorentz film with roughness; a depolarising film on glass; point-by-point n, k) and of a real RC2
+  scan; pyElli + lmfit when the `benchmarks` extra is installed.
 * `test_api_contract.py`: every name in `__all__` has exactly one place in `docs/API.md`
   (frozen, provisional, legacy or internal).
 * `test_focused.py`: focused illumination ([docs/GUIDE.md](https://github.com/multilayerapp/PyStratify/blob/main/docs/GUIDE.md#focused-illumination)): every semi-analytic form against plane-wave
@@ -108,6 +118,7 @@ layered-sphere decay rates from transfer matrices, BHMIE); nothing in it shares 
 
 What runs where: the `tests` workflow (`.github/workflows/tests.yml`) runs `pytest` on Python 3.10 and 3.12 on every
 push and pull request, and its `benchmarks` job installs the `benchmarks` extra and runs the comparisons with PyMoosh,
-pyElli, scattnlay, treams and pyGDM2 (`test_planar_codes.py`, `test_mie_codes.py`, `test_gdm_spheres.py`).
+pyElli (with lmfit), scattnlay, treams and pyGDM2 (`test_planar_codes.py`, `test_mie_codes.py`, `test_gdm_spheres.py`,
+`test_dispersion.py`, `test_ellipsometry.py`).
 Comparisons whose reference needs its own environment (smuthi, Meep, NGSolve, MNPBEM under Octave, tmmax) skip
 there and are rerun with `python benchmarks/verify_all.py` ([benchmarks/README.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/README.md)).

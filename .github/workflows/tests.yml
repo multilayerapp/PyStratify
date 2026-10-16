@@ -14,7 +14,7 @@ jobs:
       - run: pip install -e ".[test]"
       - run: pytest -q
   benchmarks:
-    # Independent planar codes (benchmarks/planar_codes.py); optional dependencies, so a job of its own
+    # Independent codes (benchmarks/*_codes.py, gdm_spheres.py); optional dependencies, so a job of its own
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,3 +23,4 @@ jobs:
           python-version: "3.12"
       - run: pip install -e ".[test,benchmarks]"
       - run: pytest -q tests/test_planar_codes.py tests/test_mie_codes.py tests/test_gdm_spheres.py
+          tests/test_dispersion.py tests/test_ellipsometry.py

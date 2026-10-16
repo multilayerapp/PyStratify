@@ -1,7 +1,7 @@
 # PyStratify user guide
 
 The detail behind the [README](https://github.com/multilayerapp/PyStratify/blob/main/README.md)'s quick start: the problem description shared by the three geometries,
-the focused beam, and the full sphere toolbox with its conventions. Which names are the stable 1.x surface:
+thin-film ellipsometry (dispersion models, measurement files and fits), the focused beam, and the full sphere toolbox with its conventions. Which names are the stable 1.x surface:
 [docs/API.md](https://github.com/multilayerapp/PyStratify/blob/main/docs/API.md). How the numbers are made accurate: [docs/NUMERICS.md](https://github.com/multilayerapp/PyStratify/blob/main/docs/NUMERICS.md).
 
 ## Films, cylinders and spheres: one problem description
@@ -99,6 +99,82 @@ budgets, mode reuse, high-order special functions and treams cylinder benchmarks
 No optical constants are shipped: pass n + ik from a database such as
 [refractiveindex.info](https://refractiveindex.info). The Drude fits in `DRUDE` exist only for
 what tables cannot supply, the free-electron damping.
+
+## Thin-film ellipsometry
+
+Two modules take a spectroscopic ellipsometry measurement from file to fitted thicknesses and optical
+constants. Wavelengths and thicknesses are in nm, angles of incidence in degrees, oscillator
+parameters in eV.
+
+**Dispersion models** (`pystratify.dispersion`). Each model returns `epsilon(wavelength)` and
+`index(wavelength)` (n + ik, k ≥ 0); models add, so a material is a sum of terms with its ε∞ written
+out. Every oscillator's ε tends to 0 at high energy, so no ε∞ is hidden inside one.
+
+| model | form | parameters |
+|---|---|---|
+| `EpsilonInf(value)`, `Constant(n, k)` | constant ε, or ε = (n + ik)² | — |
+| `Cauchy(A, B, C, k_amplitude, k_exponent, band_edge_nm)` | n = A + B/λ² + C/λ⁴ (λ in µm), k = α e^{β(E − E_band)} (Woollam's form) | B in µm², C in µm⁴ |
+| `Sellmeier(B, C, A=1)` | ε = A + Σ Bᵢ λ²/(λ² − Cᵢ) (λ in µm): glass-catalogue coefficients unchanged | Cᵢ in µm² |
+| `Pole(A, E0=0)` | A/(E0² − E²); E0 = 0 is the IR pole −A/E² | A in eV² |
+| `Lorentz(A, E0, B)` | A B E0/(E0² − E² − iEB) | |
+| `Gaussian(A, E0, B)` | KK-consistent Gaussian ε₂ of full width at half maximum B | |
+| `TaucLorentz(A, E0, C, Eg)` | Jellison & Modine (1996), closed-form ε₁ | needs C < √2 E0 |
+| `CodyLorentz(A, E0, Gamma, Eg, Ep, Et, Eu)` | Ferlauto et al. (2002) with its Urbach tail; ε₁ by numerical Kramers–Kronig (`kramers_kronig_real`) | Et = 0: no tail |
+| `DrudeEnergy(Ep, Gamma)`, `DrudeResistivity(rho, tau)` | −Ep²/(E² + iΓE); the same in ρ (Ω m) and τ (s) | |
+| `Bruggeman(a, b, fraction_a)`, `MaxwellGarnett(host, inclusion, fraction)` | effective media of spherical inclusions; Bruggeman keeps the passive root | models or scalar indices |
+| `Table(wavelength_nm, n, k)`, `Table.from_refractiveindex(path)` | linear interpolation, never extrapolated | |
+
+The oscillator forms (pole, Lorentz, Gaussian, Tauc-Lorentz, resistivity Drude, Bruggeman) are the ones
+multilayer.app's oscillator dialog offers, parameter for parameter.
+
+**Forward model** (`pystratify.ellipsometry`). A `Sample` lists `Layer(material, thickness)` from the
+ambient side down, then the substrate; `simulate(sample, wavelengths, angles)` returns Ψ, Δ, N, C, S
+and the depolarisation on the angle × wavelength grid. Ψ and Δ are in the instruments' (Nebraska)
+convention, tan Ψ e^{iΔ} = conj(r_p/r_s) in this package's n + ik fields, so a bare dielectric below its
+Brewster angle has Δ = 180° (Woollam, SENTECH and pyElli agree; `planar.ellips` and multilayer.app's
+Ellipsometry card keep the transfer-matrix phase, 180° − Δ). Δ is in [0°, 360°). Roughness is a
+`Bruggeman(film, 1.0, 0.5)` layer. With `substrate_thickness` set, light returned from the back of a
+finite substrate is added incoherently, which depolarises the reflection (a glass slide); N, C, S then
+have length 1 − depolarisation.
+
+**Data.** `read_woollam` reads CompleteEASE and WVASE exports (Ψ/Δ, their standard deviations, and the
+`dPolE` depolarisation; nm, Å, µm or eV), `read_spectraray` SENTECH SpectraRay exports, and `Data(...)`
+takes arrays. `data.select(wavelength=(min, max), angles=[...])` cuts a range.
+
+**Fits.** The sample is a function of a dict of parameter values; `Parameters` gives each a start,
+bounds and `vary`:
+
+```python
+import numpy as np
+from pystratify import dispersion as dm, ellipsometry as el
+
+def sample(p):
+    film = dm.EpsilonInf(p["einf"]) + dm.TaucLorentz(A=p["A"], E0=p["E0"], C=p["C"], Eg=p["Eg"])
+    return el.Sample([el.Layer(dm.Bruggeman(film, 1.0, 0.5), p["rough"]), el.Layer(film, p["d"])],
+                     substrate=silicon)
+
+params = (el.Parameters().add("d", 80, min=0, max=500).add("rough", 2, min=0, max=10)
+          .add("einf", 1.0, min=0).add("A", 120, min=0).add("E0", 3.6, min=1).add("C", 2.0, min=0.1)
+          .add("Eg", 1.6, min=0, max=3))
+result = el.fit(sample, params, data, grid={"d": np.arange(10, 500, 10.0)})
+print(result.report())          # values ± 90 % limits, correlations above 0.9, MSE
+result.values, result.stderr, result.correlation, result.model_spectra()
+```
+
+`fit` minimises the instruments' MSE with SciPy's bounded trust-region least squares: on Ψ/Δ,
+√(Σ[(ΔΨ/σ_Ψ)² + (ΔΔ/σ_Δ)²]/(2P − M)) with the file's standard deviations (1° without them, Δ residuals
+wrapped to ±180°); with `quantity="ncs"`, 1000 √(Σ[ΔN² + ΔC² + ΔS²]/(3P − M)), the choice for depolarising
+samples and for Δ near 0° or 180°. Standard errors come from the Jacobian at the minimum scaled by the
+MSE, the 90 % limits are 1.645 of them, as ellipsometry software prints. Thickness fits have a minimum
+per fringe order, so pass `grid`: every combination of the listed values is scored and the best starts
+the local fit. `fit_nk(model, data, start)` then inverts one layer's n and k wavelength by wavelength
+(all angles at each), each wavelength starting from the last, and `.table()` turns the answer into a
+`Table`. `examples/ellipsometry_fit.py` fits two real measurements, a Woollam RC2 wafer (native oxide
+2.25 nm) and a SENTECH TiO₂ film; [benchmarks/ELLIPSOMETRY_CODES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/ELLIPSOMETRY_CODES.md)
+fits the latter with pyElli + lmfit as well (parameters agree to 4e-7).
+
+Not modelled: anisotropic films, graded layers, and depolarisation from the instrument (bandwidth,
+angular spread) or from thickness non-uniformity.
 
 ## Focused illumination
 

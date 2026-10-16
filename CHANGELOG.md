@@ -3,6 +3,30 @@
 Notable changes to PyStratify. Every release is on [PyPI](https://pypi.org/project/pystratify/) and
 [Zenodo](https://doi.org/10.5281/zenodo.23287561) (one DOI per version); `git log` has the full history.
 
+## 0.11.0 — thin-film ellipsometry: dispersion models and fits
+
+Two new modules; nothing already computed changes.
+
+- **`pystratify.dispersion`**: parametric dielectric functions, wavelengths in nm and oscillator parameters in eV,
+  composed with `+`: Cauchy (with an Urbach tail), Sellmeier, poles, Lorentz, Gaussian, Tauc-Lorentz, Cody-Lorentz
+  (with an Urbach tail; ε₁ by a numerical Kramers–Kronig transform), Drude in energy and resistivity form,
+  Bruggeman and Maxwell Garnett mixtures, tables (and `Table.from_refractiveindex` for a refractiveindex.info
+  page), and `kramers_kronig_real`. The oscillator forms are multilayer.app's: pole, Lorentz and Tauc-Lorentz
+  agree with its backend to 1e-15.
+- **`pystratify.ellipsometry`**: Ψ, Δ and N, C, S of a film stack in the instrument (Nebraska) convention that
+  Woollam, SENTECH and pyElli report (Δ = 180° − Δ of `planar.ellips`), vectorised over wavelength and angle on
+  the planar solver's own kernel; incoherent backside reflection from a finite substrate, with the depolarisation
+  it causes; readers for J.A. Woollam (CompleteEASE, WVASE) and SENTECH SpectraRay files; `fit`, a bounded
+  least-squares fit reporting the instruments' MSE, 90 % confidence limits and parameter correlations, with a grid
+  search for the starting point; and `fit_nk`, point-by-point optical constants.
+- Checked against pyElli (`benchmarks/DISPERSION_CODES.md`, `benchmarks/ELLIPSOMETRY_CODES.md`): every
+  dispersion model to 5e-15 (pyElli's two Drude models return ε₁ with the wrong sign, so they are compared
+  reversed; its Cody-Lorentz ε₁ is a coarse 1000-point sum, 1.5e-3); Ψ, Δ of four dispersive stacks to 4e-12°
+  with both of its solvers; both readers exactly; and a fit of pyElli's measured TiO₂ film, where parameters
+  agree with pyElli + lmfit to 4e-7 and standard errors and MSE to all printed digits.
+- `examples/ellipsometry_fit.py` fits two real measurements published with pyElli (a Woollam RC2 wafer and a
+  SENTECH TiO₂ film, in `examples/data/ellipsometry/`).
+
 ## 0.10.6 — documentation and packaging
 
 No change to any computed number. The README is a front page (figures, a quick start for every geometry and source,

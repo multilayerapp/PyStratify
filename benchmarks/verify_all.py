@@ -48,6 +48,7 @@ REPORTS = [
     ("planar_checks", "bench", "PLANAR_CHECKS.md"), ("unified_checks", "bench", "UNIFIED_CHECKS.md"),
     ("focused_checks", "bench", "FOCUSED_CHECKS.md"), ("sphere_checks", "bench", "SPHERE_CHECKS.md"),
     ("sphere_emitter_checks", "bench", "SPHERE_EMITTER_CHECKS.md"), ("planar_codes", "bench", "PLANAR_CODES.md"),
+    ("dispersion_codes", "bench", "DISPERSION_CODES.md"), ("ellipsometry_codes", "bench", "ELLIPSOMETRY_CODES.md"),
     ("mie_codes", "bench", "MIE_CODES.md"), ("gdm_spheres", "bench", "GDM_SPHERES.md"),
     ("mnpbem_spheres", "bench", "MNPBEM_SPHERES.md"), ("tmmax_films", "tmmax", "TMMAX_FILMS.md"),
     ("emitter_references", "smuthi", "EMITTER_REFERENCES.md"), ("smuthi_spheres", "smuthi", "SMUTHI_SPHERES.md"),

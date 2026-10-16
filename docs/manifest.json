@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "generator": "pystratify 0.10.6",
+ "generator": "pystratify 0.11.0",
  "records": [
   {
    "id": "fresnel-equations",
@@ -9719,6 +9719,66 @@
    "kind": "benchmark",
    "geometry": "films",
    "source": "plane_wave",
+   "reference": "**pyElli** dispersions",
+   "reference_kind": "code",
+   "quantity": "ε of Tauc-Lorentz, Lorentz, Gaussian, poles, both Drude forms, Sellmeier, Cauchy, Bruggeman, Maxwell Garnett, Cody-Lorentz over 200–1700 nm",
+   "script": "`tests/test_dispersion.py`; `benchmarks/dispersion_codes.py` → `DISPERSION_CODES.md`",
+   "tolerance": "1e-13 of max |ε| (Cody-Lorentz ε₁ 5e-3: pyElli's 1000-point KK); observed ≤ 5e-15",
+   "status": "suite (`benchmarks` extra)"
+  },
+  {
+   "id": "films-plane-wave-15",
+   "kind": "benchmark",
+   "geometry": "films",
+   "source": "plane_wave",
+   "reference": "numerical Kramers–Kronig; QUADPACK Cauchy-weight principal value",
+   "reference_kind": "method",
+   "quantity": "closed-form ε₁ of Tauc-Lorentz, Gaussian, Lorentz; Cody-Lorentz ε₁",
+   "script": "`tests/test_dispersion.py`",
+   "tolerance": "1e-12 of max |ε|",
+   "status": "suite"
+  },
+  {
+   "id": "films-plane-wave-16",
+   "kind": "benchmark",
+   "geometry": "films",
+   "source": "plane_wave",
+   "reference": "**pyElli** 2×2 and 4×4, dispersive stacks",
+   "reference_kind": "code",
+   "quantity": "Ψ, Δ of four stacks (Tauc-Lorentz + Bruggeman roughness, Cauchy on oxide, Drude film on glass, Cody-Lorentz under Maxwell Garnett) × 4 angles × 121 wavelengths",
+   "script": "`tests/test_ellipsometry.py`; `benchmarks/ellipsometry_codes.py` → `ELLIPSOMETRY_CODES.md`",
+   "tolerance": "1e-10°; observed ≤ 4e-12°",
+   "status": "suite (`benchmarks` extra)"
+  },
+  {
+   "id": "films-plane-wave-17",
+   "kind": "benchmark",
+   "geometry": "films",
+   "source": "plane_wave",
+   "reference": "**pyElli** readers; **pyElli + lmfit** fit of a measurement",
+   "reference_kind": "code",
+   "quantity": "Woollam CompleteEASE and SENTECH files; Cauchy TiO₂ film on SiO₂/Si (pyElli's example data)",
+   "script": "`tests/test_ellipsometry.py`; `benchmarks/ellipsometry_codes.py`",
+   "tolerance": "readers 1e-11; parameters 1e-5, errors 1e-4, MSE 1e-9; observed ≤ 4e-7",
+   "status": "suite (`benchmarks` extra + lmfit)"
+  },
+  {
+   "id": "films-plane-wave-18",
+   "kind": "benchmark",
+   "geometry": "films",
+   "source": "plane_wave",
+   "reference": "explicit phase average of coherent solves; `inc_tmm`",
+   "reference_kind": "method",
+   "quantity": "backside reflection: Σ|r|² and the s–p cross term behind depolarisation",
+   "script": "`tests/test_ellipsometry.py`",
+   "tolerance": "1e-12",
+   "status": "suite"
+  },
+  {
+   "id": "films-plane-wave-19",
+   "kind": "benchmark",
+   "geometry": "films",
+   "source": "plane_wave",
    "reference": "**pyElli** 4×4, uniaxial film",
    "reference_kind": "code",
    "quantity": "the **anisotropy reference for WP1.4**",
@@ -9727,7 +9787,7 @@
    "status": "to build"
   },
   {
-   "id": "films-plane-wave-15",
+   "id": "films-plane-wave-20",
    "kind": "benchmark",
    "geometry": "films",
    "source": "plane_wave",
@@ -9744,7 +9804,7 @@
    ]
   },
   {
-   "id": "films-plane-wave-16",
+   "id": "films-plane-wave-21",
    "kind": "benchmark",
    "geometry": "films",
    "source": "plane_wave",
@@ -9760,7 +9820,7 @@
    ]
   },
   {
-   "id": "films-plane-wave-17",
+   "id": "films-plane-wave-22",
    "kind": "benchmark",
    "geometry": "films",
    "source": "plane_wave",
@@ -9776,7 +9836,7 @@
    ]
   },
   {
-   "id": "films-plane-wave-18",
+   "id": "films-plane-wave-23",
    "kind": "benchmark",
    "geometry": "films",
    "source": "plane_wave",
@@ -9788,7 +9848,7 @@
    "status": "to build"
   },
   {
-   "id": "films-plane-wave-19",
+   "id": "films-plane-wave-24",
    "kind": "benchmark",
    "geometry": "films",
    "source": "plane_wave",
@@ -9800,7 +9860,7 @@
    "status": "to build"
   },
   {
-   "id": "films-plane-wave-20",
+   "id": "films-plane-wave-25",
    "kind": "benchmark",
    "geometry": "films",
    "source": "plane_wave",
@@ -9817,7 +9877,7 @@
    ]
   },
   {
-   "id": "films-plane-wave-21",
+   "id": "films-plane-wave-26",
    "kind": "benchmark",
    "geometry": "films",
    "source": "plane_wave",

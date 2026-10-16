@@ -6,7 +6,7 @@ JAX. Five environments hold them; they are made **once** and then only used:
 
 | environment | Python | holds | used for |
 |---|---|---|---|
-| `bench` | 3.13 (venv) | PyStratify, treams, scattnlay, pyGDM2, PyMoosh, pyElli, meent, pytest | the full test suite, 108 figures, the classics, most reports; it also drives GNU Octave for MNPBEM |
+| `bench` | 3.13 (venv) | PyStratify, treams, scattnlay, pyGDM2, PyMoosh, pyElli, lmfit, meent, pytest | the full test suite, 108 figures, the classics, most reports; it also drives GNU Octave for MNPBEM |
 | `smuthi` | 3.10 (conda) | smuthi 2.2.4 (built from source), NumPy < 2 | 5 figures, `EMITTER_REFERENCES.md`, `SMUTHI_SPHERES.md`, the smuthi tests |
 | `meep` | 3.12 (conda-forge) | Meep 1.35, MPI-free | 3 figures, `FDTD_MEEP.md`, `tests/test_fdtd_meep.py` |
 | `ngsolve` | 3.13 (venv) | NGSolve 6.2 | 1 figure, `FEM_NGSOLVE.md`, `tests/test_fem_ngsolve.py` |

@@ -24,6 +24,11 @@ lineage: `python benchmarks/planar_codes.py` (after `pip install -e ".[benchmark
 total internal reflection, a magnetic layer and an incoherent substrate; plane-wave fields agree with
 PyMoosh to 2e-14, and the guided modes behind a film emitter's guided channel with PyMoosh's mode
 search (1e-11) and the slab dispersion relation (7e-14).
+`python benchmarks/dispersion_codes.py` compares every `pystratify.dispersion` model with pyElli's
+([benchmarks/DISPERSION_CODES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/DISPERSION_CODES.md)),
+and `python benchmarks/ellipsometry_codes.py` (with `lmfit`) the ellipsometry module: Ψ, Δ of dispersive stacks
+with both of pyElli's solvers, the Woollam and SENTECH readers, and a fit of a real TiO₂ measurement by both codes
+([benchmarks/ELLIPSOMETRY_CODES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/ELLIPSOMETRY_CODES.md)).
 `python benchmarks/emitter_references.py` checks film emitters: decay rates against Sommerfeld
 integrals written without `pystratify` (themselves pinned to the image dipole at a perfect mirror, to
 5e-12), and near lossless guides against [smuthi](https://gitlab.com/AmosEgel/smuthi) and the
