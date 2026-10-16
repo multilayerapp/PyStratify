@@ -1,12 +1,12 @@
 cff-version: 1.2.0
 message: "If you use PyStratify, please cite it and the STRATIFY paper whose method it implements."
 title: PyStratify
-abstract: "Unified modal response of multilayered films, cylinders and spheres in Python: plane waves, electric/magnetic point dipoles and focused (Cassegrain) beams, after the recursive transfer-matrix method of STRATIFY."
+abstract: "Unified modal response of multilayered films, cylinders and spheres in Python: plane waves, electric/magnetic point dipoles and focused (Cassegrain) beams, after the recursive transfer-matrix method of STRATIFY; and thin-film ellipsometry with dispersion models and least-squares fits."
 type: software
 authors:
   - family-names: Rasskazov
     given-names: Ilia
-version: 0.10.6
+version: 0.11.0
 doi: 10.5281/zenodo.23287561
 identifiers:
   - type: doi
@@ -15,7 +15,7 @@ identifiers:
   - type: doi
     value: 10.5281/zenodo.23355672
     description: "PyStratify 0.10.6"
-date-released: 2026-10-13
+date-released: 2026-10-16
 license: GPL-3.0-or-later
 repository-code: "https://github.com/multilayerapp/PyStratify"
 keywords:
@@ -28,6 +28,8 @@ keywords:
   - cylinder scattering
   - focused beam
   - infrared microspectroscopy
+  - ellipsometry
+  - dispersion models
 references:
   - type: article
     authors:
