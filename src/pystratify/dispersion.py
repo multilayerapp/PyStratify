@@ -55,6 +55,7 @@ __all__ = [
     "DrudeResistivity",
     "Bruggeman",
     "MaxwellGarnett",
+    "bruggeman_epsilon",
     "photon_energy",
     "index_from_epsilon",
     "kramers_kronig_real",
@@ -451,8 +452,13 @@ class DrudeResistivity(Dispersion):
         return -1.0 / (VACUUM_PERMITTIVITY * self.rho * (1j * omega + self.tau * omega**2))
 
 
-def _bruggeman(eps_a, eps_b, fraction_a):
-    """Two-phase Bruggeman root: the passive one nearest the linear mix (multilayer.app's choice)."""
+def bruggeman_epsilon(eps_a, eps_b, fraction_a):
+    """Two-phase Bruggeman permittivity from the phases' permittivities (arrays broadcast).
+
+    Of the quadratic's two roots it keeps the passive one (Im eps >= 0) nearest the volume-weighted
+    mean f_a eps_a + f_b eps_b, which is the physical branch for every passive pair, metals included.
+    """
+    eps_a, eps_b = np.asarray(eps_a, dtype=complex), np.asarray(eps_b, dtype=complex)
     fraction_b = 1.0 - fraction_a
     b = fraction_a * (2 * eps_a - eps_b) + fraction_b * (2 * eps_b - eps_a)
     root = np.sqrt(b**2 + 8 * eps_a * eps_b)
@@ -461,7 +467,8 @@ def _bruggeman(eps_a, eps_b, fraction_a):
     plus_ok, minus_ok = plus.imag >= -1e-10, minus.imag >= -1e-10
     nearer_plus = np.abs(plus - linear) <= np.abs(minus - linear)
     pick_plus = np.where(plus_ok & minus_ok, nearer_plus, np.where(plus_ok | minus_ok, plus_ok, nearer_plus))
-    return np.where(pick_plus, plus, minus)
+    result = np.where(pick_plus, plus, minus)
+    return complex(result) if result.ndim == 0 else result
 
 
 @dataclass(frozen=True)
@@ -485,8 +492,8 @@ class Bruggeman(Dispersion):
             raise ValueError("Bruggeman fraction_a must be between 0 and 1")
 
     def _epsilon(self, energy, wavelength):
-        return _bruggeman(self.a._epsilon(energy, wavelength), self.b._epsilon(energy, wavelength),
-                          self.fraction_a)
+        return bruggeman_epsilon(self.a._epsilon(energy, wavelength), self.b._epsilon(energy, wavelength),
+                                 self.fraction_a)
 
 
 @dataclass(frozen=True)

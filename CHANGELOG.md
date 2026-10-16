@@ -10,7 +10,7 @@ Two new modules; nothing already computed changes.
 - **`pystratify.dispersion`**: parametric dielectric functions, wavelengths in nm and oscillator parameters in eV,
   composed with `+`: Cauchy (with an Urbach tail), Sellmeier, poles, Lorentz, Gaussian, Tauc-Lorentz, Cody-Lorentz
   (with an Urbach tail; ε₁ by a numerical Kramers–Kronig transform), Drude in energy and resistivity form,
-  Bruggeman and Maxwell Garnett mixtures, tables (and `Table.from_refractiveindex` for a refractiveindex.info
+  Bruggeman (also `bruggeman_epsilon` on bare permittivities) and Maxwell Garnett mixtures, tables (and `Table.from_refractiveindex` for a refractiveindex.info
   page), and `kramers_kronig_real`. The oscillator forms are multilayer.app's: pole, Lorentz and Tauc-Lorentz
   agree with its backend to 1e-15.
 - **`pystratify.ellipsometry`**: Ψ, Δ and N, C, S of a film stack in the instrument (Nebraska) convention that

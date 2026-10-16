@@ -121,7 +121,7 @@ out. Every oscillator's ε tends to 0 at high energy, so no ε∞ is hidden insi
 | `TaucLorentz(A, E0, C, Eg)` | Jellison & Modine (1996), closed-form ε₁ | needs C < √2 E0 |
 | `CodyLorentz(A, E0, Gamma, Eg, Ep, Et, Eu)` | Ferlauto et al. (2002) with its Urbach tail; ε₁ by numerical Kramers–Kronig (`kramers_kronig_real`) | Et = 0: no tail |
 | `DrudeEnergy(Ep, Gamma)`, `DrudeResistivity(rho, tau)` | −Ep²/(E² + iΓE); the same in ρ (Ω m) and τ (s) | |
-| `Bruggeman(a, b, fraction_a)`, `MaxwellGarnett(host, inclusion, fraction)` | effective media of spherical inclusions; Bruggeman keeps the passive root | models or scalar indices |
+| `Bruggeman(a, b, fraction_a)`, `MaxwellGarnett(host, inclusion, fraction)` | effective media of spherical inclusions; Bruggeman keeps the passive root (`bruggeman_epsilon` on bare permittivities) | models or scalar indices |
 | `Table(wavelength_nm, n, k)`, `Table.from_refractiveindex(path)` | linear interpolation, never extrapolated | |
 
 The oscillator forms (pole, Lorentz, Gaussian, Tauc-Lorentz, resistivity Drude, Bruggeman) are the ones

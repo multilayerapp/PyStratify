@@ -112,6 +112,14 @@ def test_bruggeman_solves_its_equation_on_the_passive_branch(a, b, fraction):
     assert eps == pytest.approx(dm.Bruggeman(b, a, 1 - fraction).epsilon(500.0), rel=1e-13)
 
 
+def test_bruggeman_epsilon_is_the_model_on_permittivities():
+    ea, eb = METAL.epsilon(500.0), VOID.epsilon(500.0)
+    assert isinstance(dm.bruggeman_epsilon(ea, eb, 0.3), complex)
+    assert dm.bruggeman_epsilon(ea, eb, 0.3) == dm.Bruggeman(METAL, VOID, 0.3).epsilon(500.0)
+    grid = dm.bruggeman_epsilon(np.full(3, ea), np.full(3, eb), 0.3)
+    assert grid.shape == (3,) and np.all(grid == dm.bruggeman_epsilon(ea, eb, 0.3))
+
+
 def test_effective_medium_limits():
     film = dm.TaucLorentz(A=120, E0=3.6, C=2.4, Eg=1.6) + dm.EpsilonInf(1.2)
     assert np.allclose(dm.Bruggeman(film, VOID, 1.0).epsilon(WAVELENGTH), film.epsilon(WAVELENGTH), rtol=1e-13)
