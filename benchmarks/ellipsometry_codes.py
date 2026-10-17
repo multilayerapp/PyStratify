@@ -109,7 +109,9 @@ def readers():
     return rows
 
 
-def tio2_fit():
+def _tio2_fits():
+    """Both fits of pyElli's TiO2 measurement: (data, PyStratify's sample builder, its fit, lmfit's result, pyElli's
+    Psi/Delta for a parameter set)."""
     import lmfit
 
     elli = _elli()
@@ -130,20 +132,55 @@ def tio2_fit():
 
     si_elli = elli.IsotropicMaterial(elli.Table(lbda=wavelength, n=si_index))
 
-    def residual(p):
+    def elli_spectra(p):
         film = elli.Cauchy(p["n0"], p["n1"], p["n2"]).get_mat()
         oxide = elli.Cauchy(1.452, 36.0, 0).get_mat()
-        result = elli.Structure(elli.AIR, [elli.Layer(film, p["d"]), elli.Layer(oxide, 276.36)], si_elli) \
+        return elli.Structure(elli.AIR, [elli.Layer(film, p["d"]), elli.Layer(oxide, 276.36)], si_elli) \
             .evaluate(wavelength, 70.06, solver=elli.Solver2x2)
+
+    def residual(p):
+        result = elli_spectra(p)
         return np.concatenate([result.psi - data.psi, (result.delta - data.delta + 180) % 360 - 180])
 
     lp = lmfit.Parameters()
     for name, value in start.items():
         lp.add(name, value, **({"min": 0, "max": 40000} if name == "d" else {}))
     theirs = lmfit.minimize(residual, lp, method="least_squares", xtol=1e-12, ftol=1e-12, gtol=1e-12)
+    return data, sample, ours, theirs, elli_spectra
+
+
+def tio2_fit():
+    _, _, ours, theirs, _ = _tio2_fits()
     rows = {name: (ours.values[name], theirs.params[name].value, ours.stderr[name], theirs.params[name].stderr)
-            for name in start}
+            for name in ("n0", "n1", "n2", "d")}
     return rows, ours.mse, float(np.sqrt(theirs.redchi))
+
+
+def tio2_fit_spectra():
+    """The measurement and each fit's Psi, Delta at its wavelengths (benchmarks/figures.py draws them)."""
+    data, sample, ours, theirs, elli_spectra = _tio2_fits()
+    mine = el.simulate(sample(ours.values), data.wavelength, 70.06)
+    reference = elli_spectra({name: theirs.params[name].value for name in ("n0", "n1", "n2", "d")})
+    return data, mine, reference, ours, theirs
+
+
+def backside_phase_average(n, d, wavelength_nm, angle_deg, samples=64):
+    """|r_s|^2, |r_p|^2 and r_s conj(r_p) of the coherent stack (indices n, thicknesses d in nm, the thick substrate
+    second to last) averaged over one period of the substrate's round-trip phase: the incoherent backside sum by brute
+    force, independent of the partial-wave chain in ``pystratify.ellipsometry`` (tests/test_ellipsometry.py and
+    benchmarks/figures.py call it)."""
+    from pystratify import planar
+
+    n_sub = n[-2]
+    cos_t = np.sqrt(1 - (n[0] * np.sin(np.radians(angle_deg)) / n_sub) ** 2)
+    period = wavelength_nm / (2 * n_sub * cos_t)
+    sums = np.zeros(3, complex)
+    for k in range(samples):
+        thick = [*d[:-2], d[-2] + k * period / samples, d[-1]]
+        r_s = planar.coh_tmm("s", n, thick, np.radians(angle_deg), wavelength_nm)["r"]
+        r_p = planar.coh_tmm("p", n, thick, np.radians(angle_deg), wavelength_nm)["r"]
+        sums += [abs(r_s) ** 2, abs(r_p) ** 2, r_s * np.conj(r_p)]
+    return sums / samples
 
 
 def report():

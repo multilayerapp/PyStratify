@@ -5,7 +5,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from scipy import integrate
 
 from pystratify import dispersion as dm
 from pystratify import planar
@@ -30,20 +29,8 @@ def test_closed_form_real_parts_are_the_kramers_kronig_transform_of_the_imaginar
     assert np.max(np.abs(transform - eps.real)) < 1e-12 * np.max(np.abs(eps))
 
 
-def cauchy_weight_kk(eps2, energy, breaks):
-    """P int_0^inf E' eps2 / (E'^2 - E^2) by QUADPACK, split at the kinks, with the Cauchy weight on the segment holding
-    E: a quadrature independent of the module's subtraction."""
-    g = lambda e: e * eps2(np.array([e]))[0]  # noqa: E731
-    edges, total = [0.0, *breaks], 0.0
-    for a, b in zip(edges[:-1], edges[1:]):
-        if a < energy < b:
-            value, _ = integrate.quad(lambda e: g(e) / (e + energy), a, b, weight="cauchy", wvar=energy,
-                                      limit=2000, epsabs=1e-14, epsrel=1e-13)
-        else:
-            value, _ = integrate.quad(lambda e: g(e) / (e**2 - energy**2), a, b, limit=2000, epsabs=1e-14, epsrel=1e-13)
-        total += value
-    tail, _ = integrate.quad(lambda e: g(e) / (e**2 - energy**2), edges[-1], np.inf, epsabs=1e-15)
-    return 2 / np.pi * (total + tail)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
+from dispersion_codes import cauchy_weight_kk  # noqa: E402
 
 
 def test_cody_lorentz_against_an_independent_principal_value_and_its_tail():

@@ -405,6 +405,168 @@ def pymoosh_incoherent():
                      "is the first incoherent reference independent of PyStratify's lineage (inc_tmm).")
 
 
+# --- films, plane wave: dispersion models and ellipsometry (0.11.0) ----------------------------------------------
+
+def _continuous_degrees(values, like=None):
+    """An angle curve in degrees drawn without its ±180° or 360° jumps (np.unwrap over its finite points), shifted by
+    whole turns to start on the curve it is compared with: the same values modulo 360°, which is how the tests compare
+    them. Two codes may report Δ on different branches; drawn raw, agreeing curves would sit 360° apart."""
+    v = np.asarray(values, float).copy()
+    ok = np.isfinite(v)
+    v[ok] = np.degrees(np.unwrap(np.radians(v[ok])))
+    if like is not None:
+        like = np.asarray(like, float)
+        first = np.flatnonzero(ok & np.isfinite(like))[0]
+        v[ok] -= 360.0 * np.round((v[first] - like[first]) / 360.0)
+    return v
+
+
+def _pyelli_dispersion_figure(name):
+    from dispersion_codes import WAVELENGTHS_NM, cases
+
+    model, theirs = cases()[name]
+    ours, reference = model.epsilon(WAVELENGTHS_NM), np.asarray(theirs(), complex)
+    return WAVELENGTHS_NM, ours, reference, float(np.max(np.abs(ours - reference)) / np.max(np.abs(reference)))
+
+
+@figure("pyelli-tauc-lorentz", "A Tauc-Lorentz absorber (A = 120 eV, E₀ = 3.6 eV, C = 2.4 eV, E_g = 1.6 eV): ε₁ and ε₂ against pyElli", "λ [nm]", "ε")
+def pyelli_tauc_lorentz():
+    lam, ours, ref, rel = _pyelli_dispersion_figure("Tauc-Lorentz")
+    return dict(x=sig(lam), series=[series("e1", "ε₁, PyStratify", ours.real, "pystratify"), series("e2", "ε₂, PyStratify", ours.imag, "pystratify"),
+                                    series("e1_ref", "ε₁, pyElli", ref.real, "reference"), series("e2_ref", "ε₂, pyElli", ref.imag, "reference")],
+                worst=rel, worst_label="largest |Δε| / max |ε|",
+                note="pystratify.dispersion and pyElli's dispersion models were written apart, so agreement checks the formulas and the "
+                     "parameter conventions together (mapped in benchmarks/dispersion_codes.py). The test runs twelve models: Tauc-Lorentz, "
+                     "Lorentz, Gaussian, poles, both Drude forms, Sellmeier, Cauchy, two Bruggeman mixtures, Maxwell Garnett and Cody-Lorentz.")
+
+
+@figure("pyelli-drude", "A Drude metal (E_p = 8.9 eV, Γ = 0.07 eV): ε₁ and ε₂ against pyElli's DrudeEnergy, whose ε₁ sign is reversed", "λ [nm]", "ε")
+def pyelli_drude():
+    lam, ours, ref, rel = _pyelli_dispersion_figure("Drude (energy)")
+    return dict(x=sig(lam), series=[series("e1", "ε₁, PyStratify", ours.real, "pystratify"), series("e2", "ε₂, PyStratify", ours.imag, "pystratify"),
+                                    series("e1_ref", "ε₁, pyElli (sign corrected)", ref.real, "reference"), series("e2_ref", "ε₂, pyElli", ref.imag, "reference")],
+                worst=rel, worst_label="largest |Δε| / max |ε|",
+                note="pyElli's DrudeEnergy returns A / (E² − iγE), whose real part is positive at every energy, so a free-electron metal never "
+                     "turns metallic; the free-electron ε = −E_p² / (E² + iΓE), which PyStratify returns, is negative below the plasma energy. "
+                     "pyElli's curve is drawn as −conj(ε), as the test compares it; its ε₂ needs no correction.")
+
+
+@figure("kramers-kronig-closed-forms", "ε₁ in closed form against an independent principal value of ε₂: Tauc-Lorentz everywhere, Cody-Lorentz at sample energies", "E [eV]", "ε₁")
+def kramers_kronig_closed_forms():
+    from dispersion_codes import cauchy_weight_kk
+    from pystratify import dispersion as dm
+
+    energy = np.linspace(0.25, 9.0, 120)
+    wavelength = dm.HC_EV_NM / energy
+    tauc = dm.TaucLorentz(A=120, E0=3.6, C=2.4, Eg=1.6)
+    cody = dm.CodyLorentz(A=100, E0=3.6, Gamma=2.4, Eg=1.6, Ep=0.8, Et=1.8, Eu=0.05)
+
+    def tauc_eps2(e):  # zero below the gap by definition, so the quadrature may start at E = 0
+        e = np.atleast_1d(np.asarray(e, float))
+        out = np.zeros_like(e)
+        above = e > tauc.Eg
+        out[above] = tauc.epsilon(dm.HC_EV_NM / e[above]).imag
+        return out
+
+    ours_tl, ours_cl = tauc.epsilon(wavelength).real, cody.epsilon(wavelength).real
+    ref_tl = np.array([cauchy_weight_kk(tauc_eps2, e, (1.6, 3.6, 20.0, 200.0)) for e in energy])
+    ref_cl = np.full(energy.size, np.nan)
+    for i in range(0, energy.size, 4):
+        ref_cl[i] = cauchy_weight_kk(cody.eps2, energy[i], (1.6, 1.8, 3.6, 20.0, 200.0))
+    scale = max(np.max(np.abs(ours_tl)), np.max(np.abs(ours_cl)))
+    rel = float(max(np.max(np.abs(ours_tl - ref_tl)), np.nanmax(np.abs(ours_cl - ref_cl))) / scale)
+    return dict(x=sig(energy), series=[series("tl", "Tauc-Lorentz ε₁, closed form", ours_tl, "pystratify"), series("cl", "Cody-Lorentz ε₁, closed form", ours_cl, "pystratify"),
+                                       series("tl_ref", "Tauc-Lorentz, principal value of ε₂", ref_tl, "reference"),
+                                       series("cl_ref", "Cody-Lorentz, principal value of ε₂", ref_cl, "reference")],
+                worst=rel, worst_label="largest |Δε₁| / max |ε₁|",
+                note="The reference is (2/π) P∫ E′ε₂ / (E′² − E²) dE′ by QUADPACK with the Cauchy weight on the interval holding E, split at "
+                     "the kinks (benchmarks/dispersion_codes.py cauchy_weight_kk), independent of the module's own Kramers-Kronig subtraction. "
+                     "The tests also check Gaussian and Lorentz ε₁ against dispersion.kramers_kronig_real, and that Cody-Lorentz ε₁ stays "
+                     "continuous across E_g and E_t.")
+
+
+@figure("pyelli-dispersive-stack", "A Tauc-Lorentz film (80 nm) under 3 nm of 25 % void roughness, on silicon, at 70°: Ψ and Δ against pyElli's 2×2 and 4×4 solvers", "λ [nm]", "angle [°]")
+def pyelli_dispersive_stack():
+    from ellipsometry_codes import STACKS, WAVELENGTHS_NM, _elli, _elli_material, _wrap
+    from pystratify import ellipsometry as el
+
+    elli = _elli()
+    stack = STACKS["Tauc-Lorentz film, 25% void roughness, on Si"]
+    layers, substrate = stack[:-1], stack[-1][0]
+    sample = el.Sample([el.Layer(model, thickness) for model, thickness in layers], substrate=substrate)
+    structure = elli.Structure(elli.AIR, [elli.Layer(_elli_material(model), thickness) for model, thickness in layers], _elli_material(substrate))
+    ours = el.simulate(sample, WAVELENGTHS_NM, 70.0)
+    two = structure.evaluate(WAVELENGTHS_NM, 70.0, solver=elli.Solver2x2)
+    four = structure.evaluate(WAVELENGTHS_NM, 70.0, solver=elli.Solver4x4)
+    psi_ref, delta_ref = np.array(two.psi, float), np.array(two.delta, float)
+    psi_ref[1::2], delta_ref[1::2] = np.asarray(four.psi)[1::2], np.asarray(four.delta)[1::2]
+    worst_value = max(np.max(np.abs(ours.psi - psi_ref)), np.max(_wrap(ours.delta - delta_ref)))
+    delta_drawn = _continuous_degrees(ours.delta)
+    return dict(x=sig(WAVELENGTHS_NM), series=[series("psi", "Ψ, PyStratify", ours.psi, "pystratify"), series("delta", "Δ, PyStratify", delta_drawn, "pystratify"),
+                                               series("psi_ref", "Ψ, pyElli (2×2 and 4×4 alternately)", psi_ref, "reference"),
+                                               series("delta_ref", "Δ, pyElli (2×2 and 4×4 alternately)", _continuous_degrees(delta_ref, delta_drawn), "reference")],
+                worst=float(worst_value), worst_label="largest difference [°]",
+                note="Both codes get the same ε on the same grid (pyElli's TableEpsilon), so only the stack optics are compared; pyElli reports "
+                     "Ψ, Δ in the same instrument convention as pystratify.ellipsometry. The two pyElli solvers are drawn at alternate "
+                     "wavelengths. The test runs four stacks (this one, Cauchy on thermal oxide, a semi-transparent Drude metal, Cody-Lorentz "
+                     "with Maxwell Garnett inclusions) at 45, 60, 70 and 75°. Δ is drawn continuous, modulo 360°.")
+
+
+@figure("pyelli-tio2-fit", "A measured ALD TiO₂ film (SENTECH, 70.06°): the data, and the Cauchy fits by PyStratify and by lmfit on pyElli's model", "λ [nm]", "angle [°]")
+def pyelli_tio2_fit():
+    from ellipsometry_codes import tio2_fit_spectra
+
+    data, mine, theirs, ours, fit = tio2_fit_spectra()
+    pick = np.arange(0, data.wavelength.size, 6)
+    lam = data.wavelength[pick]
+    psi_data, delta_data = np.full(pick.size, np.nan), np.full(pick.size, np.nan)
+    psi_data[::2], delta_data[::2] = data.psi[pick][::2], data.delta[pick][::2]
+    rel = max(abs(ours.values[k] - fit.params[k].value) / abs(fit.params[k].value) for k in ("n0", "n1", "n2", "d"))
+    delta_drawn = _continuous_degrees(np.asarray(mine.delta)[pick])
+    return dict(x=sig(lam), series=[series("psi", "Ψ, PyStratify fit", np.asarray(mine.psi)[pick], "pystratify"),
+                                    series("delta", "Δ, PyStratify fit", delta_drawn, "pystratify"),
+                                    series("psi_fit", "Ψ, pyElli + lmfit fit", np.asarray(theirs.psi)[pick], "reference"),
+                                    series("delta_fit", "Δ, pyElli + lmfit fit", _continuous_degrees(np.asarray(theirs.delta)[pick], delta_drawn), "reference"),
+                                    series("psi_data", "Ψ, measured", psi_data, "reference"),
+                                    series("delta_data", "Δ, measured", _continuous_degrees(delta_data, delta_drawn), "reference")],
+                worst=float(rel), worst_label="largest relative difference of a fitted parameter",
+                note=f"pyElli's TiO₂ example (ALD TiO₂ on 276 nm SiO₂ on Si, 400–800 nm), read by pystratify.ellipsometry.read_spectraray, fitted "
+                     f"for the film's thickness and three Cauchy coefficients by pystratify.ellipsometry.fit and by lmfit on pyElli's model, "
+                     f"both minimising the same unweighted Ψ/Δ sum of squares: d = {ours.values['d']:.3f} nm against {fit.params['d'].value:.3f} nm. "
+                     f"The measurement is drawn at every other point shown, and Δ continuous, modulo 360°. The test also reads a Woollam "
+                     f"CompleteEASE and this SENTECH file against pyElli's readers.")
+
+
+@figure("backside-reflection", "120 nm of n = 2.0 on 100 µm of glass (n = 1.52), at 65°: the backside sums against inc_tmm and an explicit phase average", "λ [nm]", "R, Re r_s r̄_p")
+def backside_reflection():
+    from ellipsometry_codes import backside_phase_average
+    from pystratify import dispersion as dm
+    from pystratify import ellipsometry as el
+
+    film, glass, thickness, angle = dm.Cauchy(2.0, 0.01), dm.Constant(1.52), 1e5, 65.0
+    sample = el.Sample([el.Layer(film, 120.0)], substrate=glass, substrate_thickness=thickness)
+    lam = np.linspace(400.0, 900.0, 51)
+    ss, pp, sp, _, _ = el._response(sample, lam, np.full(lam.size, angle))
+    inc_s, inc_p, avg_sp = [], [], []
+    for w in lam:
+        n = [1.0, film.index(w), 1.52, 1.0]
+        d, c = [np.inf, 120.0, thickness, np.inf], ["i", "c", "i", "i"]
+        inc_s.append(planar.inc_tmm("s", n, d, c, np.radians(angle), w)["R"])
+        inc_p.append(planar.inc_tmm("p", n, d, c, np.radians(angle), w)["R"])
+        avg_sp.append(backside_phase_average(n, d, w, angle)[2])
+    inc_s, inc_p, avg_sp = map(np.array, (inc_s, inc_p, avg_sp))
+    worst_value = max(worst(ss, inc_s), worst(pp, inc_p), float(np.max(np.abs(np.asarray(sp) - avg_sp))))
+    return dict(x=sig(lam), series=[series("ss", "Σ|r_s|², PyStratify", np.real(ss), "pystratify"), series("pp", "Σ|r_p|², PyStratify", np.real(pp), "pystratify"),
+                                    series("sp", "Re Σ r_s r̄_p, PyStratify", np.real(sp), "pystratify"),
+                                    series("ss_ref", "R_s, inc_tmm", inc_s, "reference"), series("pp_ref", "R_p, inc_tmm", inc_p, "reference"),
+                                    series("sp_ref", "Re r_s r̄_p, phase average", np.real(avg_sp), "reference")],
+                worst=float(worst_value), worst_label="largest |difference|",
+                note="Light returning from a thick substrate's back adds in power, so an ellipsometer sees sums over the partial waves: "
+                     "Σ|r_s|² and Σ|r_p|² are inc_tmm's R, and the cross term Σ r_s r̄_p, which sets the depolarisation, equals r_s r̄_p of the "
+                     "coherent stack averaged over one period of the substrate's round-trip phase (64 coherent solves per point, "
+                     "benchmarks/ellipsometry_codes.py backside_phase_average).")
+
+
 def _tmmax_figure(name, versions):
     from tmmax_films import STACKS, stratify_rt, tmmax_rt
 

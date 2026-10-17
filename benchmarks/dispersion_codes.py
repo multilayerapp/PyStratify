@@ -37,6 +37,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from scipy import integrate
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -107,6 +108,23 @@ def compare():
         worst[name] = (float(np.max(np.abs(ours - reference)) / scale),
                        float(np.max(np.abs(ours.imag - reference.imag)) / scale))
     return worst
+
+
+def cauchy_weight_kk(eps2, energy, breaks):
+    """(2/pi) P int_0^inf E' eps2 / (E'^2 - E^2) dE' by QUADPACK, split at the kinks, with the
+    Cauchy weight on the segment holding E: a quadrature independent of ``dispersion.kramers_kronig_real``'s subtraction
+    (tests/test_dispersion.py and benchmarks/figures.py call it)."""
+    g = lambda e: e * eps2(np.array([e]))[0]  # noqa: E731
+    edges, total = [0.0, *breaks], 0.0
+    for a, b in zip(edges[:-1], edges[1:]):
+        if a < energy < b:
+            value, _ = integrate.quad(lambda e: g(e) / (e + energy), a, b, weight="cauchy", wvar=energy,
+                                      limit=2000, epsabs=1e-14, epsrel=1e-13)
+        else:
+            value, _ = integrate.quad(lambda e: g(e) / (e**2 - energy**2), a, b, limit=2000, epsabs=1e-14, epsrel=1e-13)
+        total += value
+    tail, _ = integrate.quad(lambda e: g(e) / (e**2 - energy**2), edges[-1], np.inf, epsabs=1e-15)
+    return 2 / np.pi * (total + tail)
 
 
 def report(worst):

@@ -91,17 +91,11 @@ def test_backside_cross_term_is_the_phase_average_of_the_coherent_amplitudes(ang
     glass, wavelength, thickness = dm.Constant(1.52), 633.0, 1e5
     sample = el.Sample(GLASS_STACK, substrate=glass, substrate_thickness=thickness)
     ss, pp, sp, _, _ = el._response(sample, np.array([wavelength]), np.array([angle]))
-    cos_t = np.sqrt(1 - (np.sin(np.radians(angle)) / 1.52) ** 2)
-    period = wavelength / (2 * 1.52 * cos_t)
+    sys.path.insert(0, str(ROOT / "benchmarks"))
+    from ellipsometry_codes import backside_phase_average
+
     n = [1.0, GLASS_STACK[0].material.index(wavelength), 1.52, 1.0]
-    sums = np.zeros(3, complex)
-    samples = 64
-    for k in range(samples):
-        d = [np.inf, 120.0, thickness + k * period / samples, np.inf]
-        r_s = planar.coh_tmm("s", n, d, np.radians(angle), wavelength)["r"]
-        r_p = planar.coh_tmm("p", n, d, np.radians(angle), wavelength)["r"]
-        sums += [abs(r_s) ** 2, abs(r_p) ** 2, r_s * np.conj(r_p)]
-    sums /= samples
+    sums = backside_phase_average(n, [np.inf, 120.0, thickness, np.inf], wavelength, angle)
     assert np.allclose([ss[0], pp[0], sp[0]], sums, rtol=1e-12, atol=1e-15)
     spectra = el.simulate(sample, wavelength, angle)
     assert spectra.depolarization > 1e-5 and spectra.r_s is None
