@@ -25,7 +25,7 @@ calculator:
   film:
     incident: {label: Air, n: 1.0, k: 0.0}
     layers:
-    - {label: Si3N4, n: 2.04, k: 0.0, thickness: 0.075, table: {name: "Si3N4 (Luke et al. 2015), tutorials' table", file: docs/data/tutorials/Si3N4_Luke.yml}}
-    substrate: {label: Si, n: 3.94, k: 0.02, table: {name: "Si (Green 2008), tutorials' table", file: docs/data/tutorials/Si_Green-2008.yml}}
+    - {label: Si3N4, n: 2.04, k: 0.0, thickness: 0.075, rii: Si3N4_Luke}
+    substrate: {label: Si, n: 3.94, k: 0.02, rii: Si_Green-2008}
     controls: {wavelength-start: 600, wavelength-end: 600, angle-start: 0.25, angle-end: 89.75, angle-step: 0.5, sweepMode: angle}
     view: {polarization: average, angleMetric: reflectance}

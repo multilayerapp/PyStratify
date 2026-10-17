@@ -38,3 +38,66 @@ rii:
     name: 'Johnson and Christy 1972: n,k 0.188–1.94 µm'
     data: main/Ag/nk/Johnson.yml
     file: crosscheck/classics/data/Ag_Johnson.yml
+  TiO2_Sarkar:
+    shelf: main
+    shelf_name: MAIN - simple inorganic materials
+    book: TiO2
+    book_name: TiO2 (Titanium dioxide)
+    page: Sarkar
+    name: 'Sarkar et al. 2019: Thin film; n,k 0.30–1.69 µm'
+    data: main/TiO2/nk/Sarkar.yml
+    file: crosscheck/classics/data/TiO2_Sarkar.yml
+  ZnO_Aguilar:
+    shelf: main
+    shelf_name: MAIN - simple inorganic materials
+    book: ZnO
+    book_name: ZnO (Zinc monoxide)
+    page: Aguilar
+    name: 'Aguilar et al. 2019: n,k 0.3–3.2 µm'
+    data: main/ZnO/nk/Aguilar.yml
+    file: crosscheck/classics/data/ZnO_Aguilar.yml
+  Ag_Ciesielski:
+    shelf: main
+    shelf_name: MAIN - simple inorganic materials
+    book: Ag
+    book_name: Ag (Silver)
+    page: Ciesielski
+    name: 'Ciesielski et al. 2017: Ag/SiO2; n,k 0.191–20.9 µm'
+    data: main/Ag/nk/Ciesielski.yml
+    file: crosscheck/classics/data/Ag_Ciesielski.yml
+  Si3N4_Luke:
+    shelf: main
+    shelf_name: MAIN - simple inorganic materials
+    book: Si3N4
+    book_name: Si3N4, SiN (Silicon nitride)
+    page: Luke
+    name: 'Luke et al. 2015: n 0.310–5.504 µm'
+    data: main/Si3N4/nk/Luke.yml
+    file: crosscheck/classics/data/Si3N4_Luke.yml
+  SiO2_Kischkat:
+    shelf: main
+    shelf_name: MAIN - simple inorganic materials
+    book: SiO2
+    book_name: SiO2 (Silicon dioxide, Silica, Quartz)
+    page: Kischkat
+    name: 'Kischkat et al. 2012: n,k 1.54–14.3 µm'
+    data: main/SiO2/nk/Kischkat.yml
+    file: crosscheck/classics/data/SiO2_Kischkat.yml
+  ITO_Konig:
+    shelf: other
+    shelf_name: OTHER - miscellaneous materials
+    book: In2O3-SnO2
+    book_name: In2O3-SnO2 (Indium tin oxide, ITO)
+    page: Konig
+    name: 'König et al. 2014: n,k 0.25–1.0 µm'
+    data: other/mixed crystals/In2O3-SnO2/nk/Konig.yml
+    file: crosscheck/classics/data/ITO_Konig.yml
+  MAPbI3_Phillips:
+    shelf: other
+    shelf_name: OTHER - miscellaneous materials
+    book: CH3NH3PbI3
+    book_name: CH3NH3PbI3 (Methylammonium lead iodide, MAPbI3)
+    page: Phillips
+    name: 'Phillips et al. 2015: n,k 0.3–1.5 µm'
+    data: other/perovskite/CH3NH3PbI3/nk/Phillips.yml
+    file: crosscheck/classics/data/MAPbI3_Phillips.yml

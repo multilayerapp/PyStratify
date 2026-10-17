@@ -29,11 +29,11 @@ calculator:
   film:
     incident: {label: Air, n: 1.0, k: 0.0}
     layers:
-    - {label: ITO, n: 1.9, k: 0.0, thickness: 0.1, table: {name: "ITO (König et al. 2014), tutorials' table", file: docs/data/tutorials/ITO_Konig.yml}}
-    - {label: TiO2, n: 2.16, k: 0.0, thickness: 0.05, table: {name: "TiO2 (Sarkar et al. 2019), tutorials' table", file: docs/data/tutorials/TiO2_Sarkar.yml}}
-    - {label: MAPbI3, n: 2.5, k: 0.1, thickness: 0.3, table: {name: "MAPbI3 (Phillips et al. 2015), tutorials' table", file: docs/data/tutorials/MAPbI3_Phillips.yml}}
+    - {label: ITO, n: 1.9, k: 0.0, thickness: 0.1, rii: ITO_Konig}
+    - {label: TiO2, n: 2.16, k: 0.0, thickness: 0.05, rii: TiO2_Sarkar}
+    - {label: MAPbI3, n: 2.5, k: 0.1, thickness: 0.3, rii: MAPbI3_Phillips}
     - {label: HTL, n: 1.55, k: 0.0, thickness: 0.15}
-    - {label: Au, n: 0.18, k: 3.4, thickness: 0.1, table: {name: "Au (Johnson and Christy 1972), tutorials' table", file: docs/data/tutorials/Au_Johnson.yml}}
+    - {label: Au, n: 0.18, k: 3.4, thickness: 0.1, rii: Au_Johnson}
     substrate: {label: Air, n: 1.0, k: 0.0}
     controls: {wavelength-start: 380, wavelength-end: 850, wavelength-step: 5}
     toggles: {layerAbsorption: true}

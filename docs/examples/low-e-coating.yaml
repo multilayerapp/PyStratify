@@ -26,9 +26,9 @@ calculator:
   film:
     incident: {label: Air, n: 1.0, k: 0.0}
     layers:
-    - {label: ZnO, n: 2.0, k: 0.0, thickness: 0.04, table: {name: "ZnO (Aguilar et al. 2019), tutorials' table", file: docs/data/tutorials/ZnO_Aguilar.yml}}
-    - {label: Ag, n: 0.05, k: 3.0, thickness: 0.012, table: {name: "Ag (Ciesielski et al. 2017), tutorials' table", file: docs/data/tutorials/Ag_Ciesielski.yml}}
-    - {label: ZnO, n: 2.0, k: 0.0, thickness: 0.04, table: {name: "ZnO (Aguilar et al. 2019), tutorials' table", file: docs/data/tutorials/ZnO_Aguilar.yml}}
+    - {label: ZnO, n: 2.0, k: 0.0, thickness: 0.04, rii: ZnO_Aguilar}
+    - {label: Ag, n: 0.05, k: 3.0, thickness: 0.012, rii: Ag_Ciesielski}
+    - {label: ZnO, n: 2.0, k: 0.0, thickness: 0.04, rii: ZnO_Aguilar}
     substrate: {label: Glass, n: 1.52, k: 0.0}
     controls: {wavelength-start: 300, wavelength-end: 2500, wavelength-step: 20}
     view: {polarization: average}

@@ -154,14 +154,27 @@ def test_every_matrix_row_is_one_benchmark_record(manifest):
         assert {s["role"] for s in f["series"]} <= {"pystratify", "reference"}
 
 
-def test_an_example_outside_its_data_is_refused(tmp_path):
-    # The tutorials' silver table ends at 0.8 µm; their etalon plotted to 1.0 µm on silently extrapolated values.
+def _copy_content(tmp_path):
     for part in ("docs", "crosscheck/classics/data"):
         shutil.copytree(ROOT / part, tmp_path / part, ignore=shutil.ignore_patterns("manifest.json", "results"))
     (tmp_path / "src").mkdir()
-    example = tmp_path / "docs" / "examples" / "fabry-perot-etalon.yaml"
-    example.write_text(example.read_text().replace("wavelength-end: 800", "wavelength-end: 1000"))
+    return tmp_path / "docs" / "examples" / "fabry-perot-etalon.yaml"
+
+
+def test_an_example_outside_its_data_is_refused(tmp_path):
+    # Johnson and Christy's silver ends at 1.94 µm. (The former tutorials' resampled table ended at 0.8 µm, and their
+    # etalon plotted to 1.0 µm on silently extrapolated values.)
+    example = _copy_content(tmp_path)
+    example.write_text(example.read_text().replace("wavelength-end: 800", "wavelength-end: 2500"))
     with pytest.raises(ContentError, match="covers"):
+        build_manifest(tmp_path, previous=COMMITTED)
+
+
+def test_an_example_with_an_uploaded_table_is_refused(tmp_path):
+    # Ilia, 2026-10-16: a worked example cites a refractiveindex.info page or a constant, never an uploaded table.
+    example = _copy_content(tmp_path)
+    example.write_text(example.read_text().replace("rii: Ag_Johnson", 'table: {name: "Ag", rows: [[0.3, 0.05, 3.0], [1.0, 0.05, 6.0]]}', 1))
+    with pytest.raises(ContentError, match="uploaded n,k table"):
         build_manifest(tmp_path, previous=COMMITTED)
 
 

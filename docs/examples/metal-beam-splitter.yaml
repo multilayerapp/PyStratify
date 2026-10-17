@@ -28,7 +28,7 @@ calculator:
   film:
     incident: {label: Air, n: 1.0, k: 0.0}
     layers:
-    - {label: Ag, n: 0.05, k: 3.0, thickness: 0.013, table: {name: "Ag (Johnson and Christy 1972), tutorials' table", file: docs/data/tutorials/Ag_Johnson.yml}}
+    - {label: Ag, n: 0.05, k: 3.0, thickness: 0.013, rii: Ag_Johnson}
     substrate: {label: Glass, n: 1.52, k: 0.0}
     controls: {wavelength-start: 400, wavelength-end: 800, wavelength-step: 5, angle-deg: 45}
     view: {polarization: average}

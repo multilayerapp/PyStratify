@@ -26,8 +26,8 @@ calculator:
   film:
     incident: {label: Air, n: 1.0, k: 0.0}
     layers:
-    - {label: SiO2, n: 1.4, k: 0.0, thickness: 1.5, table: {name: "SiO2 (Kischkat et al. 2012), tutorials' table", file: docs/data/tutorials/SiO2_Kischkat.yml}}
-    substrate: {label: Ag, n: 10.0, k: 50.0, table: {name: "Ag (Ciesielski et al. 2017), tutorials' table", file: docs/data/tutorials/Ag_Ciesielski.yml}}
+    - {label: SiO2, n: 1.4, k: 0.0, thickness: 1.5, rii: SiO2_Kischkat}
+    substrate: {label: Ag, n: 10.0, k: 50.0, rii: Ag_Ciesielski}
     controls: {wavelength-start: 5, wavelength-end: 14, wavelength-step: 0.1}
     units: {wavelength: um, length: um}
     view: {polarization: average}

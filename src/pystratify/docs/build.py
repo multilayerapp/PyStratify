@@ -169,6 +169,11 @@ class Materials:
                 raise ContentError(f"{where}: {out['rii']!r} is not in docs/materials.yaml")
             out["rii"] = {"key": out["rii"], **self.rii[out["rii"]]}
         if "table" in out:
+            # A worked example cites a refractiveindex.info page or a constant, never an uploaded table (Ilia,
+            # 2026-10-16); a classic may still carry the paper's own data.
+            if where.startswith("docs/examples/"):
+                raise ContentError(f"{where}: {out['label']!r} is an uploaded n,k table; cite a page from "
+                                   "docs/materials.yaml (`rii:`) or give a constant n, k")
             out["table"] = _table(dict(out["table"], root=str(self.root)), where)
         return out
 

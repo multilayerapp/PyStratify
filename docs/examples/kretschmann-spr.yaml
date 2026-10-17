@@ -28,7 +28,7 @@ calculator:
   film:
     incident: {label: Prism, n: 1.515, k: 0.0}
     layers:
-    - {label: Au, n: 0.18, k: 3.4, thickness: 0.048, table: {name: "Au (Johnson and Christy 1972), tutorials' table", file: docs/data/tutorials/Au_Johnson.yml}}
+    - {label: Au, n: 0.18, k: 3.4, thickness: 0.048, rii: Au_Johnson}
     substrate: {label: Water, n: 1.33, k: 0.0}
     controls: {wavelength-start: 633, wavelength-end: 633, angle-start: 40, angle-end: 80, angle-step: 0.25, sweepMode: angle}
     view: {polarization: p, angleMetric: reflectance}
