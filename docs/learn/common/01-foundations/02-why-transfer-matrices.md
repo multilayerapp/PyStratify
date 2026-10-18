@@ -124,7 +124,7 @@ A **point dipole** changes only this last step: it adds a known outgoing wave in
 amplitudes jump by a prescribed amount at the dipole's radius, and the two conditions become regularity at the centre
 and *no incoming wave from infinity*. The same matrices, built once for the structure, then give the fields of a plane
 wave, of a dipole anywhere inside or outside, and, by integrating plane waves over a cone, of a focused beam. The
-calculator's three sources share one solver for exactly this reason.
+three sources share one solver in PyStratify for exactly this reason.
 
 ## What the matrix gives for free
 

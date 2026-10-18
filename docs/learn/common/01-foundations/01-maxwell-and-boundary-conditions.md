@@ -24,7 +24,7 @@ references:
   doi: 10.1364/OSAC.399979
 ---
 
-Everything the calculator computes, for a thin-film stack, a coated cylinder or a multilayered sphere, lit by a plane
+Everything PyStratify computes, for a thin-film stack, a coated cylinder or a multilayered sphere, lit by a plane
 wave, a point dipole or a focused beam, follows from the same four equations and the same two boundary conditions.
 This section states them once, fixes the conventions used throughout the site, and shows the step that makes all
 three geometries tractable: separation of variables, which turns the vector field problem into a scalar second-order

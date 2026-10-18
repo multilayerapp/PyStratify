@@ -29,12 +29,12 @@ references:
 ---
 
 The plane-wave problem of the [previous section](learn/cylinders/infinite-cylinder.html) has a single axial
-wavenumber, fixed by the angle of incidence. Two other sources the calculator offers break that simplicity in
-instructive ways. A **point dipole** radiates in every direction at once, so its field contains every axial
-wavenumber $k_z$ and every order $m$; the cylinder's response must be integrated over $k_z$, and the poles of that
-integrand are the guided modes of the wire or fibre. A **focused beam** is a bundle of plane waves filling a cone, and
-a cylinder under an infrared microscope answers each of them differently; the spectrum the instrument records is the
-cone average.
+wavenumber, fixed by the angle of incidence. Two other sources break that simplicity in instructive ways: the
+calculator offers the first, PyStratify both. A **point dipole** radiates in every direction at once, so its field
+contains every axial wavenumber $k_z$ and every order $m$; the cylinder's response must be integrated over $k_z$,
+and the poles of that integrand are the guided modes of the wire or fibre. A **focused beam** is a bundle of plane
+waves filling a cone, and a cylinder under an infrared microscope answers each of them differently; the spectrum the
+instrument records is the cone average.
 
 ## A dipole beside a cylinder
 
@@ -89,13 +89,14 @@ Davis, Carney and Bhargava showed that this apparent absorbance of a fibre that 
 light is refracted and scattered out of the collection cone in a way that depends on wavelength through the size
 parameter, so a textile fibre or a hair shows a broad, oscillating baseline with dips where the fibre acts as a lens.
 Real absorption bands ride on this baseline, and a quantitative spectrum needs the baseline computed and removed, not
-fitted by a polynomial. This is the physics the calculator's focused (Cassegrain) source implements for films,
-cylinders and spheres; the sphere version is the Mie-type scattering that distorts the infrared spectra of cells, met
-in the [Mie theory](learn/spheres/mie-scattering.html) section.
+fitted by a polynomial. This is the physics PyStratify's `FocusedBeam` computes for films, cylinders and spheres
+(the calculator does not offer it); the sphere version is the Mie-type scattering that distorts the infrared spectra
+of cells, met in the [Mie theory](learn/spheres/mie-scattering.html) section.
 
 ::: classic davis-2011
 
 Two parameters of the instrument matter and are often left out of a paper's caption: the numerical aperture, which
 sets the widest angle in the cone, and the central obscuration of the Cassegrain, which removes the near-normal rays.
-Both change the baseline's shape; Davis's Fig. 5 is reproduced with the aperture of the same paper's Fig. 2. The
-calculator exposes both, together with the fibre's radius, so the three can be varied against a measured spectrum.
+Both change the baseline's shape; Davis's Fig. 5 is reproduced with the aperture of the same paper's Fig. 2.
+PyStratify's `FocusedBeam` takes both, as `na` and `obscuration`, so with the fibre's radius the three can be varied
+against a measured spectrum.
