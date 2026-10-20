@@ -2,20 +2,16 @@
 
 from __future__ import annotations
 
-import json  # noqa: F401
 import sys
 from pathlib import Path
 
 import numpy as np
-from numpy import inf  # noqa: F401
+from numpy import inf
 
 ROOT = Path(__file__).resolve().parents[2]
 for _path in (ROOT / "src", ROOT / "benchmarks"):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
-
-import pystratify as ps  # noqa: E402,F401
-from pystratify import planar  # noqa: E402,F401
 
 
 INCOHERENT = ([1.0, 2.08 + 0.03j, 1.47 + 0.001j, 1.82 + 0.02j, 1.56], [inf, 0.09, 12.0, 0.11, inf], ["i", "c", "i", "c", "i"])

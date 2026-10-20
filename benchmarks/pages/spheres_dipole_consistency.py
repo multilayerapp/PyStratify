@@ -15,22 +15,19 @@ spheres_dipole_consistency.json (the curves the page draws, value for value) and
 
 from __future__ import annotations
 
-import json  # noqa: F401
 import sys
 from pathlib import Path
 
 import numpy as np
-from numpy import inf  # noqa: F401
 
 ROOT = Path(__file__).resolve().parents[2]
 for _path in (ROOT / "src", ROOT / "benchmarks", ROOT / "benchmarks" / "pages"):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
-import pystratify as ps  # noqa: E402,F401
-from pystratify import planar  # noqa: E402,F401
+import pystratify as ps  # noqa: E402
 
-from _page import figure, run, series, sig, worst  # noqa: E402,F401
+from _page import figure, run, series, sig, worst  # noqa: E402
 
 
 @figure("sphere-decay-mpmath", "Metal sphere", "distance from the surface [nm]", "Γ / Γ₀", log=True)
