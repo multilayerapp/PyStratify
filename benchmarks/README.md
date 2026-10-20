@@ -3,8 +3,10 @@
 Every comparison of PyStratify with another code or an extended-precision reference is a script here that writes its
 own report, so anyone can rerun it; the tests import them. [MATRIX.md](MATRIX.md) maps every check, existing and
 planned, by geometry, source and quantity; `python benchmarks/verify_all.py` reruns the whole study in the pinned
-environments of [envs/README.md](envs/README.md); `python benchmarks/figures.py` draws the comparison figures the
-[Verification page](https://multilayer.app/verification.html) shows.
+environments of [envs/README.md](envs/README.md). Each page of the [Verification section](https://multilayer.app/verification.html)
+is computed by one script, [pages/](pages/)`<page>.py`, which a reader runs from a clone to reproduce that page's figures
+value for value; `python benchmarks/figures.py` writes them, with the calculator setup each page freezes
+([figure_setups.py](figure_setups.py)), to `docs/figures/`.
 
 `python benchmarks/convergence.py` reruns the test cases of the multilayered-sphere literature
 against independent references and writes the report in

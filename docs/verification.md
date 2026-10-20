@@ -21,14 +21,13 @@ figures:
 - {geometry: films, source: plane_wave, reference: "position-resolved field against Parseval", figure: position-resolved-absorption}
 - {geometry: films, source: plane_wave, reference: '`inc_tmm` ("GTMM" in the backend tests)', figure: inc-tmm-lineage}
 - {geometry: films, source: plane_wave, reference: "**pyElli**, 2×2 and 4×4 solvers", figure: [pyelli-bragg-mirror, pyelli-gold-ellipsometry]}
-- {geometry: films, source: plane_wave, reference: "**PyMoosh** (independent S-matrix code)", figure: [pymoosh-bragg-mirror, pymoosh-magnetic-layer]}
+- {geometry: films, source: plane_wave, reference: "**PyMoosh** (independent S-matrix code)", figure: pymoosh-bragg-mirror}
 - {geometry: films, source: plane_wave, reference: "**PyMoosh** `field` (one Fourier order: a single plane wave)", figure: pymoosh-field}
 - {geometry: films, source: plane_wave, reference: "**PyMoosh** `incoherent.py`", figure: pymoosh-incoherent}
 - {geometry: films, source: plane_wave, reference: "**tmmax** (JAX transfer matrix, float32)", figure: [tmmax-single-layer, tmmax-bragg-mirror]}
 - {geometry: films, source: plane_wave, reference: "**pyElli** dispersions", figure: [pyelli-tauc-lorentz, pyelli-drude]}
 - {geometry: films, source: plane_wave, reference: "numerical Kramers–Kronig; QUADPACK Cauchy-weight principal value", figure: kramers-kronig-closed-forms}
 - {geometry: films, source: plane_wave, reference: "**pyElli** 2×2 and 4×4, dispersive stacks", figure: pyelli-dispersive-stack}
-- {geometry: films, source: plane_wave, reference: "**pyElli** readers; **pyElli + lmfit** fit of a measurement", figure: pyelli-tio2-fit}
 - {geometry: films, source: plane_wave, reference: "explicit phase average of coherent solves; `inc_tmm`", figure: backside-reflection}
 - {geometry: films, source: dipole, reference: "dipole in a homogeneous film = free space", figure: film-dipole-homogeneous}
 - {geometry: films, source: dipole, reference: "independent flux budget (escape + guided + absorbed = total)", figure: [film-coating-budget-electric, film-coating-budget-magnetic]}

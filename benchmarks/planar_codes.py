@@ -45,6 +45,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from pystratify import planar  # noqa: E402
 
+# The two codes on one stack, shared with the page script the site's figures come from (one implementation for both).
+sys.path.insert(0, str(Path(__file__).resolve().parent / "pages"))
+from films_plane_wave_pymoosh import _split, moosh, moosh_field, stratify, stratify_field  # noqa: E402,F401
+
 # name -> (layers, thicknesses in nm, incoherent?) ; a layer is n or (n, mu)
 CASES = {
     "AR pair on glass": ([1.0, 2.35, 1.46, 1.52], [inf, 64.0, 105.0, inf], False),
@@ -61,46 +65,6 @@ ANGLES_DEG = (0.0, 30.0, 60.0, 85.0)
 WAVELENGTHS_NM = (400.0, 633.0, 1550.0)
 
 
-def _split(layers):
-    n = [complex(x[0]) if isinstance(x, tuple) else complex(x) for x in layers]
-    mu = [complex(x[1]) if isinstance(x, tuple) else 1.0 for x in layers]
-    return n, mu
-
-
-def stratify(case, wavelength, theta, pol):
-    layers, d, incoherent = case
-    n, mu = _split(layers)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        if incoherent:
-            out = planar.inc_tmm(pol, n, d, ["i", "c", "i", "i"], theta, wavelength)
-            return dict(R=out["R"], T=out["T"])
-        magnetic = any(m != 1 for m in mu)
-        out = planar.coh_tmm(pol, n, d, theta, wavelength, mu_list=mu) if magnetic else \
-            planar.coh_tmm(pol, n, d, theta, wavelength)
-        absorbed = np.asarray(planar.absorp_in_each_layer(out))[1:-1]
-    return dict(R=out["R"], T=out["T"], r=out["r"], t=out["t"], A=absorbed)
-
-
-def moosh(case, wavelength, theta, pol):
-    import PyMoosh as pm
-    from PyMoosh.core import absorption_S
-    from PyMoosh.incoherent import incoherent_coefficient_S
-
-    layers, d, incoherent = case
-    n, mu = _split(layers)
-    materials = [[n[i] ** 2 / mu[i], mu[i]] if mu[i] != 1 else n[i] ** 2 for i in range(len(n))]
-    structure = pm.Structure(materials, list(range(len(n))), [0.0] + list(d[1:-1]) + [0.0], verbose=False)
-    polarization = 0 if pol == "s" else 1
-    if incoherent:
-        R, T = incoherent_coefficient_S(structure, True, wavelength, theta, polarization)
-        return dict(R=R, T=T)
-    absorbed, r, t, R, T = absorption_S(structure, wavelength, theta, polarization)
-    if pol == "p":  # H-field ratio to E-field ratio
-        t = t * (n[0] / mu[0]) / (n[-1] / mu[-1])
-    return dict(R=R, T=T, r=r, t=t, A=np.asarray(absorbed)[1:-1])
-
-
 def elli_result(case, wavelength, theta, solver_name):
     import elli
 
@@ -114,46 +78,6 @@ def elli_result(case, wavelength, theta, solver_name):
         warnings.simplefilter("ignore")
         result = structure.evaluate(np.array([wavelength]), np.degrees(theta), solver=solver)
     return dict(Rs=result.R_matrix[0, 1, 1], Rp=result.R_matrix[0, 0, 0], psi=result.psi[0], delta=result.delta[0])
-
-
-def moosh_field(case, wavelength, theta, pol, step=5.0, substrate=200.0):
-    """PyMoosh's field as one plane wave: depths z within each layer below the first interface."""
-    import contextlib
-    import io
-
-    import PyMoosh as pm
-    from PyMoosh.core import field
-
-    layers, d, _ = case
-    n, mu = _split(layers)
-    materials = [[n[i] ** 2 / mu[i], mu[i]] if mu[i] != 1 else n[i] ** 2 for i in range(len(n))]
-    thickness = [0.0] + list(d[1:-1]) + [substrate]
-    structure = pm.Structure(materials, list(range(len(n))), thickness, verbose=False)
-    with contextlib.redirect_stdout(io.StringIO()):
-        width = 50.0
-        beam = pm.Beam(wavelength, theta, 0 if pol == "s" else 1, 1e9 * width)
-        values = field(structure, beam, pm.Window(width, 0.5, width, step))[:, 0]
-    samples = [(layer, (m + 1) * t / np.floor(t / step))
-               for layer, t in enumerate(thickness) if layer > 0 for m in range(int(np.floor(t / step)))]
-    return samples, values
-
-
-def stratify_field(case, wavelength, theta, pol, samples):
-    layers, d, _ = case
-    n, mu = _split(layers)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        magnetic = any(m != 1 for m in mu)
-        data = planar.coh_tmm(pol, n, d, theta, wavelength, mu_list=mu) if magnetic else \
-            planar.coh_tmm(pol, n, d, theta, wavelength)
-        if pol == "s":
-            return np.array([planar.position_resolved(layer, z, data)["Ey"] for layer, z in samples])
-        out = []
-        for layer, z in samples:
-            v, w = data["vw_list"][layer]
-            kz = data["kz_list"][layer]
-            out.append((n[layer] / mu[layer]) / (n[0] / mu[0]) * (v * np.exp(1j * kz * z) + w * np.exp(-1j * kz * z)))
-    return np.array(out)
 
 
 # name -> (core and cladding indices, thicknesses in nm, wavelength in nm); lossless, source in layer 1
