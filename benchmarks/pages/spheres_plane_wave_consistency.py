@@ -85,8 +85,8 @@ def plot_metal_nanoshell():
 def plot_field_at_the_centre():
     from mie_codes import bohren_huffman_centre
 
-    xs = np.linspace(0.05, 4, 200)
-    every = 5  # Bohren & Huffman every 0.1 in x
+    xs = np.linspace(0.02, 4, 200)  # every 0.02 in x
+    every, start = 5, 4  # Bohren & Huffman every 0.1 in x, from 0.1
     m, lam = 3 + 0.01j, 600.0
     e, h = [], []
     for x in xs:
@@ -94,13 +94,13 @@ def plot_field_at_the_centre():
         f = ps.near_field(sol, [0.0], [0.0], [0.0])
         e.append(complex(np.ravel(f.e["x"])[0])), h.append(complex(np.ravel(f.h["y"])[0]))
     e, h = np.array(e), np.array(h)
-    e_ref, h_ref = np.array([bohren_huffman_centre(m, x) for x in xs[::every]]).T
+    e_ref, h_ref = np.array([bohren_huffman_centre(m, x) for x in xs[start::every]]).T
     return result(
         xs,
         [line("e", "|E(0)|, PyStratify", np.abs(e)), line("h", "|H(0)|, PyStratify", np.abs(h)),
-         dots("e_ref", "|d₁|, Bohren & Huffman", np.abs(e_ref), every, size=xs.size),
-         dots("h_ref", "|m c₁|, Bohren & Huffman", np.abs(h_ref), every, size=xs.size)],
-        worst=max(np.max(np.abs(e[::every] / e_ref - 1)), np.max(np.abs(h[::every] / h_ref - 1))),
+         dots("e_ref", "|d₁|, Bohren & Huffman", np.abs(e_ref), every, start, size=xs.size),
+         dots("h_ref", "|m c₁|, Bohren & Huffman", np.abs(h_ref), every, start, size=xs.size)],
+        worst=max(np.max(np.abs(e[start::every] / e_ref - 1)), np.max(np.abs(h[start::every] / h_ref - 1))),
         worst_label="largest relative difference (complex fields)",
         note="Only the order ℓ = 1 survives at the centre, so E(0) = d₁ x̂ and H(0) = m c₁ ŷ exactly (Bohren & "
              "Huffman Eq. 4.53); PyStratify sums its full near field at r = 0. The peaks are the sphere's internal "
@@ -142,17 +142,22 @@ def plot_optical_theorem():
 
 @figure("rayleigh-limit", "Rayleigh limit", "size parameter x", "|a₁| / x³")
 def plot_rayleigh_limit():
-    xs = np.linspace(0.005, 1.0, 120)
-    every = 3  # Rayleigh every 0.025 in x
+    xs = np.linspace(0.005, 1.0, 200)  # every 0.005 in x
+    every, start = 5, 4  # Rayleigh every 0.025 in x, from 0.025
     m, lam = 1.5 + 0.2j, 614.0
     ours = np.array([ps.solve([x * lam / (2 * np.pi)], [m, 1.0], lam, l_max=3).a[0, 0] for x in xs])
-    ref = -2j * xs[::every] ** 3 / 3 * (m ** 2 - 1) / (m ** 2 + 2)
-    small = xs[::every] <= 0.01
+
+    def rayleigh(x):
+        return -2j * x ** 3 / 3 * (m ** 2 - 1) / (m ** 2 + 2)
+
+    ref = rayleigh(xs[start::every])
+    small = xs <= 0.01
     return result(
         xs,
         [line("a1", "|a₁| / x³, PyStratify", np.abs(ours) / xs ** 3),
-         dots("a1_ref", "Rayleigh: (2/3) |(m² − 1)/(m² + 2)|", np.abs(ref) / xs[::every] ** 3, every, size=xs.size)],
-        worst=np.max(np.abs(ours[::every][small] / ref[small] - 1)),
+         dots("a1_ref", "Rayleigh: (2/3) |(m² − 1)/(m² + 2)|", np.abs(ref) / xs[start::every] ** 3, every, start,
+              size=xs.size)],
+        worst=np.max(np.abs(ours[small] / rayleigh(xs[small]) - 1)),
         worst_label="relative difference for x ≤ 0.01",
         note="Rayleigh's a₁ = −(2i/3) x³ (m² − 1)/(m² + 2) is the first term in x, so divided by x³ it is a "
              "constant: PyStratify meets it as x → 0 and leaves it as the sphere grows (11% at x = 1); the "
@@ -163,7 +168,7 @@ def plot_rayleigh_limit():
 def plot_lossless_multilayer():
     rng = np.random.default_rng(3)
     fractions, n = np.sort(rng.uniform(0.05, 1.0, 8)), np.r_[rng.uniform(1.2, 3.5, 8), 1.33]
-    xs = np.linspace(0.5, 300, 150)
+    xs = np.linspace(2, 300, 150)  # every 2 in x
     lam = 614.0
     out = []
     for x in xs:
@@ -261,8 +266,8 @@ def plot_thin_film_as_a_sheet():
 
 @figure("near-field-truncation", "Near-field truncation", "distance from the centre [nm]", "|E|²", log=True)
 def plot_near_field_truncation():
-    r = np.linspace(50.5, 400, 150)
-    every = 5  # 120 orders every 11.7 nm
+    r = np.linspace(50.5, 400.5, 141)  # every 2.5 nm from 0.5 nm off the surface
+    every = 4  # 120 orders every 10 nm
     sol = ps.solve([50.0], [0.25 + 3j, 1.33], 600.0, regime="near")
     ref = ps.solve([50.0], [0.25 + 3j, 1.33], 600.0, l_max=120)
 

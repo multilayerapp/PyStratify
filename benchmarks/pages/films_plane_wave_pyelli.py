@@ -88,11 +88,11 @@ def _continuous_degrees(values, like=None):
 
 
 def _pyelli_dispersion(name, ref_label):
-    """A dispersion model's ε₁, ε₂ from PyStratify every 3.8 nm and from pyElli every 38 nm."""
-    from dispersion_codes import WAVELENGTHS_NM, cases
+    """A dispersion model's ε₁, ε₂ from PyStratify every 2.5 nm and from pyElli every 50 nm, 200 to 1700 nm."""
+    from dispersion_codes import cases
 
-    every = 10
-    lam = WAVELENGTHS_NM
+    every = 20
+    lam = np.linspace(200, 1700, 601)
     model, theirs = cases(lam[::every])[name]
     ours, ref = model.epsilon(lam), np.asarray(theirs(), complex)
     return lam, [line("e1", "ε₁, PyStratify", ours.real), line("e2", "ε₂, PyStratify", ours.imag),

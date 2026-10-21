@@ -259,8 +259,8 @@ def plot_kramers_kronig():
 
     from pystratify import dispersion as dm
 
-    energy = np.linspace(0.25, 9.0, 120)
-    every = 4  # the principal value every 0.29 eV
+    energy = np.linspace(0.25, 9.0, 176)  # every 0.05 eV
+    every = 5  # the principal value every 0.25 eV
     tauc = dm.TaucLorentz(A=120, E0=3.6, C=2.4, Eg=1.6)
     cody = dm.CodyLorentz(A=100, E0=3.6, Gamma=2.4, Eg=1.6, Ep=0.8, Et=1.8, Eu=0.05)
 

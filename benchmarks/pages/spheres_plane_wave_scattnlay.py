@@ -29,8 +29,8 @@ def plot_matryoshka():
     from mie_codes import CASES, scattnlay_values, stratify
 
     radii, n = CASES["matryoshka metal/silica/metal in water"]
-    scale = np.linspace(0.3, 4.0, 120)
-    every = 3  # scattnlay at 40 of the 120 sizes
+    scale = np.linspace(9, 120, 112) / radii[-1]  # the outer radius every 1 nm, 9 to 120 nm
+    every = 3  # scattnlay every 3 nm
     ours = [stratify(list(np.array(radii) * s), n) for s in scale]
     theirs = [scattnlay_values(list(np.array(radii) * s), n) for s in scale[::every]]
     keys = ("Q_ext", "Q_sca")

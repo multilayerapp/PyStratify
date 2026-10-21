@@ -171,22 +171,22 @@ def plot_free_space_pattern():
 def plot_perfect_mirror():
     import emitter_references as er
 
-    x = np.linspace(0.3, 20, 80)
-    every = 2  # the image dipole every 0.5 in kd
+    x = np.linspace(0.25, 20, 80)  # every 0.25 in kd
+    every, start = 2, 1  # the image dipole every 0.5 in kd, from 0.5
     heights = x * er.WAVELENGTH / (4 * np.pi)
     electric = np.array([er.reference_rates([1.0, 1.0], [inf, inf], h, mirror=True) for h in heights])
     magnetic = np.array([er.reference_rates([1.0, 1.0], [inf, inf], h, dipole="magnetic", mirror=True)
                          for h in heights])
-    exact = np.array([er.image_dipole(v) for v in x[::every]])
+    exact = np.array([er.image_dipole(v) for v in x[start::every]])
     return result(
         x,
         [line("e_perp", "electric ⊥, Sommerfeld integrals", electric[:, 0]),
          line("e_par", "electric ∥, Sommerfeld integrals", electric[:, 1]),
          line("m_par", "magnetic ∥, Sommerfeld integrals", magnetic[:, 1]),
-         dots("e_perp_ref", "electric ⊥, image dipole", exact[:, 0], every, size=x.size),
-         dots("e_par_ref", "electric ∥, image dipole", exact[:, 1], every, size=x.size),
-         dots("m_par_ref", "magnetic ∥, 2 − image dipole", 2 - exact[:, 1], every, size=x.size)],
-        worst=max(largest(electric[::every], exact), largest(magnetic[::every], 2 - exact)),
+         dots("e_perp_ref", "electric ⊥, image dipole", exact[:, 0], every, start, size=x.size),
+         dots("e_par_ref", "electric ∥, image dipole", exact[:, 1], every, start, size=x.size),
+         dots("m_par_ref", "magnetic ∥, 2 − image dipole", 2 - exact[:, 1], every, start, size=x.size)],
+        worst=max(largest(electric[start::every], exact), largest(magnetic[start::every], 2 - exact)),
         worst_label="largest |difference|",
         note="This row checks the reference, not PyStratify: the Sommerfeld integrals written without PyStratify "
              "(emitter_references.py), given a perfect mirror (r_s = −1, r_p = 1), must give the image dipole's "

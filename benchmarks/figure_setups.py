@@ -390,8 +390,8 @@ ASIDES = {
         "PyStratify evaluates each model's ε₁ in closed form. The reference rebuilds it from ε₂ alone,\n\n"
         "$$\\varepsilon_1(E) = \\varepsilon_\\infty + \\frac{2}{\\pi}\\,\\mathrm{P}\\!\\int_0^\\infty \\frac{E'\\,\\varepsilon_2(E')}{E'^2 - E^2}\\,dE'$$\n\n"
         "by QUADPACK with a Cauchy weight, split at the kinks, independent of PyStratify's own transform.\n\n"
-        "Tauc–Lorentz: $A$ = 120 eV, $E_0$ = 3.6 eV, $C$ = 2.4 eV, $E_g$ = 1.6 eV, at every energy. Cody–Lorentz: the same with $E_p$ = 0.8 eV, "
-        "$E_t$ = 1.8 eV, $E_u$ = 0.05 eV, at every fourth."),
+        "Tauc–Lorentz: $A$ = 120 eV, $E_0$ = 3.6 eV, $C$ = 2.4 eV, $E_g$ = 1.6 eV. Cody–Lorentz: the same with $E_p$ = 0.8 eV, "
+        "$E_t$ = 1.8 eV, $E_u$ = 0.05 eV. The closed forms every 0.05 eV, the principal value every 0.25 eV."),
     "pyelli-tauc-lorentz": (
         "Both codes evaluate the Tauc–Lorentz model (Jellison & Modine), each from its own source:\n\n"
         "$$\\varepsilon_2(E) = \\frac{A E_0 C\\,(E - E_g)^2}{(E^2 - E_0^2)^2 + C^2 E^2}\\,\\frac{1}{E} \\quad (E > E_g)$$\n\n"

@@ -60,8 +60,8 @@ def plot_index_matched_cylinder():
     k = 2 * np.pi * n / wavelength
     q = np.sqrt(k * k - beta * beta)
     s = ps.solve_cylinder([.1], [n, n], wavelength, beta=beta, m_max=24)
-    x = np.linspace(-.25, .25, 151)
-    every = 5  # the plane wave every 16.7 nm
+    x = np.linspace(-.25, .25, 201)  # every 2.5 nm
+    every = 8  # the plane wave every 20 nm
     points = np.column_stack([x, np.full_like(x, .03), np.full_like(x, .01)])
     phase = np.exp(1j * (q * x + beta * .01))
     cases = (("axial-electric", "E along the axis, E_z", 2, q / k), ("axial-magnetic", "H along the axis, E_y", 1, 1.0))

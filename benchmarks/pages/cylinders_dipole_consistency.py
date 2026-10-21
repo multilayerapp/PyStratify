@@ -118,7 +118,7 @@ def plot_index_matched_cylinder():
 
 def _coating_budget(dipole):
     """The total rate outside an absorbing coating against the sum of its channels."""
-    r = np.linspace(.105, .4, 24)
+    r = np.linspace(.105, .405, 31)  # every 10 nm
     total, channels = [], []
     for ri in r:
         source = ps.PointDipole(ri, dipole, 2)
