@@ -147,10 +147,10 @@ def line(key, label, y):
     return series(key, label, y, "pystratify")
 
 
-def dots(key, label, y, every=1, size=None):
-    """PyMoosh's values at every `every`-th point of a grid of `size` points, null between."""
+def dots(key, label, y, every=1, size=None, start=0):
+    """PyMoosh's values at every `every`-th point of a grid of `size` points from `start`, null between."""
     full = np.full(size, np.nan)
-    full[::every] = y
+    full[start::every] = y
     return series(key, label, full, "reference")
 
 
@@ -183,22 +183,24 @@ def plot_bragg_stack():
 def plot_anti_reflective_coating():
     case = CASES["AR pair on glass"]
     _, d, _ = case
-    every = 5  # PyMoosh's window is sampled every 2 nm; every fifth sample drawn
+    every, start = 10, 9  # PyMoosh's window is sampled every 1 nm; drawn every 10 nm, from 10 nm
     lines, refs, diffs = [], [], []
     for pol, label in (("s", "E_y (s)"), ("p", "H_y (p)")):
-        samples, theirs = moosh_field(case, 633.0, np.radians(60), pol, step=2.0)
+        samples, theirs = moosh_field(case, 633.0, np.radians(60), pol, step=1.0)
         ours = stratify_field(case, 633.0, np.radians(60), pol, samples)
-        start = np.cumsum([0.0] + list(d[1:-1]))
-        depth = np.array([start[layer - 1] + z for layer, z in samples])
+        tops = np.cumsum([0.0] + list(d[1:-1]))  # each layer's top, nm below the surface
+        depth = np.array([tops[layer - 1] + z for layer, z in samples])
         lines += [line(f"re_{pol}", f"Re {label}, PyStratify", ours.real),
                   line(f"im_{pol}", f"Im {label}, PyStratify", ours.imag)]
-        refs += [dots(f"re_{pol}_ref", f"Re {label}, PyMoosh", theirs.real[::every], every, depth.size),
-                 dots(f"im_{pol}_ref", f"Im {label}, PyMoosh", theirs.imag[::every], every, depth.size)]
+        refs += [dots(f"re_{pol}_ref", f"Re {label}, PyMoosh", theirs.real[start::every], every, depth.size,
+                      start),
+                 dots(f"im_{pol}_ref", f"Im {label}, PyMoosh", theirs.imag[start::every], every, depth.size,
+                      start)]
         diffs.append(np.max(np.abs(ours - theirs)))
     return dict(x=sig(depth), series=lines + refs, worst=float(max(diffs)), worst_label="largest |difference|",
                 note="64 nm with n = 2.35 and 105 nm with n = 1.46 on glass, lit from air at 633 nm and 60°: the "
-                     "real and imaginary parts of E_y (s) and H_y (p), every 2 nm through both layers and 200 nm "
-                     "into the glass, relative to the incident wave; PyMoosh drawn at every fifth point.")
+                     "real and imaginary parts of E_y (s) and H_y (p), every 1 nm through both layers and 200 nm "
+                     "into the glass, relative to the incident wave; PyMoosh drawn every 10 nm.")
 
 
 def plot_incoherent_glass():
