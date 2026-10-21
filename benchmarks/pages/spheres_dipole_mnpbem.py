@@ -1,4 +1,4 @@
-"""Spheres, point dipole: PyStratify against mnpbem.
+"""Spheres, point dipole: PyStratify against MNPBEM.
 
 #####################################################################################################################
 #                                                                                                                   #
@@ -8,50 +8,43 @@
 #                                                                                                                   #
 #####################################################################################################################
 
-Every figure of https://multilayer.app/verification/spheres-dipole-mnpbem.html, computed by this one file from a PyStratify clone: it
-uses the benchmark references beside it (benchmarks/*.py). It prints each figure's RMSE and writes, beside itself,
-spheres_dipole_mnpbem.json (the curves the page draws, value for value) and spheres_dipole_mnpbem.png (needs matplotlib).
+Every figure of https://multilayer.app/verification/spheres-dipole-mnpbem.html, computed by this one file from a
+PyStratify clone: it uses the benchmark references beside it (benchmarks/*.py). It prints each figure's RMSE and
+writes, beside itself, spheres_dipole_mnpbem.json (the curves the page draws, value for value) and
+spheres_dipole_mnpbem.png (needs matplotlib).
 """
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-for _path in (ROOT / "src", ROOT / "benchmarks", ROOT / "benchmarks" / "pages"):
-    if str(_path) not in sys.path:
-        sys.path.insert(0, str(_path))
+# _page first: it puts the clone's src/ and benchmarks/ on the path
+from _page import dots, figure, line, result, run
 
-import pystratify as ps  # noqa: E402
-
-from _page import figure, run, series, sig  # noqa: E402
+import pystratify as ps
 
 
 @figure("mnpbem-decay", "Metal-like sphere", "distance from the surface [nm]", "Γ / Γ₀", log=True)
-def mnpbem_decay():
+def plot_metal_like_sphere():
     from mnpbem_spheres import METAL, mnpbem_rates
 
-    gaps = np.geomspace(5, 40, 8)  # from the test's 5 nm: closer, the triangles (~2 nm) no longer resolve the near field
-    faces, total, radiative = mnpbem_rates(1024, gaps)
-    dense = np.geomspace(5, 40, 71)
-    rates = ps.decay_rates([20.0], [np.sqrt(METAL + 0j), 1.0], 600.0, 20.0 + dense)
-    def sparse(values):
-        out = np.full(dense.size, np.nan)
-        out[::10] = values
-        return out
-    rel = np.max(np.abs(total / rates.total[::10] - 1))
-    return dict(x=sig(dense), series=[
-        series("tot_rad", "total, radial, PyStratify", rates.total[:, 0], "pystratify"), series("tot_tan", "total, tangential, PyStratify", rates.total[:, 1], "pystratify"),
-        series("rad_rad", "radiative, radial, PyStratify", rates.radiative[:, 0], "pystratify"),
-        series("tot_rad_ref", f"total, radial, MNPBEM ({faces} faces)", sparse(total[:, 0]), "reference"),
-        series("tot_tan_ref", "total, tangential, MNPBEM", sparse(total[:, 1]), "reference"),
-        series("rad_rad_ref", "radiative, radial, MNPBEM", sparse(radiative[:, 0]), "reference")],
-        worst=float(rel), worst_label="largest relative difference in the total rates (the mesh's error)",
-        note="MNPBEM's dipoleret solves the boundary integral equations for the dipole's field; its triangles are ~2 nm, so the "
-             "difference grows toward the surface (33% for the radial rate at 2 nm, not shown). The test follows four meshes at 5 nm (1.4% radial, 0.04% tangential at 2044 faces).")
+    gaps = np.geomspace(5, 40, 71)  # from the test's 5 nm: closer, the triangles (~2 nm) no longer resolve the field
+    every = 10  # MNPBEM at 8 gaps
+    faces, total, radiative = mnpbem_rates(1024, gaps[::every])
+    rates = ps.decay_rates([20.0], [np.sqrt(METAL + 0j), 1.0], 600.0, 20.0 + gaps)
+    return result(
+        gaps,
+        [line("tot_rad", "total, radial, PyStratify", rates.total[:, 0]),
+         line("tot_tan", "total, tangential, PyStratify", rates.total[:, 1]),
+         line("rad_rad", "radiative, radial, PyStratify", rates.radiative[:, 0]),
+         dots("tot_rad_ref", f"total, radial, MNPBEM ({faces} faces)", total[:, 0], every, size=gaps.size),
+         dots("tot_tan_ref", "total, tangential, MNPBEM", total[:, 1], every, size=gaps.size),
+         dots("rad_rad_ref", "radiative, radial, MNPBEM", radiative[:, 0], every, size=gaps.size)],
+        worst=np.max(np.abs(total / rates.total[::every] - 1)),
+        worst_label="largest relative difference in the total rates (the mesh's error)",
+        note="MNPBEM's dipoleret solves the boundary integral equations for the dipole's field; its triangles are "
+             "~2 nm, so the difference grows toward the surface (33% for the radial rate at 2 nm, not shown). The "
+             "test follows four meshes at 5 nm (1.4% radial, 0.04% tangential at 2044 faces).")
 
 
 if __name__ == "__main__":

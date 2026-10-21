@@ -52,39 +52,39 @@ def _elli():
     return elli
 
 
-def cases():
-    """name -> (PyStratify model, a function returning pyElli's eps as PyStratify defines it)."""
+def cases(wavelengths=WAVELENGTHS_NM):
+    """name -> (PyStratify model, a function returning pyElli's eps as PyStratify defines it, at `wavelengths` [nm])."""
     elli = _elli()
     au, si = dm.Constant(0.18, 3.43), dm.Constant(3.88, 0.02)
 
     def material(model):
-        return elli.IsotropicMaterial(elli.Table(lbda=WAVELENGTHS_NM, n=model.index(WAVELENGTHS_NM)))
+        return elli.IsotropicMaterial(elli.Table(lbda=wavelengths, n=model.index(wavelengths)))
 
     def tensor(mat):
-        return np.asarray(mat.get_tensor(WAVELENGTHS_NM))[..., 0, 0]
+        return np.asarray(mat.get_tensor(wavelengths))[..., 0, 0]
 
     return {
         "Tauc-Lorentz": (dm.TaucLorentz(A=120, E0=3.6, C=2.4, Eg=1.6),
-                         lambda: elli.TaucLorentz(Eg=1.6).add(A=120, E=3.6, C=2.4).get_dielectric(WAVELENGTHS_NM)),
+                         lambda: elli.TaucLorentz(Eg=1.6).add(A=120, E=3.6, C=2.4).get_dielectric(wavelengths)),
         "Lorentz": (dm.Lorentz(A=3.0, E0=4.5, B=0.8),
                     lambda: elli.LorentzEnergy().add(A=3.0 * 0.8 * 4.5, E=4.5, gamma=0.8)
-                    .get_dielectric(WAVELENGTHS_NM) - 1),
+                    .get_dielectric(wavelengths) - 1),
         "Gaussian": (dm.Gaussian(A=2.0, E0=4.0, B=0.6),
-                     lambda: elli.Gaussian().add(A=2.0, E=4.0, sigma=0.6).get_dielectric(WAVELENGTHS_NM)),
+                     lambda: elli.Gaussian().add(A=2.0, E=4.0, sigma=0.6).get_dielectric(wavelengths)),
         "UV + IR poles": (dm.Pole(A=40.0, E0=9.0) + dm.Pole(A=0.3),
-                          lambda: elli.Poles(A_ir=-0.3, A_uv=40.0, E_uv=9.0).get_dielectric(WAVELENGTHS_NM)),
+                          lambda: elli.Poles(A_ir=-0.3, A_uv=40.0, E_uv=9.0).get_dielectric(wavelengths)),
         "Drude (energy)": (dm.DrudeEnergy(Ep=8.9, Gamma=0.07),
-                           lambda: -np.conj(elli.DrudeEnergy(A=8.9**2, gamma=0.07).get_dielectric(WAVELENGTHS_NM))),
+                           lambda: -np.conj(elli.DrudeEnergy(A=8.9**2, gamma=0.07).get_dielectric(wavelengths))),
         "Drude (resistivity)": (dm.DrudeResistivity(rho=2.2e-8, tau=9e-15),
                                 lambda: -np.conj(elli.DrudeResistivity(rho_opt=2.2e-6, tau=9e-15)
-                                                 .get_dielectric(WAVELENGTHS_NM))),
+                                                 .get_dielectric(wavelengths))),
         "Sellmeier (fused silica)": (dm.Sellmeier(B=(0.6961663, 0.4079426, 0.8974794),
                                                   C=(0.0684043**2, 0.1162414**2, 9.896161**2)),
                                      lambda: elli.Sellmeier().add(A=0.6961663, B=0.0684043**2)
                                      .add(A=0.4079426, B=0.1162414**2).add(A=0.8974794, B=9.896161**2)
-                                     .get_dielectric(WAVELENGTHS_NM)),
+                                     .get_dielectric(wavelengths)),
         "Cauchy": (dm.Cauchy(A=1.45, B=0.0036, C=1e-4),
-                   lambda: elli.Cauchy(n0=1.45, n1=36.0, n2=10.0).get_dielectric(WAVELENGTHS_NM)),
+                   lambda: elli.Cauchy(n0=1.45, n1=36.0, n2=10.0).get_dielectric(wavelengths)),
         "Bruggeman, 50% void in Si": (dm.Bruggeman(1.0, si, 0.5),
                                       lambda: tensor(elli.BruggemanEMA(material(si), material(dm.Constant(1.0)), 0.5))),
         "Bruggeman, 30% Au in air": (dm.Bruggeman(au, 1.0, 0.3),
@@ -95,7 +95,7 @@ def cases():
         "Cody-Lorentz (pyElli's KK is a 1000-point sum)": (
             dm.CodyLorentz(A=100, E0=3.6, Gamma=2.4, Eg=1.6, Ep=0.8, Et=1.8, Eu=0.05),
             lambda: elli.CodyLorentz(Eg=1.6, A=100, Et=1.8, gamma=2.4, Ep=0.8, E0=3.6, Eu=0.05)
-            .get_dielectric(WAVELENGTHS_NM)),
+            .get_dielectric(wavelengths)),
     }
 
 

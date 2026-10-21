@@ -1,24 +1,21 @@
-"""Helpers more than one page script (and benchmarks/figures.py) uses."""
+"""What more than one page script uses (each imports _page first, which puts src/ and benchmarks/ on the path)."""
 
 from __future__ import annotations
-
-import sys
-from pathlib import Path
 
 import numpy as np
 from numpy import inf
 
-ROOT = Path(__file__).resolve().parents[2]
-for _path in (ROOT / "src", ROOT / "benchmarks"):
-    if str(_path) not in sys.path:
-        sys.path.insert(0, str(_path))
+# the films plane-wave pages' thick incoherent stack: (n, d [µm], coherent "c" or incoherent "i")
+INCOHERENT = ([1.0, 2.08 + 0.03j, 1.47 + 0.001j, 1.82 + 0.02j, 1.56], [inf, 0.09, 12.0, 0.11, inf],
+              ["i", "c", "i", "c", "i"])
 
 
-INCOHERENT = ([1.0, 2.08 + 0.03j, 1.47 + 0.001j, 1.82 + 0.02j, 1.56], [inf, 0.09, 12.0, 0.11, inf], ["i", "c", "i", "c", "i"])
-
-
-def _guide_modes(reference):
+def guide_modes(reference):
+    """The guided modes of a symmetric slab (n = 2 in air, 500 nm) from 100 to 600 nm thick: PyStratify's poles
+    against PyMoosh's mode search ("pymoosh") or the slab dispersion relation ("analytic"), highest index first, NaN
+    where a mode is not guided. Returns (thickness, ours, theirs, the largest difference, the number of modes)."""
     from planar_codes import GUIDES, guided_mode_sets, slab_modes
+
     from pystratify.planar_emission import FilmSource
 
     n, d, lam = GUIDES["symmetric slab, n 2.0 in air, 500 nm"]
@@ -33,15 +30,9 @@ def _guide_modes(reference):
             a, b = sorted(np.array(source.guided_poles()) * source.ns), slab_modes(n[0], n[1], n[2], t, lam)
         ours.append(sorted(a, reverse=True)), theirs.append(sorted(b, reverse=True))
     width = max(len(v) for v in ours + theirs)
-    pad = lambda rows: np.array([v + [np.nan] * (width - len(v)) for v in rows])  # noqa: E731
-    ours, theirs = pad(ours), pad(theirs)
-    diffs = np.abs(ours - theirs)
-    return thickness, ours, theirs, float(np.nanmax(diffs)), width
 
+    def padded(rows):
+        return np.array([v + [np.nan] * (width - len(v)) for v in rows])
 
-def at(x, points):
-    """A reference series on the grid x, null except at the published points {x: value} (nearest grid point)."""
-    out = np.full(len(x), np.nan)
-    for xp, value in points.items():
-        out[int(np.argmin(np.abs(np.asarray(x) - xp)))] = value
-    return out
+    ours, theirs = padded(ours), padded(theirs)
+    return thickness, ours, theirs, float(np.nanmax(np.abs(ours - theirs))), width

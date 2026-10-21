@@ -60,7 +60,8 @@ def _split(layers):
 
 
 def stratify(case, wavelength, theta, pol):
-    """PyStratify: R, T (and r, t, the absorption per finite layer for a coherent stack) at wavelength [nm], theta [rad]."""
+    """PyStratify: R, T (and r, t, the absorption per finite layer for a coherent stack) at wavelength [nm] and
+    theta [rad]."""
     layers, d, incoherent = case
     n, mu = _split(layers)
     with warnings.catch_warnings():
@@ -134,74 +135,95 @@ def stratify_field(case, wavelength, theta, pol, samples):
 
 
 # --- the figures -------------------------------------------------------------------------------------------------
+# PyStratify is drawn as lines, PyMoosh as circles: one per value it computed, at most 41 per curve.
 
 def series(key, label, y, role):
-    """A curve; NaN (a reference computed at only some of the points) is written as null."""
-    return {"key": key, "label": label, "y": [float(v) if np.isfinite(v) else None for v in np.asarray(y, float)], "role": role}
+    """A curve; NaN (no value at that point) is written as null."""
+    return {"key": key, "label": label, "y": [float(v) if np.isfinite(v) else None for v in np.asarray(y, float)],
+            "role": role}
 
 
-def worst(ours, theirs):
-    return float(np.max(np.abs(np.asarray(ours, float) - np.asarray(theirs, float))))
+def line(key, label, y):
+    return series(key, label, y, "pystratify")
+
+
+def dots(key, label, y, every=1, size=None):
+    """PyMoosh's values at every `every`-th point of a grid of `size` points, null between."""
+    full = np.full(size, np.nan)
+    full[::every] = y
+    return series(key, label, full, "reference")
+
+
+def largest(ours, theirs):
+    return float(np.max(np.abs(np.asarray(ours) - np.asarray(theirs))))
 
 
 def sig(values, digits=7):
     return [None if v is None else float(f"{v:.{digits}g}") for v in values]
 
 
-def bragg_mirror():
+def plot_bragg_stack():
     case = CASES["Bragg mirror, 10 pairs"]
     lam = np.linspace(450, 850, 81)
-    out, refs, diffs = [], [], []
+    every = 2  # PyMoosh every 10 nm
+    lines, refs, diffs = [], [], []
     for pol in "sp":
         ours = np.array([[stratify(case, w, np.radians(30), pol)[q] for q in "RT"] for w in lam])
-        theirs = np.array([[moosh(case, w, np.radians(30), pol)[q] for q in "RT"] for w in lam])
-        out += [series(f"{q}_{pol}", f"{q}_{pol}, PyStratify", ours[:, i], "pystratify") for i, q in enumerate("RT")]
-        refs += [series(f"{q}_{pol}_ref", f"{q}_{pol}, PyMoosh", theirs[:, i], "reference") for i, q in enumerate("RT")]
-        diffs.append(worst(ours, theirs))
-    return dict(x=sig(lam), series=out + refs, worst=float(max(diffs)), worst_label="largest |difference|",
-                note="Ten pairs of 67.3 nm with n = 2.35 and 108.4 nm with n = 1.46 on glass (n = 1.52), lit from air at 30°: "
-                     "reflectance and transmittance for s and p polarization from 450 to 850 nm, every 5 nm.")
+        theirs = np.array([[moosh(case, w, np.radians(30), pol)[q] for q in "RT"] for w in lam[::every]])
+        lines += [line(f"{q}_{pol}", f"{q}_{pol}, PyStratify", ours[:, i]) for i, q in enumerate("RT")]
+        refs += [dots(f"{q}_{pol}_ref", f"{q}_{pol}, PyMoosh", theirs[:, i], every, lam.size)
+                 for i, q in enumerate("RT")]
+        diffs.append(largest(ours[::every], theirs))
+    return dict(x=sig(lam), series=lines + refs, worst=max(diffs), worst_label="largest |difference|",
+                note="Ten pairs of 67.3 nm with n = 2.35 and 108.4 nm with n = 1.46 on glass (n = 1.52), lit from "
+                     "air at 30°: reflectance and transmittance for s and p polarization from 450 to 850 nm, "
+                     "PyStratify every 5 nm and PyMoosh every 10 nm.")
 
 
-def field_profile():
+def plot_anti_reflective_coating():
     case = CASES["AR pair on glass"]
     _, d, _ = case
-    out, refs, diffs = [], [], []
+    every = 5  # PyMoosh's window is sampled every 2 nm; every fifth sample drawn
+    lines, refs, diffs = [], [], []
     for pol, label in (("s", "E_y (s)"), ("p", "H_y (p)")):
         samples, theirs = moosh_field(case, 633.0, np.radians(60), pol, step=2.0)
         ours = stratify_field(case, 633.0, np.radians(60), pol, samples)
         start = np.cumsum([0.0] + list(d[1:-1]))
         depth = np.array([start[layer - 1] + z for layer, z in samples])
-        if pol == "s":
-            x = depth
-        out += [series(f"re_{pol}", f"Re {label}, PyStratify", ours.real, "pystratify"), series(f"im_{pol}", f"Im {label}, PyStratify", ours.imag, "pystratify")]
-        refs += [series(f"re_{pol}_ref", f"Re {label}, PyMoosh", theirs.real, "reference"), series(f"im_{pol}_ref", f"Im {label}, PyMoosh", theirs.imag, "reference")]
+        lines += [line(f"re_{pol}", f"Re {label}, PyStratify", ours.real),
+                  line(f"im_{pol}", f"Im {label}, PyStratify", ours.imag)]
+        refs += [dots(f"re_{pol}_ref", f"Re {label}, PyMoosh", theirs.real[::every], every, depth.size),
+                 dots(f"im_{pol}_ref", f"Im {label}, PyMoosh", theirs.imag[::every], every, depth.size)]
         diffs.append(np.max(np.abs(ours - theirs)))
-    return dict(x=sig(x), series=out + refs, worst=float(max(diffs)), worst_label="largest |difference|",
-                note="64 nm with n = 2.35 and 105 nm with n = 1.46 on glass, lit from air at 633 nm and 60°: the real and imaginary parts "
-                     "of E_y (s) and H_y (p), every 2 nm through both layers and 200 nm into the glass, relative to the incident wave.")
+    return dict(x=sig(depth), series=lines + refs, worst=float(max(diffs)), worst_label="largest |difference|",
+                note="64 nm with n = 2.35 and 105 nm with n = 1.46 on glass, lit from air at 633 nm and 60°: the "
+                     "real and imaginary parts of E_y (s) and H_y (p), every 2 nm through both layers and 200 nm "
+                     "into the glass, relative to the incident wave; PyMoosh drawn at every fifth point.")
 
 
-def incoherent_substrate():
+def plot_incoherent_glass():
     case = CASES["TiO2 on 1 mm incoherent glass"]
     lam = np.linspace(400, 1000, 61)
-    out, refs, diffs = [], [], []
+    every = 2  # PyMoosh every 20 nm
+    lines, refs, diffs = [], [], []
     for pol, a in (("s", 0.0), ("p", 60.0)):
         ours = np.array([[stratify(case, w, np.radians(a), pol)[q] for q in "RT"] for w in lam])
-        theirs = np.array([[moosh(case, w, np.radians(a), pol)[q] for q in "RT"] for w in lam])
-        out += [series(f"{q}_{pol}", f"{q}, {a:g}° {pol}, PyStratify", ours[:, i], "pystratify") for i, q in enumerate("RT")]
-        refs += [series(f"{q}_{pol}_ref", f"{q}, {a:g}° {pol}, PyMoosh", theirs[:, i], "reference") for i, q in enumerate("RT")]
-        diffs.append(worst(ours, theirs))
-    return dict(x=sig(lam), series=out + refs, worst=float(max(diffs)), worst_label="largest |difference|",
-                note="80 nm of TiO₂ on 1 mm of glass whose back reflection adds in power, not in amplitude, in air: reflectance and "
-                     "transmittance for s at 0° and p at 60°, from 400 to 1000 nm. PyMoosh's incoherent solver shares no code with PyStratify's.")
+        theirs = np.array([[moosh(case, w, np.radians(a), pol)[q] for q in "RT"] for w in lam[::every]])
+        lines += [line(f"{q}_{pol}", f"{q}, {a:g}° {pol}, PyStratify", ours[:, i]) for i, q in enumerate("RT")]
+        refs += [dots(f"{q}_{pol}_ref", f"{q}, {a:g}° {pol}, PyMoosh", theirs[:, i], every, lam.size)
+                 for i, q in enumerate("RT")]
+        diffs.append(largest(ours[::every], theirs))
+    return dict(x=sig(lam), series=lines + refs, worst=max(diffs), worst_label="largest |difference|",
+                note="80 nm of TiO₂ on 1 mm of glass whose back reflection adds in power, not in amplitude, in air: "
+                     "reflectance and transmittance for s at 0° and p at 60°, from 400 to 1000 nm. PyMoosh's "
+                     "incoherent solver shares no code with PyStratify's.")
 
 
 # id, title, x label, y label, the function computing it; in the page's order
 FIGURES = [
-    ("pymoosh-bragg-mirror", "Bragg stack", "λ [nm]", "R, T", bragg_mirror),
-    ("pymoosh-field", "Anti-reflective coating", "depth below the surface [nm]", "field", field_profile),
-    ("pymoosh-incoherent", "Incoherent glass", "λ [nm]", "R, T", incoherent_substrate),
+    ("pymoosh-bragg-mirror", "Bragg stack", "λ [nm]", "R, T", plot_bragg_stack),
+    ("pymoosh-field", "Anti-reflective coating", "depth below the surface [nm]", "field", plot_anti_reflective_coating),
+    ("pymoosh-incoherent", "Incoherent glass", "λ [nm]", "R, T", plot_incoherent_glass),
 ]
 SCRIPT = "benchmarks/pages/films_plane_wave_pymoosh.py"
 
@@ -241,9 +263,10 @@ def plot(records, path):
             if quantity not in colors and quantity not in extra:
                 extra.append(quantity)
             color = colors.get(quantity) or others[extra.index(quantity) % len(others)]
-            ax.plot(r["x"], [np.nan if v is None else v for v in s["y"]], color=color, lw=1.6, ls="--" if pol == "p" else "-", label=s["label"])
-            step = max(1, len(r["x"]) // 40)
-            ax.plot(r["x"][::step], [np.nan if v is None else v for v in ref["y"]][::step], "o", mfc="none", color=color, ms=5, label=ref["label"])
+            ax.plot(r["x"], [np.nan if v is None else v for v in s["y"]], color=color, lw=1.6,
+                    ls="--" if pol == "p" else "-", label=s["label"])
+            drawn = [(x, v) for x, v in zip(r["x"], ref["y"]) if v is not None]
+            ax.plot(*zip(*drawn), "o", mfc="none", color=color, ms=5, label=ref["label"])
         ax.set(xlabel=r["x_label"], ylabel=r["y_label"])
         ax.set_title(f"{r['title']}\nRMSE {r['rmse']:.2e}", fontsize=9)
         ax.legend(fontsize=7, ncol=2)

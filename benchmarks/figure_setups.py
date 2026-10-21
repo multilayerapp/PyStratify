@@ -344,10 +344,10 @@ SUMMARIES = {
     'thin-film-sheet': 'a 1 nm film as a shell and as a 2D conducting sheet',
     'near-field-truncation': '|E|² outside with the truncation PyStratify picks, against 120 orders',
     'mnpbem-spectrum': "cross sections against MNPBEM's boundary elements (percent-level by design)",
-    'mnpbem-thin-nanoshell': "three Mie codes and MNPBEM's boundary elements",
+    'mnpbem-thin-nanoshell': "MNPBEM's boundary elements, 11–16% low: its mesh cannot resolve a 5 nm shell",
     'gdm-spectrum': "cross sections against pyGDM2's volume discretization (percent-level by design)",
     'scattnlay-matryoshka': 'radii scaled together, 1 : 2 : 3, outer 9–120 nm: Q against scattnlay',
-    'scattnlay-pattern': 'the amplitudes |S₁| and |S₂| at every angle against scattnlay',
+    'scattnlay-pattern': "the amplitudes |S₁| and |S₂| against scattnlay's",
     'scattnlay-near-field': "|E|² through every layer against scattnlay's field code",
     'treams-chiral': 'the helicity T-matrix against treams',
     'treams-nanoshell': 'Q_ext and Q_sca against treams',
@@ -432,3 +432,50 @@ ASIDES = {
         "PyStratify's full solution with the sheet (graphene, $E_F$ = 0.5 eV, ε = 2.1 inside, 1.77 outside) finds the peak of |T₁|; the two "
         "meet as $R \\to 0$ and part by retardation, within $(kR)^2$ as the test asserts."),
 }
+
+
+# --- the PyMoosh page: its script stands alone (pip install pystratify PyMoosh), so its setups are read off the
+# stacks it declares --------------------------------------------------------------------------------------------
+
+def _film_calculator(case, labels, controls, link=True, theta=None):
+    """A page script's stack as the calculator block a share token is built from: the first and last layers are the
+    incident medium and the substrate, thicknesses go from nm to µm, an incoherent stack's thick layer stays
+    incoherent."""
+    from films_plane_wave_pymoosh import _split  # benchmarks/pages/, on the path benchmarks/figures.py sets
+
+    layers, d, incoherent = case
+    n, mu = _split(layers)
+
+    def medium(i):  # μ only where it is not 1: the calculator has none, the page's frozen table shows it
+        out = {"label": labels[i], "n": float(n[i].real), "k": float(n[i].imag)}
+        return {**out, "mu": float(complex(mu[i]).real)} if mu[i] != 1 else out
+
+    finite = [{**medium(i), "thickness": round(d[i] / 1000, 9)} for i in range(1, len(n) - 1)]
+    if incoherent:
+        for layer in finite:
+            if layer["thickness"] >= 100:
+                layer["coherency"] = "i"
+    # A stack that is one run repeated (a Bragg mirror) is declared as that run and its count, as the calculator holds
+    # it in Bragg mode: never written out layer by layer.
+    for size in range(2, len(finite) // 2 + 1):
+        if len(finite) % size == 0 and finite == finite[:size] * (len(finite) // size):
+            finite = [{"repeat": len(finite) // size, "layers": finite[:size]}]
+            break
+    out = {"film": {"incident": medium(0), "layers": finite, "substrate": medium(len(n) - 1), "controls": controls,
+                    "view": {"polarization": "average"}}, "link": link}
+    return {**out, "theta": theta} if theta else out
+
+
+def pymoosh_setups():
+    from films_plane_wave_pymoosh import CASES
+
+    return {
+        "pymoosh-bragg-mirror": _film_calculator(CASES["Bragg mirror, 10 pairs"], ["Air"] + ["H", "L"] * 10 + ["Glass"],
+                                                 {"wavelength-start": 450, "wavelength-end": 850, "wavelength-step": 5,
+                                                  "angle-deg": 30}),
+        "pymoosh-field": _film_calculator(CASES["AR pair on glass"], ["Air", "H", "L", "Glass"],
+                                          {"wavelength-start": 633, "wavelength-end": 633, "angle-deg": 60}),
+        "pymoosh-incoherent": _film_calculator(CASES["TiO2 on 1 mm incoherent glass"], ["Air", "TiO₂", "Glass", "Air"],
+                                               {"wavelength-start": 400, "wavelength-end": 1000, "wavelength-step": 10},
+                                               theta="0 (s), 60 (p)"),
+    }

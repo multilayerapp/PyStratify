@@ -6,7 +6,8 @@ planned, by geometry, source and quantity; `python benchmarks/verify_all.py` rer
 environments of [envs/README.md](envs/README.md). Each page of the [Verification section](https://multilayer.app/verification.html)
 is computed by one script, [pages/](pages/)`<page>.py`, which a reader runs from a clone to reproduce that page's figures
 value for value; `python benchmarks/figures.py` writes them, with the calculator setup each page freezes
-([figure_setups.py](figure_setups.py)), to `docs/figures/`.
+([figure_setups.py](figure_setups.py)), to `docs/figures/`. PyStratify is drawn as lines, each reference as circles:
+one per value the reference computed, on its own sparse grid ([pages/_page.py](pages/_page.py) `dots`).
 
 `python benchmarks/convergence.py` reruns the test cases of the multilayered-sphere literature
 against independent references and writes the report in

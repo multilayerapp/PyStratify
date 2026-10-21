@@ -31,6 +31,21 @@ def test_page_script_publishes_its_figures(name):
         assert published["function"] == fn.__name__, figure
 
 
+@pytest.mark.parametrize("path", sorted((ROOT / "docs" / "figures").glob("*.json")), ids=lambda p: p.stem)
+def test_every_circle_is_a_computed_reference_value(path):
+    """A reference is drawn as one circle per value its code returned, never thinned for display: each page script
+    computes it on a sparse grid of at most 41 points (benchmarks/pages/_page.py MAX_DOTS)."""
+    import _page
+
+    figure = json.loads(path.read_text())
+    assert figure["script"].startswith("benchmarks/pages/"), "every published figure comes from a page script"
+    assert figure["function"] == _page.plot_name(figure["title"]), "a figure's function is plot_<its title>"
+    for s in figure["series"]:
+        assert len(s["y"]) == len(figure["x"]), s["key"]
+        if s["role"] == "reference":
+            assert 0 < sum(v is not None for v in s["y"]) <= 41, s["key"]
+
+
 def test_pymoosh_page_reproduces_its_figures():
     pytest.importorskip("PyMoosh")
     page = importlib.import_module("films_plane_wave_pymoosh")

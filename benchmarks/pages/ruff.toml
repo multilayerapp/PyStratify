@@ -1,0 +1,6 @@
+# The page scripts are read on GitHub by people reproducing a page: lines short enough to read there, no unused
+# imports or stale noqa comments.
+extend = "../../pyproject.toml"
+
+[lint]
+extend-select = ["E501", "RUF100"]
