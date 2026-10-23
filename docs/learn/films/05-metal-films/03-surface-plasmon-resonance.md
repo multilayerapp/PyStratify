@@ -52,10 +52,10 @@ $$
 
 a wavenumber along the boundary larger than that of light in the dielectric, $k_0\sqrt{\varepsilon_d}$, for every
 $\varepsilon_m < -\varepsilon_d$. The field decays away from the boundary with $1/|k_{z,d}|$ in the dielectric and
-$1/|k_{z,m}|$ in the metal: for gold at 633 nm ($\varepsilon_m \approx -11.7 + 1.2i$) against water, about 250 nm into
+$1/|k_{z,m}|$ in the metal: for gold at 633 nm ($\varepsilon_m \approx -11.7 + 1.2i$) against water, about 180 nm into
 the water and 30 nm into the gold, so the wave lives mostly on the dielectric side and is sensitive to what is there.
 The imaginary part of $\varepsilon_m$ makes $k_\mathrm{sp}$ complex; the plasmon propagates a distance
-$1/(2\,\mathrm{Im}\,k_\mathrm{sp})$, some 10 µm for gold in the red, before it has dissipated. The s-polarized
+$1/(2\,\mathrm{Im}\,k_\mathrm{sp})$, about 4 µm for gold at 633 nm, before it has dissipated. The s-polarized
 coefficient $r_s$ has no such pole for non-magnetic media, which is why there is no s plasmon.
 
 Because $k_\mathrm{sp} > k_0\sqrt{\varepsilon_d}$, light arriving from the dielectric side can never match it: a flat
@@ -118,8 +118,8 @@ $$
 \;\;\text{(real parts)},
 $$
 
-about 100° per refractive-index unit for gold on a BK7 prism in water, so a change of $10^{-6}$ in index, the
-resolution of a good instrument, is a millidegree. Since the dip's width is set by $\Gamma_i + \Gamma_\mathrm{rad}$, the
+about 150° per refractive-index unit for gold on a BK7 prism in water, so a change of $10^{-6}$ in index, the
+resolution of a good instrument, is about 0.15 millidegree. Since the dip's width is set by $\Gamma_i + \Gamma_\mathrm{rad}$, the
 **figure of merit** is sensitivity over width, which favours silver (sharper, but it corrodes) over gold, longer
 wavelengths (where $|\varepsilon_m|$ is larger and the plasmon lives longer), and a film at critical coupling. A
 thin adhesion layer of chromium or titanium under the gold, a few nanometres, broadens the dip noticeably and is

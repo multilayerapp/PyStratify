@@ -52,7 +52,7 @@ $Y$ grows geometrically with $N$, so $1 - R$ falls geometrically, by the factor 
 $Y \gg n_0$: eight pairs of TiO₂-like and SiO₂-like layers (2.3 and 1.45) already reach 99.84 %, and eleven pairs
 99.99 %. Ending the stack with a low-index layer instead divides $Y$ by $n_L^2$ and lowers the peak; the outermost
 layer should be the one of higher admittance contrast with the incident medium. For a VCSEL mirror in GaAs/AlAs
-(3.5/2.9, a contrast of only 1.2) the same 99.9 % needs about thirty pairs, which is why such mirrors are grown
+(3.5/2.9, a contrast of only 1.2) the same 99.9 % needs about twenty pairs, which is why such mirrors are grown
 rather than evaporated.
 
 ## The band: Bloch waves and the dispersion relation
@@ -78,7 +78,7 @@ $$
 \Delta g = \frac{4}{\pi}\arcsin\!\left(\frac{n_H - n_L}{n_H + n_L}\right),
 $$
 
-about 0.29 for 2.3/1.45, or 524–702 nm around 600 nm, and 0.11 for GaAs/AlAs. The width depends on the index contrast
+about 0.29 for 2.3/1.45, or 524–702 nm around 600 nm, and 0.12 for GaAs/AlAs. The width depends on the index contrast
 alone; the period count only decides how close to 1 the reflectance gets inside the band and how sharp its edges
 are. Inside the band the imaginary part of $K$ is largest at the centre, $|\mathrm{Im}\,K|\Lambda \approx
 2(n_H - n_L)/(n_H + n_L)$ for small contrast, which gives the number of periods the field penetrates.

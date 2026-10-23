@@ -112,7 +112,7 @@ $$
 R = \left(\frac{n_2 - n_1}{n_2 + n_1}\right)^2 ,
 $$
 
-4 % for glass in air, 31 % for silicon ($n \approx 3.9$), 1.3 % for a water surface.
+4 % for glass in air, 35 % for silicon ($n \approx 3.9$), 2 % for a water surface.
 
 ::: example fresnel-air-glass
 
@@ -148,7 +148,8 @@ $$
 \frac{1}{\kappa} = \frac{\lambda}{2\pi\sqrt{n_1^2\sin^2\theta_1 - n_2^2}} ,
 $$
 
-about a fifth of a wavelength a few degrees past the critical angle, growing without bound as $\theta_1 \to \theta_c$.
+about half a wavelength a few degrees past the critical angle and a fifth of one near 60° in glass, growing without
+bound as $\theta_1 \to \theta_c$.
 Both reflection coefficients have unit modulus, $|r_s| = |r_p| = 1$, so all the power returns; what is not zero is
 their **phase**, which differs between s and p and depends on the angle. That phase is a design quantity in its own
 right: the Fresnel rhomb turns linear into circular polarization with two total reflections at the angle where the

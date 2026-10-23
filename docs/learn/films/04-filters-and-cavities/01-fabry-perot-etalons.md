@@ -101,7 +101,7 @@ $$
 
 the square of the mirrors' **potential transmittance**: what matters is the absorption relative to what the mirror
 lets through, not the absorption itself. A silver mirror with $R = 0.9$ and $A = 0.04$ limits the peak to 36 %; with
-$R = 0.97$ and the same $A$, to 2 %. Better metal mirrors sharpen the peaks but lower them, which is the dead end that
+$R = 0.95$ and the same $A$, to 4 %. Better metal mirrors sharpen the peaks but lower them, which is the dead end that
 led to all-dielectric filters.
 
 ::: example fabry-perot-etalon
@@ -129,7 +129,7 @@ a tilted [bandpass filter](learn/films/bandpass-filters.html) moves, and why a f
 Seen in time rather than frequency, a photon in the cavity survives on average
 $\tau = \frac{n d}{c\,(1 - R)}$ round trips' worth of time (for $R$ close to 1), and the quality factor
 $Q = \omega\tau = m\mathcal{F}$ is again the order times the finesse. A 1 mm cavity with $R = 0.99$ stores light for
-about a nanosecond. The field inside at resonance is enhanced by $1/(1 - R)$ in intensity over the incident wave, which
+about a third of a nanosecond. The field inside at resonance is enhanced by $1/(1 - R)$ in intensity over the incident wave, which
 is what a dye molecule or a nonlinear crystal placed in the spacer sees, and why cavity enhancement is a tool of
 spectroscopy and of frequency conversion.
 

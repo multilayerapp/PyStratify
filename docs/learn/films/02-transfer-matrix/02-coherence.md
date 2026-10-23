@@ -29,7 +29,7 @@ references:
 
 The transfer matrix adds amplitudes: every reflected wave interferes with every other. That is right for a film a few
 hundred nanometres thick, and wrong for the glass it sits on. A 1 mm plate in a spectrometer shows no fringes, though
-the matrix predicts them, with a contrast of nearly 8 % for glass. The discrepancy is not a failure of Maxwell's
+the matrix predicts them, swinging between 0 and nearly 16 % for glass. The discrepancy is not a failure of Maxwell's
 equations; it is a statement about the light and the instrument, and once it is made precise it becomes a second
 $2\times 2$ formalism, this time for intensities, that joins seamlessly to the first.
 
@@ -106,7 +106,7 @@ as an incoherent layer followed by air.
 At the film's half-wave wavelength it is absent, and the reflectance returns to the bare plate's $2R_0/(1 + R_0)$.
 Between those points the film's fringes ride on the plate's incoherent background, which is what a measured spectrum
 looks like. A coherent calculation of the same stack would show the film's fringes modulated by a comb of 0.12 nm
-fringes of nearly 8 % depth, and would have to be computed on a grid finer than 0.03 nm to resolve them at all,
+fringes swinging by 16 to 30 % peak to peak, and would have to be computed on a grid finer than 0.03 nm to resolve them at all,
 which is the practical reason the incoherent treatment matters even when the instrument's resolution is known.
 
 ## Partial coherence
