@@ -1,0 +1,57 @@
+id: broadband-ar
+geometry: films
+source: plane_wave
+title: A quarter–half–quarter broadband coating
+caption: >-
+  Three layers designed for 550 nm on glass (n = 1.52): a quarter wave of n = 1.38 outside, a half wave of n = 2.10,
+  and a quarter wave of n = 1.70 against the glass. Tilt the light: the trough moves to shorter wavelengths, s and p
+  part, and the low band closes up beyond about 40°.
+plot:
+  x_label: λ [nm]
+  y_label: R
+  series:
+  - key: R
+    label: R
+  - key: R_s
+    label: R_s
+  - key: R_p
+    label: R_p
+params:
+- id: angle
+  label: Angle of incidence
+  unit: °
+  target: film.controls.angle-deg
+  scale: 1
+  min: 0
+  max: 60
+  step: 2
+  value: 0
+readouts:
+- {label: "mean R, 430–670 nm", measure: {mean: [R, [430, 670]]}}
+checks:
+- check: the half wave is absent at 550 nm, so R equals the two-layer value ((1 − Y)/(1 + Y))², Y = n_L² n_s / n_M²
+  reference: 6.5677e-7
+  tolerance: 1.0e-9
+  source: closed form
+  measure:
+    at: [R, 550]
+- check: R + T + the absorptance of every layer = 1 (largest departure)
+  reference: 0
+  tolerance: 1.0e-9
+  source: Poynting's theorem
+  measure: {balance: true}
+calculator:
+  film:
+    incident: {label: Air, n: 1.0, k: 0.0}
+    layers:
+    - {label: L, n: 1.38, k: 0.0, thickness: 0.099638}
+    - {label: H, n: 2.1, k: 0.0, thickness: 0.130952}
+    - {label: M, n: 1.7, k: 0.0, thickness: 0.080882}
+    substrate: {label: Glass, n: 1.52, k: 0.0}
+    controls:
+      wavelength-start: 400
+      wavelength-end: 800
+      wavelength-step: 2
+      angle-deg: 0
+    view:
+      polarization: average

@@ -66,7 +66,8 @@ step, value}` where `target` is a path into the calculator setup (e.g. `shells.0
 `measure: {peak: <series>}`; and `calculator`, the setup (below). The build adds `data` (the curves at the
 sliders' values, six significant digits), `code` (the example as a PyStratify script) and the checks'
 `computed` and `pass`. A slider's `target` is a path into the `calculator` block (`film.layers.0.thickness`,
-`film.layers.0.layers.1.n` for a layer inside a `repeat`, `film.substrate.n`, `sphere.shells.0.thickness`); its value
+`film.layers.0.layers.1.n` for a layer inside a `repeat`, `film.substrate.n`, `film.controls.angle-deg` for the angle of
+incidence, `sphere.shells.0.thickness`); its value
 times `scale` must equal what the block holds, and it may not set the index of a medium taken from a database or
 table. A `target` may also be a list of paths, all set to the same value (the slices of a graded layer).
 Measures: `peak: <series>` and `minimum: <series>` (the x of the extremum, optionally `within: [lo, hi]`),

@@ -1,0 +1,53 @@
+id: v-coat-ar
+geometry: films
+source: plane_wave
+title: A two-layer V-coat on glass
+caption: >-
+  Two quarter-wave layers designed for 550 nm on glass (n = 1.52) at normal incidence: a MgF₂-like layer (n = 1.38)
+  outside and a second layer underneath. At n = 1.70 underneath the reflectance at 550 nm goes to zero; move the index
+  away and the V lifts off zero. The thicknesses stay fixed, so the minimum also drifts with the index.
+plot:
+  x_label: λ [nm]
+  y_label: R
+  series:
+  - key: R
+    label: R
+params:
+- id: inner
+  label: Inner layer n
+  unit: ''
+  target: film.layers.1.n
+  scale: 1
+  min: 1.45
+  max: 1.95
+  step: 0.01
+  value: 1.7
+readouts:
+- {label: "reflectance minimum", measure: {minimum: R}, unit: nm}
+- {label: "mean R, 430–670 nm", measure: {mean: [R, [430, 670]]}}
+checks:
+- check: R(550 nm) = ((1 − Y)/(1 + Y))², Y = n_L² n_s / n_M²
+  reference: 6.5677e-7
+  tolerance: 1.0e-9
+  source: closed form
+  measure:
+    at: [R, 550]
+- check: reflectance minimum at the design wavelength (nm)
+  reference: 550
+  tolerance: 2
+  source: design wavelength
+  measure:
+    minimum: R
+calculator:
+  film:
+    incident: {label: Air, n: 1.0, k: 0.0}
+    layers:
+    - {label: MgF2-like, n: 1.38, k: 0.0, thickness: 0.099638}
+    - {label: Inner, n: 1.7, k: 0.0, thickness: 0.080882}
+    substrate: {label: Glass, n: 1.52, k: 0.0}
+    controls:
+      wavelength-start: 400
+      wavelength-end: 800
+      wavelength-step: 2
+    view:
+      polarization: average

@@ -135,8 +135,9 @@ fluoride (1.38) comes closest, and leaves about 1.3 % instead of 4 %.
 ::: example quarter-wave-ar
 
 The minimum sits at $\lambda_0 = 4 n_1 d$ and is broad, because $\delta$ changes slowly with $\lambda$. Two or three
-layers (the V-coat and the quarter–half–quarter design) broaden it further, and a graded index takes the idea to its
-limit in the [moth-eye antireflection](learn/films/moth-eye-antireflection.html) section.
+layers (the V-coat and the quarter–half–quarter design) reach zero and broaden it, as the
+[anti-reflection coatings](learn/films/anti-reflection-coatings.html) section shows, and a graded index takes the idea
+to its limit in the [moth-eye antireflection](learn/films/moth-eye-antireflection.html) section.
 
 **Herpin's equivalent layer.** Any symmetric combination of layers, $p\,q\,p$ say, has a characteristic matrix of the
 same form as a single layer, with an *equivalent* index and phase thickness that depend on wavelength (Herpin 1947;
