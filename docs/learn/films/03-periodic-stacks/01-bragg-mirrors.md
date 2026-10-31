@@ -94,7 +94,10 @@ M^N = \begin{pmatrix} A\,U_{N-1} - U_{N-2} & B\,U_{N-1} \\ C\,U_{N-1} & D\,U_{N-
 R_N = \frac{|C|^2\,|U_{N-1}|^2}{|C|^2\,|U_{N-1}|^2 + 1} ,
 $$
 
-with $A, B, C, D$ the elements of the single-period matrix. Outside the band $K\Lambda$ is real, $U_{N-1}$ oscillates,
+with $A, B, C, D$ the elements of the single-period matrix. The form of $M^N$ holds for any period matrix of unit
+determinant, Abelès' field matrix above included. $R_N$ in this form needs Yeh's matrix in the **amplitude basis**
+instead, the one that carries the forward and backward amplitudes in one layer of each period, with $C$ coupling
+them, for a stack bounded on both sides by that layer's medium. Outside the band $K\Lambda$ is real, $U_{N-1}$ oscillates,
 and the reflectance has $N - 1$ zeros between two bands, one fewer than the number of periods, which is the count the
 classic card below invites. Inside the band $U_{N-1}$ grows like $\sinh(N|\mathrm{Im}\,K|\Lambda)$, and $R_N \to 1$
 exponentially in $N$, in agreement with the admittance result at the centre.
@@ -138,7 +141,8 @@ bands and, run backwards, to measure a stack's thickness ratio from which bands 
 Tilting the beam shortens every layer's phase thickness, $\delta_j = k_0 n_j d_j\cos\theta_j$, so the band moves to
 shorter wavelengths (a Bragg mirror seen at an angle turns bluer), and splits by polarization: the admittances
 $\eta_H/\eta_L$ of the two polarizations diverge, so the s band widens and the p band narrows, closing entirely at
-the Brewster angle of the H/L interface, $\tan\theta_B = n_L/n_H$ inside the stack, where successive interfaces no
+the Brewster angle of the H/L interface, $\tan\theta_H = n_L/n_H$ for the angle $\theta_H$ in the high-index layer
+($\tan\theta_L = n_H/n_L$ in the low-index one), where successive interfaces no
 longer reflect p light at all. In a stack lit from air the internal angle can never reach that Brewster angle if
 
 $$
@@ -146,6 +150,6 @@ n_0 < \frac{n_H\, n_L}{\sqrt{n_H^2 + n_L^2}} ,
 $$
 
 and with enough contrast the stop bands of all angles and both polarizations then overlap over a common range:
-Fink, Winn and co-workers (1998) built such an **omnidirectional reflector** from nine pairs of polystyrene and
-tellurium, a dielectric mirror for every angle. The classic card's Yeh stack, lit from inside GaAs, does reach the
+Fink, Winn and co-workers (1998) built such an **omnidirectional reflector** from nine alternating layers of polystyrene
+and tellurium, a dielectric mirror for every angle. The classic card's Yeh stack, lit from inside GaAs, does reach the
 Brewster angle, which is where its TM gap closes.

@@ -102,8 +102,9 @@ the composite matrix $\mathcal{T}(N+1)$ plays, for the whole onion, the role the
 Mie's sphere, and the cross sections keep Mie's form with composite coefficients.
 
 In the planar case the product is Abelès' 1950 construction. Written for the tangential fields rather than for
-the amplitudes it is the **characteristic matrix** of a layer, $\begin{pmatrix}\cos\delta & (i/\eta)\sin\delta \\
-i\eta\sin\delta & \cos\delta\end{pmatrix}$, whose product over the layers gives the admittance of a coating; the
+the amplitudes it is the **characteristic matrix** of a layer, $\begin{pmatrix}\cos\delta & -(i/\eta)\sin\delta \\
+-i\eta\sin\delta & \cos\delta\end{pmatrix}$ in this site's $e^{-i\omega t}$ convention (books written for
+$e^{+i\omega t}$, Macleod's among them, have $+i$), whose product over the layers gives the admittance of a coating; the
 [transfer-matrix section](learn/films/transfer-matrix.html) for films develops it. For a periodic stack Yeh, Yariv
 and Hong showed that the eigenvalues of the unit cell's matrix decide whether a wave propagates or is stopped, which
 is the band structure of a Bragg mirror. For spheres the same products are the recursive algorithm of the

@@ -20,6 +20,8 @@ references:
 - cite: G. Hernandez, Fabry–Perot Interferometers (Cambridge University Press, 1986)
 - cite: J. M. Vaughan, The Fabry–Perot Interferometer (Adam Hilger, 1989)
 - cite: F. Gires and P. Tournois, C. R. Acad. Sci. Paris 258, 6112 (1964)
+- cite: P. B. Johnson and R. W. Christy, Phys. Rev. B 6, 4370 (1972)
+  doi: 10.1103/PhysRevB.6.4370
 ---
 
 Put a transparent layer between two partially reflecting mirrors and light bounces back and forth inside it. Where
@@ -49,8 +51,8 @@ T(\delta) = \frac{1}{1 + F\sin^2(\delta/2 + \phi)}, \qquad F = \frac{4R}{(1 - R)
 $$
 
 where $\phi$ collects the mirrors' reflection phases. $F$ is the coefficient of finesse; for $R = 0.9$ it is 360, and
-the peaks, of unit height, are separated by valleys of depth $1/(1 + F)$. The Verification page's first film row
-compares the engine with this formula for a plain slab.
+the peaks, of unit height, are separated by valleys of depth $1/(1 + F)$. The Verification page's Fabry–Pérot slab
+case (thin films, consistency checks) compares the engine with this formula for a plain slab.
 
 ## The resonance condition
 
@@ -61,8 +63,10 @@ $$
 $$
 
 For dielectric mirrors at their design wavelength the reflection phases are 0 or $\pi$, and the condition reduces
-to the spacer being a whole number of half waves. For metal mirrors they are neither: silver's reflection phase in
-the visible is around $-150°$ from the glass side, so every order sits a fraction of a free spectral range away from
+to the spacer being a whole number of half waves. For metal mirrors they are neither: seen from glass, silver's normal-incidence
+reflection phase runs from about $-120°$ at 450 nm to $-145°$ at 700 nm ($-141°$ at 633 nm; Johnson and Christy, in
+this site's $e^{-i\omega t}$ convention, where a book written for $e^{+i\omega t}$ prints the same angles positive),
+so every order sits a fraction of a free spectral range away from
 the half-wave position and the spacer that resonates at a given wavelength is thinner than $m\lambda/2n$. Dielectric
 mirrors have the complementary subtlety: their phase varies with wavelength as if the cavity were longer by the
 [penetration depth](learn/films/bragg-mirrors.html) of the mirror, which shifts the mode spacing.

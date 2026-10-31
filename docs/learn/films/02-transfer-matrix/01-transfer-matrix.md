@@ -25,6 +25,8 @@ references:
   doi: 10.1364/JOSAA.13.001024
 - cite: S. J. Byrnes, Multilayer optical calculations, arXiv:1603.02720 (2016)
   url: https://arxiv.org/abs/1603.02720
+- cite: P. B. Johnson and R. W. Christy, Phys. Rev. B 6, 4370 (1972)
+  doi: 10.1103/PhysRevB.6.4370
 ---
 
 Between two interfaces a wave travels back and forth, picking up phase on each pass, and every reflection spawns
@@ -46,7 +48,7 @@ distance $d_j$ apart, and the result is a matrix relation between the tangential
 
 $$
 \begin{pmatrix} E \\ H \end{pmatrix}_{\text{front}} =
-\begin{pmatrix} \cos\delta_j & \dfrac{i}{\eta_j}\sin\delta_j \\[4pt] i\,\eta_j \sin\delta_j & \cos\delta_j \end{pmatrix}
+\begin{pmatrix} \cos\delta_j & -\dfrac{i}{\eta_j}\sin\delta_j \\[4pt] -i\,\eta_j \sin\delta_j & \cos\delta_j \end{pmatrix}
 \begin{pmatrix} E \\ H \end{pmatrix}_{\text{back}},
 \qquad
 \delta_j = \frac{2\pi}{\lambda}\, n_j d_j \cos\theta_j ,
@@ -56,6 +58,12 @@ Abelès' **characteristic matrix** $M_j$, with the phase thickness $\delta_j$ an
 $\eta_j = n_j/\cos\theta_j$. Its determinant is 1 (it is a product of two matrices of unit Wronskian), its trace is
 $2\cos\delta_j$, and it depends on the layer through $\delta_j$ and $\eta_j$ only: two numbers per layer per
 wavelength, which is why a stack of forty layers is no harder than one.
+
+The sign of the off-diagonal $i$ follows the time convention. With this site's $e^{-i\omega t}$ and $n + ik$ it is
+$-i$, as above. Macleod's book uses $e^{+i\omega t}$ and $N = n - ik$ and writes $+i$ (his Eq. 2.89). The two
+matrices are complex conjugates of each other. They give the same R and T for a lossless layer and different ones
+for an absorbing layer, where the wrong pairing even returns $T > 1$, so a formula taken from a book has to be used
+with that book's sign of $k$.
 
 ## A stack and its admittance
 
@@ -78,8 +86,11 @@ T = \frac{4\,\eta_0\,\mathrm{Re}\,\eta_s}{|\eta_0 B + C|^2}, \qquad A = 1 - R - 
 $$
 
 This is the formulation of Macleod's book and of coating design in general, and its power is that $Y$ can be followed
-layer by layer. Macleod's **admittance locus** plots $Y$ in the complex plane as each layer is added: a lossless
-layer moves $Y$ along a circle centred on the real axis, through an angle $2\delta$, and a design is a path from
+layer by layer. Macleod's **admittance locus** plots $Y$ in the complex plane as each layer is added. A lossless
+layer moves $Y$ along a circle centred on the real axis, once round for every half wave of thickness. The uniform
+rotation through $2\delta$ belongs to the reflection coefficient measured against the layer's own admittance, not
+to $Y$. With this site's sign convention the loci are the mirror images, in the real axis, of those in Macleod's
+book. A design is a path from
 $\eta_s$ to the target $Y = \eta_0$ (zero reflectance) or as far from it as possible (a mirror). A designer reads
 off from the diagram which layer to add next and how thick, which is how the classic antireflection and filter
 designs below were found long before computers.
@@ -119,7 +130,7 @@ Two thicknesses make the characteristic matrix trivial at the design wavelength 
 - a **half-wave** layer ($n d = \lambda_0/2$, $\delta = \pi$) has $M = -I$: it is *absent*, and the stack reflects
   as if it were not there (which is why the spacer of a [bandpass filter](learn/films/bandpass-filters.html) is a
   half wave);
-- a **quarter-wave** layer ($n d = \lambda_0/4$, $\delta = \pi/2$) has $M = \begin{pmatrix} 0 & i/\eta \\ i\eta & 0
+- a **quarter-wave** layer ($n d = \lambda_0/4$, $\delta = \pi/2$) has $M = \begin{pmatrix} 0 & -i/\eta \\ -i\eta & 0
   \end{pmatrix}$ and turns an admittance $Y$ into $\eta^2/Y$: an *admittance transformer*, the optical
   quarter-wave line.
 
@@ -157,8 +168,8 @@ hyperbolic, and the wave decays across the layer; the formulas stay valid, and $
 ## Numerics: where the matrix overflows, and what to do
 
 For a thick absorbing layer, or an evanescent one beyond the critical angle, $e^{i\delta_j}$ contains a real
-exponential $e^{\mathrm{Im}\,\delta_j}$ that grows without bound: 10 µm of a metal at visible wavelengths gives
-$e^{+700}$, beyond double precision. The characteristic matrix carries both $e^{+}$ and $e^{-}$ and overflows, and
+exponential $e^{\mathrm{Im}\,\delta_j}$ that grows without bound: 10 µm of silver at 550 nm gives $e^{+410}$
+(Johnson and Christy), and 20 µm passes $e^{+709}$, the largest number double precision holds. The characteristic matrix carries both $e^{+}$ and $e^{-}$ and overflows, and
 even before that the reflected amplitude is the small difference of two huge numbers. Three remedies are in use:
 
 1. **Propagate only decaying waves.** Byrnes's formulation orders the exponentials so that the growing one never
