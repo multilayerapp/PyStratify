@@ -197,3 +197,37 @@ def test_learn_descriptions_fit_a_search_snippet_and_reviews_are_dates(manifest,
     page.write_text(text.replace('\ndescription: "', '\ndescription: "' + "x" * DESCRIPTION_LIMIT))
     with pytest.raises(ContentError, match="at most 160"):
         load_learn(tmp_path)
+
+
+def test_a_review_holds_until_the_page_is_edited(tmp_path):
+    """D6 (Ilia, 2026-10-31): `python -m pystratify.docs review` stamps the date and a fingerprint of what was read.
+    An edit to the text, or to an example the page places, ends the claim but keeps the date; a date written by hand
+    without the stamp makes no claim; a fingerprint without a date is refused."""
+    from pystratify.docs.__main__ import main
+    from pystratify.docs.build import load_learn
+
+    for folder in ("learn", "examples", "classics"):
+        shutil.copytree(ROOT / "docs" / folder, tmp_path / "docs" / folder)
+    page = tmp_path / "docs" / "learn" / "films" / "01-interfaces" / "01-fresnel-equations.md"
+    original = page.read_text()
+    review = ["review", "fresnel-equations", "--date", "2026-11-02", "--root", str(tmp_path)]
+
+    def section():
+        return next(s for s in load_learn(tmp_path) if s["id"] == "fresnel-equations")
+
+    assert section()["reviewed"] is None and not section()["review_current"]
+    assert main(review) == 0
+    assert section()["reviewed"] == "2026-11-02" and section()["review_current"]
+    stamped = page.read_text()
+    assert main(review) == 0 and page.read_text() == stamped  # restamping an unchanged page changes nothing
+    page.write_text(stamped.replace("half-wave loss", "half-wave-loss"))
+    assert section()["reviewed"] == "2026-11-02" and not section()["review_current"]
+    assert main(review) == 0 and section()["review_current"]
+    example = tmp_path / "docs" / "examples" / "fresnel-air-glass.yaml"
+    example.write_text(example.read_text() + "\n")
+    assert not section()["review_current"]
+    page.write_text(original.replace("\nreviewed:\n", "\nreviewed: 2026-11-02\n"))
+    assert section()["reviewed"] == "2026-11-02" and not section()["review_current"]
+    page.write_text(original.replace("\nreviewed:\n", '\nreviewed:\nreviewed_fingerprint: "0123456789abcdef"\n'))
+    with pytest.raises(ContentError, match="without a reviewed date"):
+        load_learn(tmp_path)

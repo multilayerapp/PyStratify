@@ -640,6 +640,27 @@ def _review_date(value, where):
     return text
 
 
+REVIEW_LINES = re.compile(r"^reviewed(?:_fingerprint)?:.*(?:\n|$)", re.M)
+
+
+def review_fingerprint(root, path):
+    """What a review covers (Ilia, 2026-10-31): 16 hex digits of SHA-256 over the section's Markdown with its
+    `reviewed` and `reviewed_fingerprint` lines taken out, then the records of the examples and classics it places.
+    Any edit to them, a typo included, changes it, and the page stops saying it was reviewed."""
+    text = path.read_text()
+    match = re.match(r"^---\n(.*?)\n---\n(.*)$", text, re.S)
+    if not match:
+        raise ContentError(f"{path}: a Learn section starts with a --- front matter block")
+    meta = _yaml().safe_load(match.group(1))
+    digest = __import__("hashlib").sha256()
+    digest.update(f"---\n{REVIEW_LINES.sub('', match.group(1))}\n---\n{match.group(2)}".encode("utf-8"))
+    for kind, folder in (("examples", "examples"), ("classics", "classics")):
+        for record in meta.get(kind, []):
+            source = root / "docs" / folder / f"{record}.yaml"
+            digest.update(f"\0{folder}/{record}\0".encode("utf-8") + (source.read_bytes() if source.exists() else b""))
+    return digest.hexdigest()[:16]
+
+
 def load_learn(root):
     sections = []
     base = root / "docs" / "learn"
@@ -661,6 +682,12 @@ def load_learn(root):
             "status": meta.get("status", "published"), "body": body,
             "description": " ".join(str(meta["description"]).split()), "reviewed": _review_date(meta.get("reviewed"), where),
         })
+        stamp = meta.get("reviewed_fingerprint")
+        if stamp and not sections[-1]["reviewed"]:
+            raise ContentError(f"{where}: reviewed_fingerprint without a reviewed date")
+        # The review holds while the page reads as it did; an edit since, or a date written by hand without
+        # `python -m pystratify.docs review`, leaves the date but not the claim.
+        sections[-1]["review_current"] = bool(stamp) and str(stamp) == review_fingerprint(root, path)
         if len(sections[-1]["description"]) > DESCRIPTION_LIMIT:
             raise ContentError(f"{where}: description is {len(sections[-1]['description'])} characters, at most {DESCRIPTION_LIMIT}")
         for kind, listed in (("example", sections[-1]["examples"]), ("classic", sections[-1]["classics"])):

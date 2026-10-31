@@ -48,7 +48,7 @@ records (and `common` Learn chapters for every geometry).
 |---|---|
 | `id`, `title`, `geometry`, `summary` | `geometry` must match the folder; `summary` is what the section covers, shown as its opening paragraph |
 | `description` | one line, at most 160 characters: the Learn index card, the page's meta description and `llms.txt` (search engines show about 160) |
-| `reviewed` | empty until Ilia has reviewed the section, then the date (`YYYY-MM-DD`); a reviewed page says so and drops the under-development note |
+| `reviewed`, `reviewed_fingerprint` | empty until Ilia has reviewed the section; then `python -m pystratify.docs review <id>` writes the date (`YYYY-MM-DD`) and a fingerprint of what he read (16 hex digits of SHA-256 over this file without these two lines, then the records of the examples and classics it places). The page says it was reviewed, without the under-development note, only while the fingerprint matches: an edit since, or a date written by hand without a stamp, leaves the date but not the claim, and the build lists such sections |
 | `chapter` | the chapter's title (default: from the folder name) |
 | `topic`, `sources` | e.g. `mie`; `[plane_wave, dipole, focused]` |
 | `examples` | ids under `examples/`, each placed with a line `::: example <id>` |
@@ -56,8 +56,8 @@ records (and `common` Learn chapters for every geometry).
 | `references` | list of `{cite, doi}` or `{cite, url}` |
 | `status` | `published` (default) or `draft`: deployed, but not indexed or linked until reviewed |
 
-Order comes from the `NN-` prefixes; the build adds `chapter_order`, `order`, `slug`, `url`, `prev`, `next` and
-the `body`.
+Order comes from the `NN-` prefixes; the build adds `chapter_order`, `order`, `slug`, `url`, `prev`, `next`, the
+`body` and `review_current` (the review's fingerprint matches the section as it reads now).
 
 **Example** (`examples/<id>.yaml`): `id`, `geometry`, `source`, `title`, `caption`; `plot` (`x_label`,
 `y_label`, `series` of `{key, label}`); `params`, the sliders, each `{id, label, unit, target, scale, min, max,
