@@ -80,10 +80,13 @@ the whole thin-film theory in a nutshell: the [transfer matrix](learn/films/tran
 these admittances from layer to layer.
 
 **The sign of $r_p$.** Two conventions are in use for the direction of the p-polarized electric field, and they
-differ in the sign of $r_p$; the expression above, in which $r_p \to r_s$ at normal incidence, follows Byrnes (2016),
-whose transfer-matrix code PyStratify's planar engine extends. In the other convention (Born and Wolf) $r_p$ changes
-sign, so that $r_p = -r_s$ at normal incidence. Nothing physical depends on the choice, but the phase $\Delta$ of
-ellipsometry does, by 180°, and comparing two codes or a code with a paper starts with settling it.
+differ in the sign of $r_p$. The expression above is Born and Wolf's (§1.5.2) and Byrnes's (2016), whose
+transfer-matrix code PyStratify's planar engine extends: at normal incidence it gives $r_p = -r_s = (n_2 - n_1)/(n_2 +
+n_1)$. The two polarizations are then the same wave, and the tangential field reflects identically in both; the minus
+sign comes only from the reference direction of the reflected p field, which is tied to that wave's direction of
+travel. Texts that orient the reflected p field the other way flip the sign of $r_p$, so that $r_p \to r_s$ at normal
+incidence. Nothing physical depends on the choice, but the phase $\Delta$ of ellipsometry does, by 180°, and comparing
+two codes or a code with a paper starts with settling it.
 
 **Phases.** For external reflection ($n_1 < n_2$) below the Brewster angle, $r_s$ is negative: the s wave flips its
 phase by $\pi$ on reflection from a denser medium, the origin of the "half-wave loss" of elementary optics, while
@@ -189,15 +192,20 @@ $$
 \rho = \frac{r_p}{r_s} = \tan\Psi\, e^{i\Delta} ,
 $$
 
-$\tan\Psi$ being the amplitude ratio and $\Delta$ the phase difference. For a bare substrate $\rho$ inverts in closed
-form to the complex index,
+$\tan\Psi$ being the amplitude ratio and $\Delta$ the phase difference, with $r_p$ and $r_s$ the amplitudes above. For
+a bare substrate this $\rho$ inverts in closed form to the complex index,
 
 $$
 \tilde n_2 = n_1 \sin\theta_1\sqrt{1 + \left(\frac{1 - \rho}{1 + \rho}\right)^2 \tan^2\theta_1} ,
 $$
 
 which is how the optical constants of most materials in the databases were first obtained, and for a film on a
-substrate $\rho$ follows from the transfer matrix and is fitted for thickness and index (Azzam and Bashara). The
-calculator's Ψ and Δ are this ratio with the sign convention $\rho = -r_p/r_s$, which puts $\Delta$ in the range
-ellipsometer software reports; the 180° difference between conventions is the one to remember when comparing with a
-paper.
+substrate $\rho$ follows from the transfer matrix and is fitted for thickness and index (Azzam and Bashara).
+
+**What the calculator and an ellipsometer report.** Neither reports this $\Delta$ as written. The calculator's Ψ and Δ
+are those of Byrnes's code, $\tan\Psi\, e^{i\Delta} = -r_p/r_s$, so a bare dielectric below its Brewster angle reads
+$\Delta = 0°$. Ellipsometer software (Woollam, SENTECH) works with $\tilde N = n - ik$, the Nebraska convention, and
+reports the complex conjugate of the ratio above, $\tan\Psi\, e^{i\Delta} = (r_p/r_s)^*$, which reads $\Delta = 180°$
+on the same sample. The two are related by $\Delta_\text{instrument} = 180° - \Delta_\text{calculator}$. To invert a
+calculator Δ with the formula above, add 180° first; an instrument's Ψ and Δ go in as they are and return $n - ik$,
+the same index in its own convention.
