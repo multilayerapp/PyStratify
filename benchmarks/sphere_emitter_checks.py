@@ -33,8 +33,10 @@ from pystratify.references import sphere_decay_rates  # noqa: E402
 
 LAM = 614.0
 AU = 0.27 + 2.93j
-AU_ELM = 0.1412 + 3.1518j  # Etchegoin, Le Ru & Meyer gold at 614 nm
-AU690 = 0.0992 + 3.9183j  # the same at 690 nm
+# Fixed test indices: the gold model au-elm-2006 (Etchegoin, Le Ru & Meyer's 2006 Table I) at 614 and 690 nm; their
+# 2007 erratum corrects them to 0.2035 + 3.1793j and 0.1385 + 3.9542j. Kept so the reports' numbers compare.
+AU_ELM = 0.1412 + 3.1518j
+AU690 = 0.0992 + 3.9183j
 
 
 # ---------------------------------------------------------------- decay rates against mpmath

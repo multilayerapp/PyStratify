@@ -4,7 +4,8 @@
     python docs/images/readme_figures.py          # writes docs/images/*.png (about a minute)
 
 Optical constants are simple on purpose: constant indices for the dielectrics, and for gold the analytic
-Drude + two-critical-point fit of examples/_common.py (Etchegoin, Le Ru & Meyer 2006, fitted to Johnson & Christy).
+Drude + two-critical-point fit of examples/_common.py (Etchegoin, Le Ru & Meyer 2006, Eq. 3, with the parameters of
+their 2007 erratum; fitted to Johnson & Christy).
 Real work takes tabulated n, k (refractiveindex.info). Silver at 633 nm is Johnson & Christy's tabulated value.
 """
 

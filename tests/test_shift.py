@@ -15,7 +15,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks"))
 import sphere_emitter_checks as emitters  # noqa: E402
 from checks import assert_rows  # noqa: E402
 
-AU = 0.1412 + 3.1518j  # Etchegoin, Le Ru & Meyer gold at 614 nm
+# A fixed test index: the gold model au-elm-2006 at 614 nm (Etchegoin, Le Ru & Meyer's 2006 Table I, which their
+# 2007 erratum corrects to 0.2035 + 3.1793j; examples/_common.py now uses the erratum), kept so the results compare.
+AU = 0.1412 + 3.1518j
 AU690 = 0.0992 + 3.9183j  # the same at 690 nm
 
 CASES = {  # radii, n, mu, wavelength, r, digits of the reference

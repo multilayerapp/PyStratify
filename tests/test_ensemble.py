@@ -5,7 +5,9 @@ import pytest
 
 import pystratify as ps
 
-AU = 0.1412 + 3.1518j  # Etchegoin, Le Ru & Meyer gold at 614 nm
+# A fixed test index: the gold model au-elm-2006 at 614 nm (Etchegoin, Le Ru & Meyer's 2006 Table I, which their
+# 2007 erratum corrects to 0.2035 + 3.1793j; examples/_common.py now uses the erratum), kept so the results compare.
+AU = 0.1412 + 3.1518j
 COATED = ([50.0, 60.0], [AU, 1.45, 1.33], 614.0)  # dye-doped silica shell on a gold core, in water
 
 
