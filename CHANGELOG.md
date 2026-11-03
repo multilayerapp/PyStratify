@@ -5,7 +5,16 @@ Notable changes to PyStratify. Every release is on [PyPI](https://pypi.org/proje
 
 ## Unreleased — one stable film kernel
 
-Nothing already computed changes; one new module.
+One new module, and one fix that changes results only at a layer's exact critical angle.
+
+- **`planar.coh_tmm` at a layer's own critical angle** (WP07, O-W7-10): where cos θ = 0 inside an interior layer
+  the reflection recursion lost the 0·∞ limit between a perfectly reflecting interface and a vanishing phase, and
+  returned R_s = 1 for an air gap between glass prisms whose R_s is 0.3304 (Byrnes's `tmm` does the same). Wherever
+  an interior layer has |cos θ| < `CRITICAL_COS` = 10⁻⁶ (the recursion's ε/|cos θ| error passes 2e-10 there),
+  `coh_tmm` and `coh_tmm_wavelength_sweep` now take r, t, R and T from `stable.stable_tmm`, and the per-layer
+  outputs (`absorp_in_each_layer`, `position_resolved`, `absorp_analytic_fn`, the sweep's layer absorption) refuse
+  or return NaN there, since no forward/backward split exists. Every other point is computed exactly as before.
+  `tests/test_planar_critical.py`.
 
 - **`pystratify.stable`**: the coherent planar kernel of multilayer.app's replication corpus and calculator (WP07,
   2026-11-03), which each kept their own copy until now. `stable_tmm` solves a stack over a whole grid of wavelengths

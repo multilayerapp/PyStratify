@@ -67,7 +67,8 @@ forward amplitude in the crystal's first layer at its face (planar's amplitude n
 back by solving) in scattering form: the same selection, vectorised, and stable for any front stack.
 
 **A layer at its own critical angle.** Where ``cos(theta) -> 0`` inside a layer its two plane waves coincide and
-the star product through them loses ~eps/|cos| (0/0 at cos = 0; ``planar.coh_tmm`` has the same singularity). There
+the star product through them loses ~eps/|cos| (0/0 at cos = 0; ``planar.coh_tmm``'s recursion has the same
+singularity, and since 2026-11-03 takes r and t from this kernel where an interior |cos| < ``planar.CRITICAL_COS``). There
 (|cos| < ``NEAR_CRITICAL_COS``, |Im delta| < ``NEAR_CRITICAL_IM_DELTA``) the layer is taken from its characteristic
 matrix, smooth at cos = 0, referred to a zero-thickness auxiliary medium on both faces (``_near_critical_body``) --
 what the harvester's Bloch exit did with its (E, H) matrices.

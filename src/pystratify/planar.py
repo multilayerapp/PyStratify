@@ -6,6 +6,7 @@ Coherent responses use the same projective core as cylindrical/spherical modes.
 from __future__ import division, print_function, absolute_import
 
 from .response import sweep
+from .stable import stable_tmm as _stable_tmm
 
 import itertools
 
@@ -230,6 +231,40 @@ def _opaque_floor(transmission):
         return 1e-30
     return transmission
 
+#: An interior layer whose |cos(theta)| is below this is at (or within ~1e-12 rad of) its own critical angle.
+#: There the reflection recursion meets an interface that reflects perfectly while the layer's phase vanishes,
+#: and loses the 0 * inf limit between them: an air gap between two glass prisms at its critical angle came back
+#: as R_s = 1 where the characteristic matrix gives 0.3304 (assurance WP07, O-W7-10; Byrnes's `tmm` does the
+#: same). Its error grows as eps / |cos(theta)|, so below this bound (2e-10) r, t, R and T come from
+#: `stable.stable_tmm`, whose layer takes the limit, and every other point is computed exactly as before.
+CRITICAL_COS = 1e-6
+
+
+def _critical_layers(th_list):
+    """Indices (into the stack, half-spaces included) of the interior layers at their own critical angle."""
+    return [int(i) + 1 for i in np.flatnonzero(np.abs(cos(np.asarray(th_list)[1:-1])) < CRITICAL_COS)]
+
+
+def _critical_amplitudes(pol, n_list, d_list, th_0, lam_vac, mu_list, critical):
+    """r and t of a stack with a layer at its own critical angle, from `stable.stable_tmm`."""
+    if mu_list is not None and np.any(np.asarray(mu_list) != 1):
+        raise ValueError(f"layer {critical[0]} is at its own critical angle and the stack is magnetic; the "
+                         "critical-angle path supports mu = 1 only")
+    stack = [(n_list[i], d_list[i]) for i in range(1, len(n_list) - 1)]
+    out = _stable_tmm(pol, stack, n_list[0], n_list[-1], th_0, lam_vac, detect_repeats=False)
+    return out['r'], out['t']
+
+
+def _refuse_critical(coh_tmm_data, what):
+    """Per-layer outputs are undefined where a layer sits at its own critical angle."""
+    critical = coh_tmm_data.get('critical_layers') or []
+    if critical:
+        raise ValueError(
+            f"layer {critical[0]} is at its own critical angle (cos theta = 0 inside it): its forward and "
+            f"backward waves coincide, so {what} is not defined there. R, T, r and t are exact; move the "
+            "angle off the critical one for per-layer quantities")
+
+
 def _prepare_coherent_stack(n_list, d_list, th_0, mu_list=None):
     n_list = array(n_list)
     d_list = array(d_list, dtype=float)
@@ -351,6 +386,11 @@ def coh_tmm_wavelength_sweep(
         delta_batch,
         include_vw_list=include_layer_absorption,
     )
+    critical = _critical_layers(th_list)
+    if critical:
+        r, t = _critical_amplitudes(pol, n_list, d_list, th_0, lam_vac_array, mu_list, critical)
+        if vw_list is not None:
+            vw_list = np.full_like(vw_list, nan)
     R = np.array(R_from_r(r), dtype=float)
     T = np.array(T_from_t(pol, t, y_list[0], y_list[-1], th_0, th_list[-1]), dtype=float)
     power_entering = np.array(power_entering_from_r(pol, r, y_list[0], th_0), dtype=float)
@@ -358,6 +398,7 @@ def coh_tmm_wavelength_sweep(
         'R': R,
         'T': T,
         'power_entering': power_entering,
+        'critical_layers': critical,
     }
     if include_layer_absorption:
         result['layer_absorption'] = _coh_tmm_absorp_in_each_layer_batch(
@@ -369,6 +410,10 @@ def coh_tmm_wavelength_sweep(
             T,
             vw_list,
         )
+        if critical:
+            # Undefined in every interior layer, as `absorp_in_each_layer` refuses: one layer's share can come
+            # from R and T by energy balance, but not a stack's split between its layers.
+            result['layer_absorption'][:, 1:-1] = nan
     return result
 
 def interface_r(polarization, n_i, n_f, th_i, th_f):
@@ -513,6 +558,11 @@ def coh_tmm(pol, n_list, d_list, th_0, lam_vac, mu_list=None):
         n_list, d_list, th_0, lam_vac, mu_list
     )
     r, t, vw_list = _coh_tmm_amplitudes(pol, y_list, th_list, delta)
+    critical = _critical_layers(th_list)
+    if critical:
+        r, t = (complex(np.squeeze(amplitude)) for amplitude in
+                _critical_amplitudes(pol, n_list, d_list, th_0, lam_vac, mu_list, critical))
+        vw_list = np.full_like(vw_list, nan)
 
     # Net transmitted and reflected power, as a proportion of the incoming light
     # power.
@@ -527,7 +577,8 @@ def coh_tmm(pol, n_list, d_list, th_0, lam_vac, mu_list=None):
     return {'r': r, 't': t, 'R': R, 'T': T, 'power_entering': power_entering,
             'backward_bottom': backward_bottom, 'vw_list': vw_list, 'kz_list': kz_list, 'th_list': th_list,
             'pol': pol, 'n_list': n_list, 'd_list': d_list, 'th_0': th_0,
-            'lam_vac':lam_vac, 'y_list': y_list, 'mu_list': mu_list}
+            'lam_vac':lam_vac, 'y_list': y_list, 'mu_list': mu_list,
+            'critical_layers': critical}
 
 def coh_tmm_reverse(pol, n_list, d_list, th_0, lam_vac):
     """
@@ -577,6 +628,7 @@ def position_resolved(layer, distance, coh_tmm_data):
     The E-field is in units where the incoming |E|=1; see
     https://arxiv.org/pdf/1603.02720.pdf for formulas.
     """
+    _refuse_critical(coh_tmm_data, "the field")
     if layer > 0:
         v,w = coh_tmm_data['vw_list'][layer]
     else:
@@ -712,6 +764,7 @@ class absorp_analytic_fn:
         (the output of coh_tmm), for absorption in the layer with index
         "layer".
         """
+        _refuse_critical(coh_tmm_data, "per-layer absorption")
         pol = coh_tmm_data['pol']
         v = coh_tmm_data['vw_list'][layer][0]
         w = coh_tmm_data['vw_list'][layer][1]
@@ -802,6 +855,7 @@ def absorp_in_each_layer(coh_tmm_data):
 
     coh_tmm_data is output of coh_tmm()
     """
+    _refuse_critical(coh_tmm_data, "per-layer absorption")
     num_layers = len(coh_tmm_data['d_list'])
     power_entering_each_layer = zeros(num_layers)
     power_entering_each_layer[0] = 1

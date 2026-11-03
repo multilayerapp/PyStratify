@@ -214,8 +214,10 @@ calculator's repeat groups (WP07, 2026-11-03), in `planar.coh_tmm`'s conventions
   negative or non-finite thicknesses, repeat counts below 1, a Bloch period longer than the stack or made of groups.
 * **A layer at its own critical angle.** Where cos θ → 0 inside a layer its forward and backward plane waves
   coincide, and a star product through them divides a vanishing transmission by a vanishing denominator: the error
-  grows as ε/|cos θ|, and at cos θ = 0 it is 0/0 (`planar.coh_tmm`, a transfer of the same plane waves, returns
-  R_s = 1 there for a stack whose R_s is 0.337). Where |cos θ| < 10⁻² (and |Im δ| < 30) the kernel therefore takes
+  grows as ε/|cos θ|, and at cos θ = 0 it is 0/0 (`planar.coh_tmm`, a transfer of the same plane waves, returned
+  R_s = 1 there for a stack whose R_s is 0.337; since 2026-11-03 it takes r, t, R and T from this kernel wherever an
+  interior layer has |cos θ| < `planar.CRITICAL_COS` = 10⁻⁶, computes every other point as before, and refuses
+  per-layer absorption and fields at such a point, where no forward/backward split exists). Where |cos θ| < 10⁻² (and |Im δ| < 30) the kernel therefore takes
   that layer from its characteristic matrix, written with sinc so it is smooth at cos θ = 0, referred to a
   zero-thickness auxiliary medium on both faces: agreement with a direct integration of Maxwell's equations is
   3e-15 at, and 1e-12 to 1e-3 rad from, the critical angle (and with the harvester's Bloch exit, which used the same
