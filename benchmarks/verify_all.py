@@ -45,7 +45,8 @@ TESTS = {
 }
 # script, environment, report (each prints its report; the old file is kept if the script fails)
 REPORTS = [
-    ("planar_checks", "bench", "PLANAR_CHECKS.md"), ("unified_checks", "bench", "UNIFIED_CHECKS.md"),
+    ("planar_checks", "bench", "PLANAR_CHECKS.md"), ("stable_checks", "bench", "STABLE_CHECKS.md"),
+    ("unified_checks", "bench", "UNIFIED_CHECKS.md"),
     ("focused_checks", "bench", "FOCUSED_CHECKS.md"), ("sphere_checks", "bench", "SPHERE_CHECKS.md"),
     ("sphere_emitter_checks", "bench", "SPHERE_EMITTER_CHECKS.md"), ("planar_codes", "bench", "PLANAR_CODES.md"),
     ("dispersion_codes", "bench", "DISPERSION_CODES.md"), ("ellipsometry_codes", "bench", "ELLIPSOMETRY_CODES.md"),

@@ -3,6 +3,25 @@
 Notable changes to PyStratify. Every release is on [PyPI](https://pypi.org/project/pystratify/) and
 [Zenodo](https://doi.org/10.5281/zenodo.23287561) (one DOI per version); `git log` has the full history.
 
+## Unreleased — one stable film kernel
+
+Nothing already computed changes; one new module.
+
+- **`pystratify.stable`**: the coherent planar kernel of multilayer.app's replication corpus and calculator (WP07,
+  2026-11-03), which each kept their own copy until now. `stable_tmm` solves a stack over a whole grid of wavelengths
+  and angles by Redheffer star products of bounded scattering matrices, so any layer count and any absorption stay
+  finite; repeated blocks, written as nestable `Repeat` groups or detected in a flat stack, are raised by binary
+  doubling (131072 layers × 401 wavelengths in under a millisecond). It adds uniaxial layers with the optic axis
+  along the normal, a perfect-conductor exit and a Bloch-terminated exit (a semi-infinite periodic crystal), in
+  `planar.coh_tmm`'s conventions, and refuses with `ValueError` what it cannot compute unambiguously. A layer at its
+  own critical angle, where the plane-wave basis degenerates (`planar.coh_tmm` returns R_s = 1 at that exact angle
+  for a stack whose R_s is 0.337), is taken from its characteristic matrix.
+- Checked (`benchmarks/STABLE_CHECKS.md`): against `planar.coh_tmm` to ≤ 1.8e-14 (1.7e-12 on 8192 layers), uniaxial
+  and critical-angle layers against a direct integration of Maxwell's equations to ≤ 3.3e-15, the PEC and Bloch
+  exits against their closed forms and limits, and the harvester's own kernels to ≤ 3.4e-14 through a committed
+  fixture (`benchmarks/stable_fixtures.py`). `benchmarks/byrnes_tmm.py` compares `planar.coh_tmm`, `inc_tmm` and
+  `stable_tmm` with Byrnes's `tmm` 0.2.0 (≤ 1e-14; lineage), now in the `benchmarks` extra.
+
 ## 0.11.0 — thin-film ellipsometry: dispersion models and fits
 
 Two new modules; nothing already computed changes.

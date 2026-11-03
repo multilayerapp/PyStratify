@@ -67,6 +67,7 @@ shapely==2.2.0
 six==1.17.0
 tables==3.11.1
 threadpoolctl==3.7.0
+tmm==0.2.0
 tqdm==4.70.1
 treams==0.4.7
 trimesh==5.1.1

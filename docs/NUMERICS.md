@@ -184,3 +184,41 @@ Typical timings on one core:
 | `emission_rates`, one position 10 nm / 1 nm from gold (p + m, quadrupole) | 4 ms / 25–85 ms |
 | quadrupole emission pattern, 181 × 361 grid, emitter on / off the grid's axis | 0.15 s / 1.1 s |
 | 601-wavelength spectrum, graphene-coated sphere | 10 ms |
+
+## Films: the stable kernel
+
+`pystratify.planar` solves one wavelength and one angle per call, sweeping reflection ratios through every
+interface. `pystratify.stable` solves a coherent planar stack over a whole grid of points at once (wavelengths and
+angles broadcast together) by composing **scattering matrices** with the Redheffer star product: every section is
+four amplitudes (r, t, r′, t′) that stay bounded for a passive stack, and every layer is put on its decaying
+(forward) branch, so no intermediate grows. It is the kernel of multilayer.app's replication corpus and of the
+calculator's repeat groups (WP07, 2026-11-03), in `planar.coh_tmm`'s conventions; its module docstring states them.
+
+* **Regime.** Any layer count and any absorption: an opaque layer underflows to t = 0 rather than overflowing (no
+  clip of Im δ is needed), and inside a stop band, where an unscaled transfer-matrix product overflows past
+  ~8860 periods of a weak-contrast stack, the result stays finite. A block repeated k times, written as a
+  `Repeat` (groups nest) or detected in a flat stack by exact equality of n, n_z and d, is raised to the k-th power
+  by binary doubling: 131072 layers × 401 wavelengths take under a millisecond, the same stack written out
+  layer by layer about 5 s. One distinct layer's arrays are in memory at a time.
+* **Accuracy.** Agrees with `planar.coh_tmm` to ~1e-14 (1.7e-12 on 8192 layers) and with Byrnes's `tmm` to ~1e-14;
+  a detected or grouped period equals the literal stack to ~1e-14. Uniaxial layers (optic axis along the normal)
+  agree with a direct integration of Maxwell's equations to 1e-15.
+* **Exits.** A perfect conductor (`PEC_INDEX`) is the exact limit, r = −1 (s) / +1 (p) at the last interface;
+  a Bloch-terminated exit (`BlochExit`) is the semi-infinite crystal's reflection from the period's scattering
+  matrix (the Bloch multipliers from a cancellation-free quadratic), the decaying wave chosen, or in a lossless pass
+  band the one carrying power into the crystal. Within 1e-9 of a band edge (in log |λ|) the two Bloch waves
+  coincide and the choice is ill-conditioned, as it is for any method.
+* **Refusals** (`ValueError`, never a silent substitute): a lossy incident medium at oblique incidence
+  (|Im(n₀ sin θ₀)| ≥ 100 ε), and with a Bloch exit any incident loss above 1e-9 n; an angle that is not the incoming
+  wave; gain in either half-space; a perfect conductor as the incident medium or at only some points of the exit;
+  negative or non-finite thicknesses, repeat counts below 1, a Bloch period longer than the stack or made of groups.
+* **A layer at its own critical angle.** Where cos θ → 0 inside a layer its forward and backward plane waves
+  coincide, and a star product through them divides a vanishing transmission by a vanishing denominator: the error
+  grows as ε/|cos θ|, and at cos θ = 0 it is 0/0 (`planar.coh_tmm`, a transfer of the same plane waves, returns
+  R_s = 1 there for a stack whose R_s is 0.337). Where |cos θ| < 10⁻² (and |Im δ| < 30) the kernel therefore takes
+  that layer from its characteristic matrix, written with sinc so it is smooth at cos θ = 0, referred to a
+  zero-thickness auxiliary medium on both faces: agreement with a direct integration of Maxwell's equations is
+  3e-15 at, and 1e-12 to 1e-3 rad from, the critical angle (and with the harvester's Bloch exit, which used the same
+  matrices, 1e-14).
+* **Limits.** Coherent and non-magnetic (μ = 1) only; uniaxial layers only with the optic axis along the normal,
+  between isotropic half-spaces.

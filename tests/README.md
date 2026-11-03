@@ -5,6 +5,13 @@ pip install -e ".[test]"
 pytest
 ```
 
+* `test_stable.py`: the stable film kernel (`pystratify.stable`) through `benchmarks/stable_checks.py`: against
+  `planar.coh_tmm` (random, lossy, beyond-critical, gridded, 400- and 8192-layer stacks), repeat groups and detected
+  periods against the literal stack, 131072 layers finite and fast, uniaxial layers and layers at their own
+  critical angle against a matrix-exponential integration of Maxwell's equations, the PEC and Bloch exits against
+  closed forms and limits, the harvester's numbers (`stable_fixtures.json`, written by
+  `benchmarks/stable_fixtures.py`), the refusals; and `benchmarks/byrnes_tmm.py` (lineage: `planar` and `stable`
+  against Byrnes's `tmm` 0.2.0; skipped unless `tmm` is installed).
 * `test_planar_emission_references.py`: film emitter rates (electric and magnetic, perpendicular and
   parallel) against the Sommerfeld reference of `benchmarks/emitter_references.py`, itself checked
   against the image dipole at a perfect mirror; sources outside lossless guides against the lossless

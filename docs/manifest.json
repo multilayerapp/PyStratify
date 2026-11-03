@@ -9985,6 +9985,102 @@
    "status": "to build"
   },
   {
+   "id": "films-plane-wave-27",
+   "kind": "benchmark",
+   "geometry": "films",
+   "source": "plane_wave",
+   "reference": "`pystratify.stable` (scattering matrices, Redheffer star) against `planar.coh_tmm` (projective sweeps)",
+   "reference_kind": "method",
+   "quantity": "r, t, R, T on 160 random stacks (lossless and absorbing, oblique s and p, absorbing exits), a prism beyond the critical angle with evanescent layers, a wavelength × angle grid, an absorbing incident medium, 400 random layers, and an 8192-layer periodic stack in and around its stop band",
+   "script": "`benchmarks/stable_checks.py` → `STABLE_CHECKS.md`; `tests/test_stable.py::test_isotropic_stacks_against_coh_tmm`, `::test_long_stacks_stay_finite_and_match_coh_tmm`",
+   "tolerance": "1e-12 (1e-10 on 400 and 8192 layers); observed ≤ 1.8e-14 (1.7e-12)",
+   "status": "suite"
+  },
+  {
+   "id": "films-plane-wave-28",
+   "kind": "benchmark",
+   "geometry": "films",
+   "source": "plane_wave",
+   "reference": "repeated stacks: nested repeat groups and detected periods against the literal stack",
+   "reference_kind": "method",
+   "quantity": "r, t, R, T; 131072 layers (65536 cells × 401 wavelengths) finite and passive",
+   "script": "`benchmarks/stable_checks.py` → `STABLE_CHECKS.md`; `tests/test_stable.py::test_repeat_groups_and_detection_equal_the_literal_stack`, `::test_long_stacks_stay_finite_and_match_coh_tmm`",
+   "tolerance": "1e-12; observed ≤ 1.3e-14; 131072 layers in < 1 ms as a group, 0.1 s as a flat list",
+   "status": "suite"
+  },
+  {
+   "id": "films-plane-wave-29",
+   "kind": "benchmark",
+   "geometry": "films",
+   "source": "plane_wave",
+   "reference": "uniaxial layer, optic axis along the normal: s does not see ε_z, ε_z = ε_x is the isotropic layer, normal incidence does not see ε_z",
+   "reference_kind": "analytic",
+   "quantity": "r, t, R, T",
+   "script": "`benchmarks/stable_checks.py` → `STABLE_CHECKS.md`; `tests/test_stable.py::test_uniaxial_layers`",
+   "tolerance": "0 (identical numbers)",
+   "status": "suite"
+  },
+  {
+   "id": "films-plane-wave-30",
+   "kind": "benchmark",
+   "geometry": "films",
+   "source": "plane_wave",
+   "reference": "uniaxial layers, and layers at their own critical angle, against Maxwell's equations for the tangential (E, H) integrated through each layer by matrix exponential",
+   "reference_kind": "method",
+   "quantity": "r_p, R, T of 20 random uniaxial stacks and a lossy hyperbolic (ε_z < 0) layer under a prism; r, R, T (s and p) at, and 1e-12 to 1e-3 rad from, a layer's critical angle",
+   "script": "`benchmarks/stable_checks.py` → `STABLE_CHECKS.md`; `tests/test_stable.py::test_uniaxial_layers`",
+   "tolerance": "1e-12; observed ≤ 3.3e-15",
+   "status": "suite"
+  },
+  {
+   "id": "films-plane-wave-31",
+   "kind": "benchmark",
+   "geometry": "films",
+   "source": "plane_wave",
+   "reference": "perfect-conductor exit: |r| = 1 and T = 0 on lossless stacks; `coh_tmm` with exit index 10⁷ i tends to it",
+   "reference_kind": "analytic",
+   "quantity": "r, R, T",
+   "script": "`benchmarks/stable_checks.py` → `STABLE_CHECKS.md`; `tests/test_stable.py::test_perfect_conductor_exit`",
+   "tolerance": "1e-14 (|R − 1|), 1e-6 (the O(1/K) limit); observed ≤ 2e-15, 7e-7",
+   "status": "suite"
+  },
+  {
+   "id": "films-plane-wave-32",
+   "kind": "benchmark",
+   "geometry": "films",
+   "source": "plane_wave",
+   "reference": "Bloch-terminated exit: a one-layer period is that half-space (`coh_tmm`); a lossy crystal is 1200 periods; a lossless one conserves energy and reflects all in its stop band; 80 periods tend to the crystal in a band gap (uniaxial too)",
+   "reference_kind": "analytic / method",
+   "quantity": "complex r, R, T",
+   "script": "`benchmarks/stable_checks.py` → `STABLE_CHECKS.md`; `tests/test_stable.py::test_bloch_exit`",
+   "tolerance": "1e-12; observed ≤ 1.4e-14",
+   "status": "suite"
+  },
+  {
+   "id": "films-plane-wave-33",
+   "kind": "benchmark",
+   "geometry": "films",
+   "source": "plane_wave",
+   "reference": "multilayer.app's former kernels: the harvester's `tmm_stable.coh_rt` and `verify.bloch_exit_rt`",
+   "reference_kind": "lineage",
+   "quantity": "R, T of 42 cases (534 points): uniaxial stacks, PEC and Bloch exits (one at a layer's critical angle), the 65536-cell stack of 10.1119/1.4789883",
+   "script": "`benchmarks/stable_fixtures.py` (run by hand against the harvester) → `tests/stable_fixtures.json`; `benchmarks/stable_checks.py`; `tests/test_stable.py::test_the_harvesters_numbers`",
+   "tolerance": "1e-12; observed ≤ 3.4e-14",
+   "status": "suite"
+  },
+  {
+   "id": "films-plane-wave-34",
+   "kind": "benchmark",
+   "geometry": "films",
+   "source": "plane_wave",
+   "reference": "Byrnes `tmm` 0.2.0 `coh_tmm`, `inc_tmm` (independent in the coherent kernel only: `planar.py` keeps Byrnes's interface and incoherent ladder)",
+   "reference_kind": "lineage",
+   "quantity": "coherent r, t, R, T of `planar.coh_tmm` and `pystratify.stable`; incoherent R, T of `planar.inc_tmm` (126 coherent and 60 mixed stacks × s, p)",
+   "script": "`benchmarks/byrnes_tmm.py` → `BYRNES_TMM.md`; `tests/test_stable.py::test_against_byrnes_tmm_lineage`",
+   "tolerance": "1e-11; observed ≤ 1e-14",
+   "status": "suite where `tmm` is installed (`benchmarks` extra)"
+  },
+  {
    "id": "films-dipole-1",
    "kind": "benchmark",
    "geometry": "films",
@@ -26387,7 +26483,7 @@
     ]
    ]
   },
-  "findings": "- **Where the remaining `to build` rows stand (2026-10-11).** Every code comparison PyStratify can run alone is\n  built. The classic papers (`crosscheck/classics/`, 16 scripts, every toleranced check passing) now cover the\n  paper rows for OLED emitters (Neyts), Bohren & Huffman's cylinder, FT-IR fibres (Davis 2011), Kerker and\n  nanoshells (Fu, Prodan) and Anger–Novotny quenching. Still to build: Furno's OLEDs, Davis 2010's film, a nanowire\n  emitter, an FT-IR sphere paper and Oldenburg's nanoshells (WP1.6, with the classics' second wave); pyElli 4×4, PyMoosh `anisotropic.py` and the isotropic\n  limit wait for WP1.4's anisotropic solver; PyMoosh `non_local.py` waits for the `non-local` merge;\n  OpenSANS needs its CPC program library download.\n\n- **Films now have two independent codes** (2026-10-10): PyMoosh and pyElli agree with\n  `pystratify.planar` to ≤ 1.2e-14 in R, T, r, t and per-layer A, and to ≤ 6e-13° in Ψ and Δ, including\n  opaque and 20 µm absorbing layers, total internal reflection and a magnetic layer\n  (`PLANAR_CODES.md`). Plane-wave fields agree with PyMoosh to ≤ 1.6e-14, and every guided mode of\n  four lossless guides with PyMoosh (≤ 1.1e-11) and the slab dispersion relation (≤ 6.6e-14).\n  Conventions that had to be mapped: PyMoosh's p-polarised t is the H-field ratio, and pyElli's\n  Δ = 180° − Δ(tmm). Still open on films: anisotropy (pyElli's 4×4, with WP1.4).\n- **Film emitter rates now have two outside references** (2026-10-10): independently written\n  Sommerfeld integrals, pinned to the image-dipole closed form, agree with `FilmSource` to ≤ 5e-12;\n  smuthi agrees on lossless guides to ≤ 4.8e-7. The guide comparison **found a bug**: a source in an\n  exterior half-space lost all guided power (fixed in 0.10.3). **Cylinder emitters have an outside\n  reference since 2026-10-10**: Meep's 3D FDTD converges toward PyStratify (0.74% at 60 px/µm, every\n  orientation, through a mode cutoff), and its first run **found a bug**: the guided-mode search dropped\n  real modes while reporting convergence (up to 12% here, 9.5% over random cylinders; fixed in 0.10.4,\n  the found modes now equal the fibre's closed-form dispersion relations). NGSolve's 3D finite\n  elements are the second volume method (0.5% at 0.8 µm, 0.8% just above the cutoff, ≤ 2.1% over 0.62–1.2 µm\n  since 2026-10-13: a cylindrical cell with a z-PML the guided modes meet head on, cut to a quarter by mirror\n  symmetry; the first, spherical cell was off by up to 11%).\n- **Volume methods (FDTD, FEM, BEM) are a different-method check at ~1%**, not a precision check:\n  they test the formulation (sign conventions, normalisation, multipole bookkeeping), not the digits.\n  Meep in cylindrical coordinates is cheap for a dipole on the symmetry axis: since 2026-10-10 a sphere\n  agrees to 1.7% and a guiding film to 3.7% at 100 px/µm (2D, under a minute each); off-axis sources and\n  cylinders need 3D runs, one at a time on this 8 GB Mac. At 200 px/µm Meep's E_z (m = 0) runs jump at the\n  band's lowest frequency (+9% sphere, +12% film) while everything else keeps converging — Meep-side,\n  noted in the report, not yet explained.\n- **Spheres are the best covered**: precision, BHMIE, five papers, and since 2026-10-10 two Mie codes run\n  publicly (scattnlay and treams agree with PyStratify to ≤ 1.8e-11 once 20 orders beyond Wiscombe's\n  truncation are kept; at the default truncation, what a user gets, to ≤ 3.7e-8) and a\n  different *method*: MNPBEM's boundary elements converge toward PyStratify for cross sections and\n  decay rates (`MNPBEM_SPHERES.md`), and pyGDM2's volume dipoles agree within ~3% for dielectric\n  spheres (`GDM_SPHERES.md`). A 5 nm nanoshell is beyond MNPBEM's affordable meshes here; three\n  Mie codes (PyStratify, treams, scattnlay) settle that case exactly. **Near fields** too\n  (2026-10-10): E and H inside every layer and outside agree with scattnlay to ≤ 8.2e-13 and the\n  scattered field with treams to ≤ 6.6e-14; the centre is exact (Bohren & Huffman's d₁, c₁ to\n  1e-14), where scattnlay loses up to 5e-3, and scattnlay's internal field fails toward the core of a\n  10-layer sphere whose PyStratify coefficients agree with 60-digit transfer matrices. **Emitters**\n  beside a sphere agree with smuthi to machine precision (2.2e-16) for dielectric spheres and to\n  5e-10 for a metal-like sphere 5 nm away, converging with smuthi's truncation; beside **layered**\n  spheres (a nanoshell, a matryoshka; electric and magnetic dipoles) with treams, to 3e-15 for\n  dielectric shells and 3e-8 / 1e-11 for the metal ones; Meep (cylindrical coordinates) agrees to 1.7%.\n- **Focused beams are verified only against their own plane-wave engines.** The FT-IR papers are\n  the outside check.\n- **The incoherent film path** has only the explicit phase average as an independent check. The\n  backend's \"GTMM\" comparison is `inc_tmm` itself. PyMoosh's `incoherent.py` is now the outside\n  check for a thick incoherent substrate; stacks with several incoherent layers are still unchecked.\n- **PyMoosh covers the most planar cells of any one code**: R/T/A and fields, incoherent stacks,\n  anisotropy, dipole sources, guided modes and hydrodynamic films. `benchmarks/planar_codes.py` is\n  where its next cells go.",
+  "findings": "- **Where the remaining `to build` rows stand (2026-10-11).** Every code comparison PyStratify can run alone is\n  built. The classic papers (`crosscheck/classics/`, 16 scripts, every toleranced check passing) now cover the\n  paper rows for OLED emitters (Neyts), Bohren & Huffman's cylinder, FT-IR fibres (Davis 2011), Kerker and\n  nanoshells (Fu, Prodan) and Anger–Novotny quenching. Still to build: Furno's OLEDs, Davis 2010's film, a nanowire\n  emitter, an FT-IR sphere paper and Oldenburg's nanoshells (WP1.6, with the classics' second wave); pyElli 4×4, PyMoosh `anisotropic.py` and the isotropic\n  limit wait for WP1.4's anisotropic solver; PyMoosh `non_local.py` waits for the `non-local` merge;\n  OpenSANS needs its CPC program library download.\n\n- **Films now have two independent codes** (2026-10-10): PyMoosh and pyElli agree with\n  `pystratify.planar` to ≤ 1.2e-14 in R, T, r, t and per-layer A, and to ≤ 6e-13° in Ψ and Δ, including\n  opaque and 20 µm absorbing layers, total internal reflection and a magnetic layer\n  (`PLANAR_CODES.md`). Plane-wave fields agree with PyMoosh to ≤ 1.6e-14, and every guided mode of\n  four lossless guides with PyMoosh (≤ 1.1e-11) and the slab dispersion relation (≤ 6.6e-14).\n  Conventions that had to be mapped: PyMoosh's p-polarised t is the H-field ratio, and pyElli's\n  Δ = 180° − Δ(tmm). Still open on films: anisotropy (pyElli's 4×4, with WP1.4).\n- **One stable film kernel** (2026-11-03, WP07): `pystratify.stable` takes over the scattering-matrix kernels the\n  replication corpus and the calculator each kept (repeat groups, detected periods, uniaxial layers with the axis\n  along the normal, perfect-conductor and Bloch-terminated exits). It agrees with `planar.coh_tmm` to ≤ 1.8e-14\n  (1.7e-12 on 8192 layers, where `coh_tmm` is still finite), with the harvester's own numbers to ≤ 3.4e-14, and\n  its uniaxial p response with a direct integration of Maxwell's equations to ≤ 1.4e-15; 131072 layers stay finite.\n  Its uniaxial layers have no outside code yet (pyElli's 4×4, with WP1.4).\n- **Film emitter rates now have two outside references** (2026-10-10): independently written\n  Sommerfeld integrals, pinned to the image-dipole closed form, agree with `FilmSource` to ≤ 5e-12;\n  smuthi agrees on lossless guides to ≤ 4.8e-7. The guide comparison **found a bug**: a source in an\n  exterior half-space lost all guided power (fixed in 0.10.3). **Cylinder emitters have an outside\n  reference since 2026-10-10**: Meep's 3D FDTD converges toward PyStratify (0.74% at 60 px/µm, every\n  orientation, through a mode cutoff), and its first run **found a bug**: the guided-mode search dropped\n  real modes while reporting convergence (up to 12% here, 9.5% over random cylinders; fixed in 0.10.4,\n  the found modes now equal the fibre's closed-form dispersion relations). NGSolve's 3D finite\n  elements are the second volume method (0.5% at 0.8 µm, 0.8% just above the cutoff, ≤ 2.1% over 0.62–1.2 µm\n  since 2026-10-13: a cylindrical cell with a z-PML the guided modes meet head on, cut to a quarter by mirror\n  symmetry; the first, spherical cell was off by up to 11%).\n- **Volume methods (FDTD, FEM, BEM) are a different-method check at ~1%**, not a precision check:\n  they test the formulation (sign conventions, normalisation, multipole bookkeeping), not the digits.\n  Meep in cylindrical coordinates is cheap for a dipole on the symmetry axis: since 2026-10-10 a sphere\n  agrees to 1.7% and a guiding film to 3.7% at 100 px/µm (2D, under a minute each); off-axis sources and\n  cylinders need 3D runs, one at a time on this 8 GB Mac. At 200 px/µm Meep's E_z (m = 0) runs jump at the\n  band's lowest frequency (+9% sphere, +12% film) while everything else keeps converging — Meep-side,\n  noted in the report, not yet explained.\n- **Spheres are the best covered**: precision, BHMIE, five papers, and since 2026-10-10 two Mie codes run\n  publicly (scattnlay and treams agree with PyStratify to ≤ 1.8e-11 once 20 orders beyond Wiscombe's\n  truncation are kept; at the default truncation, what a user gets, to ≤ 3.7e-8) and a\n  different *method*: MNPBEM's boundary elements converge toward PyStratify for cross sections and\n  decay rates (`MNPBEM_SPHERES.md`), and pyGDM2's volume dipoles agree within ~3% for dielectric\n  spheres (`GDM_SPHERES.md`). A 5 nm nanoshell is beyond MNPBEM's affordable meshes here; three\n  Mie codes (PyStratify, treams, scattnlay) settle that case exactly. **Near fields** too\n  (2026-10-10): E and H inside every layer and outside agree with scattnlay to ≤ 8.2e-13 and the\n  scattered field with treams to ≤ 6.6e-14; the centre is exact (Bohren & Huffman's d₁, c₁ to\n  1e-14), where scattnlay loses up to 5e-3, and scattnlay's internal field fails toward the core of a\n  10-layer sphere whose PyStratify coefficients agree with 60-digit transfer matrices. **Emitters**\n  beside a sphere agree with smuthi to machine precision (2.2e-16) for dielectric spheres and to\n  5e-10 for a metal-like sphere 5 nm away, converging with smuthi's truncation; beside **layered**\n  spheres (a nanoshell, a matryoshka; electric and magnetic dipoles) with treams, to 3e-15 for\n  dielectric shells and 3e-8 / 1e-11 for the metal ones; Meep (cylindrical coordinates) agrees to 1.7%.\n- **Focused beams are verified only against their own plane-wave engines.** The FT-IR papers are\n  the outside check.\n- **The incoherent film path** has only the explicit phase average as an independent check. The\n  backend's \"GTMM\" comparison is `inc_tmm` itself. PyMoosh's `incoherent.py` is now the outside\n  check for a thick incoherent substrate; stacks with several incoherent layers are still unchecked.\n- **PyMoosh covers the most planar cells of any one code**: R/T/A and fields, incoherent stacks,\n  anisotropy, dipole sources, guided modes and hydrodynamic films. `benchmarks/planar_codes.py` is\n  where its next cells go.",
   "figures": {
    "fresnel-oblique": {
     "id": "fresnel-oblique",
