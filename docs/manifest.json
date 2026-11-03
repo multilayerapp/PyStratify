@@ -9763,17 +9763,17 @@
    "quantity": "R, T, A, per-layer A, field, sRGB",
    "script": "—",
    "tolerance": "—",
-   "status": "**out of scope** (2026-10-11): removed with the tutorials (now Learn sections computed by PyStratify) and the parked inverse design; the site computes only through PyStratify, so there is no second engine to keep in parity"
+   "status": "**out of scope** (2026-10-11): removed with the tutorials (now Learn sections computed by PyStratify) and the parked inverse design; the site's JavaScript runs no transfer matrix since, though it still converts units, picks coherent or incoherent per layer and evaluates an oscillator preview before calling the API (assurance WP07, 2026-11-03)"
   },
   {
    "id": "films-plane-wave-12",
    "kind": "benchmark",
    "geometry": "films",
    "source": "plane_wave",
-   "reference": "replication corpus: 181 published records from 177 papers",
+   "reference": "replication corpus: 295 published records from 280 papers (2026-11-03)",
    "reference_kind": "paper",
    "quantity": "R, T, A spectra and angle scans against digitized figures",
-   "script": "multilayer.app's replication pipeline (`harvester/verify.py`, not public); every record is on the [Replications page](https://multilayer.app/replications.html)",
+   "script": "multilayer.app's replication pipeline (`harvester/verify.py`, not public), which computes on Byrnes's `tmm` 0.2.0, not on PyStratify; on every one of its 5.86 million transfer-matrix calls over both corpora the two agree to 2.3e-12 in R and T (assurance WP07, 2026-11-03); every record is on the [Replications page](https://multilayer.app/replications.html)",
    "tolerance": "fit score per record",
    "status": "corpus"
   },
@@ -26087,7 +26087,7 @@
    },
    {
     "kind": "**lineage**",
-    "proves": "a code that shares PyStratify's ancestry. `planar.py` *is* Byrnes's `tmm` (MIT notice in `src/pystratify/PLANAR-LICENSE.txt`); the backend's `inc_tmm`/\"GTMM\" path descends from it (so did the site's JavaScript `tutorial-engine.js`, removed 2026-10-11). Agreement is a regression check only"
+    "proves": "a code that shares PyStratify's ancestry. `planar.py` keeps Byrnes's `tmm` interface, incoherent ladder, field and absorption code (MIT notice in `src/pystratify/PLANAR-LICENSE.txt`), while its coherent kernel is its own reflection recursion (`response.sweep`), so against Byrnes's code it is independent in the coherent kernel only; the backend's `inc_tmm`/\"GTMM\" path descends from it (so did the site's JavaScript `tutorial-engine.js`, removed 2026-10-11). Agreement is a regression check only"
    }
   ],
   "statuses": [
