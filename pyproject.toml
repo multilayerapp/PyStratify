@@ -51,6 +51,8 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 120
+# frozen verbatim copies of displaced implementations (assurance WP07-D2): never reformatted
+extend-exclude = ["tests/oracles"]
 
 [tool.ruff.lint]
 # `l` is the multipole order throughout, as in the literature
