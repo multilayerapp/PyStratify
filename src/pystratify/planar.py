@@ -587,18 +587,51 @@ def coh_tmm_reverse(pol, n_list, d_list, th_0, lam_vac):
     th_f = snell(n_list[0], n_list[-1], th_0)
     return coh_tmm(pol, n_list[::-1], d_list[::-1], th_f, lam_vac)
 
-def ellips(n_list, d_list, th_0, lam_vac):
-    """
-    Calculates ellipsometric parameters, in radians.
+#: Below this many machine epsilons (times max(|r_s|, |r_p|, 1)) a reflected amplitude is rounding, not a wave:
+#: its phase is noise, so the angles that need it are undefined. multilayer.app's API rule (WP07-D2).
+AMPLITUDE_FLOOR_EPS = 64
 
-    Warning: Conventions differ. You may need to subtract pi/2 or whatever.
-    """
 
-    s_data = coh_tmm('s', n_list, d_list, th_0, lam_vac)
-    p_data = coh_tmm('p', n_list, d_list, th_0, lam_vac)
-    rs = s_data['r']
-    rp = p_data['r']
-    return {'psi': np.arctan(abs(rp/rs)), 'Delta': np.angle(-rp/rs)}
+def psi_delta(r_s, r_p):
+    """
+    Ellipsometric angles (psi, Delta), in radians, of the reflection amplitudes r_s and r_p; vectorised.
+
+    psi = atan2(|r_p|, |r_s|) and Delta = arg(-r_p conj(r_s)), the phase of -r_p/r_s: this package's p basis
+    flips sign at normal incidence (r_p = -r_s there), so the minus sign gives Delta = 0 at normal incidence and
+    for a bare dielectric below Brewster. Delta is in numpy.angle's range, (-pi, pi]; an instrument's Delta (the
+    Nebraska convention of `pystratify.ellipsometry`) is pi minus this one.
+
+    An amplitude at or below 64 eps max(|r_s|, |r_p|, 1) is rounding, not a reflected wave. psi needs one of the
+    two above that floor and Delta needs both; an undefined angle is NaN. At a bare dielectric's Brewster angle
+    psi is 0 and Delta is NaN (not the phase of a rounding-level r_p).
+
+    Returns ``(psi, Delta)``, numpy scalars for scalar input and arrays of the broadcast shape otherwise.
+    """
+    r_s = np.asarray(r_s, dtype=complex)
+    r_p = np.asarray(r_p, dtype=complex)
+    s_magnitude = np.abs(r_s)
+    p_magnitude = np.abs(r_p)
+    floor = AMPLITUDE_FLOOR_EPS * EPSILON * np.maximum(np.maximum(s_magnitude, p_magnitude), 1.0)
+    s_defined = s_magnitude > floor
+    p_defined = p_magnitude > floor
+    psi = np.where(s_defined | p_defined, np.arctan2(p_magnitude, s_magnitude), nan)
+    delta = np.where(s_defined & p_defined, np.angle(-r_p * np.conj(r_s)), nan)
+    return psi[()], delta[()]
+
+
+def ellips(n_list, d_list, th_0, lam_vac, mu_list=None):
+    """
+    Ellipsometric parameters of a coherent stack, in radians: ``{'psi': psi, 'Delta': Delta}`` from
+    `psi_delta` of the s and p reflection amplitudes (Delta = arg(-r_p/r_s), in (-pi, pi]; NaN where an
+    amplitude vanishes, e.g. at a Brewster angle). ``mu_list`` is passed to `coh_tmm`.
+
+    Warning: conventions differ. An ellipsometer's Delta (the Nebraska convention) is pi minus this one;
+    `pystratify.ellipsometry` reports that one.
+    """
+    s_data = coh_tmm('s', n_list, d_list, th_0, lam_vac, mu_list=mu_list)
+    p_data = coh_tmm('p', n_list, d_list, th_0, lam_vac, mu_list=mu_list)
+    psi, Delta = psi_delta(s_data['r'], p_data['r'])
+    return {'psi': psi, 'Delta': Delta}
 
 def unpolarized_RT(n_list, d_list, th_0, lam_vac):
     """
@@ -611,10 +644,43 @@ def unpolarized_RT(n_list, d_list, th_0, lam_vac):
     T = (s_data['T'] + p_data['T']) / 2.
     return {'R': R, 'T': T}
 
+def _layer_waves(layer, distance, coh_tmm_data):
+    """Forward and backward amplitudes (Ef, Eb) at depth ``distance`` of ``layer`` of a `coh_tmm` solution.
+
+    The backward wave of an interior layer is propagated from the layer's far face (``backward_bottom``), so a
+    thick absorbing layer never multiplies an underflowed amplitude by an overflowing exponential. Works on an
+    array of depths.
+    """
+    if layer > 0:
+        v, w = coh_tmm_data['vw_list'][layer]
+    else:
+        v = 1
+        w = coh_tmm_data['r']
+    kz = coh_tmm_data['kz_list'][layer]
+    Ef = v * exp(1j * kz * distance)
+    if 0 < layer < len(coh_tmm_data["d_list"]) - 1 and "backward_bottom" in coh_tmm_data:
+        Eb = coh_tmm_data["backward_bottom"][layer] * exp(1j * kz * (coh_tmm_data["d_list"][layer] - distance))
+    else:
+        Eb = w * exp(-1j * kz * distance)
+    return Ef, Eb
+
+
+def _magnetic_field(pol, th, y, y_0, Ef, Eb):
+    """(Hx, Hy, Hz) of the waves Ef, Eb in a layer of admittance index y at angle th, in units of |y_0| |E0|.
+
+    H = y k_hat x E / Z0 per wave: s (E along y) gives Hx = -y cos(th) (Ef - Eb), Hz = y sin(th) (Ef + Eb);
+    p gives Hy = y (Ef + Eb). Dividing by |y_0| makes the incident wave's |H| = 1 when its |E| = 1.
+    """
+    scale = y / abs(y_0)
+    if pol == 's':
+        return -scale * cos(th) * (Ef - Eb), 0j, scale * sin(th) * (Ef + Eb)
+    return 0j, scale * (Ef + Eb), 0j
+
+
 def position_resolved(layer, distance, coh_tmm_data):
     """
     Starting with output of coh_tmm(), calculate the Poynting vector,
-    absorbed energy density, and E-field at a specific location. The
+    absorbed energy density, and E- and H-fields at a specific location. The
     location is defined by (layer, distance), defined the same way as in
     find_in_structure_with_inf(...).
 
@@ -624,20 +690,21 @@ def position_resolved(layer, distance, coh_tmm_data):
     * absor - the absorbed energy density at that point
     * Ex and Ey and Ez - the electric field amplitudes, where
       z is normal to the interfaces and the light rays are in the x,z plane.
+    * Hx and Hy and Hz - the magnetic field amplitudes (complex), in units of
+      the incident wave's |H0| = |y_0| |E0|, with y = n/mu_r the admittance
+      index (`admittance_index`): s gives Hx = -(y/|y_0|) cos(th) (Ef - Eb) and
+      Hz = (y/|y_0|) sin(th) (Ef + Eb), p gives Hy = (y/|y_0|) (Ef + Eb), from
+      the same forward/backward amplitudes Ef, Eb as E. Re(E x H*)_z |y_0| /
+      Re(y_0 cos th_0) is ``poyn`` (s; cos th_0* for p).
 
     The E-field is in units where the incoming |E|=1; see
     https://arxiv.org/pdf/1603.02720.pdf for formulas.
     """
     _refuse_critical(coh_tmm_data, "the field")
-    if layer > 0:
-        v,w = coh_tmm_data['vw_list'][layer]
-    else:
-        v = 1
-        w = coh_tmm_data['r']
-    kz = coh_tmm_data['kz_list'][layer]
     th = coh_tmm_data['th_list'][layer]
+    kz = coh_tmm_data['kz_list'][layer]
     # Power densities carry the admittance index n/mu_r, not n; they are the
-    # same array when the stack is non-magnetic. kz above keeps the true n.
+    # same array when the stack is non-magnetic. kz keeps the true n.
     y_all = coh_tmm_data.get('y_list')
     if y_all is None:
         y_all = coh_tmm_data['n_list']
@@ -650,11 +717,7 @@ def position_resolved(layer, distance, coh_tmm_data):
                 or (layer == 0 and distance <= 0))
 
     # Amplitude of forward-moving wave is Ef, backwards is Eb
-    Ef = v * exp(1j * kz * distance)
-    if 0 < layer < len(coh_tmm_data["d_list"]) - 1 and "backward_bottom" in coh_tmm_data:
-        Eb = coh_tmm_data["backward_bottom"][layer] * exp(1j * kz * (coh_tmm_data["d_list"][layer] - distance))
-    else:
-        Eb = w * exp(-1j * kz * distance)
+    Ef, Eb = _layer_waves(layer, distance, coh_tmm_data)
 
     # Poynting vector
     if pol == 's':
@@ -681,7 +744,10 @@ def position_resolved(layer, distance, coh_tmm_data):
         Ey = 0
         Ez = (-Ef - Eb) * sin(th)
 
-    return {'poyn': poyn, 'absor': absor, 'Ex': Ex, 'Ey': Ey, 'Ez': Ez}
+    Hx, Hy, Hz = _magnetic_field(pol, th, y, y_0, Ef, Eb)
+
+    return {'poyn': poyn, 'absor': absor, 'Ex': Ex, 'Ey': Ey, 'Ez': Ez, 'Hx': Hx, 'Hy': Hy, 'Hz': Hz}
+
 
 def find_in_structure(d_list, distance):
     """
@@ -1837,6 +1903,7 @@ def inc_find_absorp_analytic_fn(layer, inc_data):
     backfunc.scale(inc_data['stackFB_list'][stackindex][1])
     backfunc.flip()
     return forwardfunc.add(backfunc)
+
 
 def layered_response(pol, n_list, d_list, c_list, th_0, lam_vac):
     """
