@@ -83,7 +83,10 @@ def test_psi_delta_is_vectorised(random_amplitudes):
     for i in range(0, PSI_STACKS, 97):
         one_psi, one_delta = planar.psi_delta(r_s[i], r_p[i])
         assert np.ndim(one_psi) == np.ndim(one_delta) == 0
-        assert one_psi == psi.ravel()[i] and one_delta == delta.ravel()[i]
+        # numpy's vectorised and scalar paths may round differently by an ulp or two on CPUs with wider SIMD
+        # (GitHub's runners: Δ 2 ulp apart at 501b2aa), so the scalar call agrees with the array to 4 ulp, not bitwise.
+        np.testing.assert_array_max_ulp(one_psi, psi.ravel()[i], maxulp=4)
+        np.testing.assert_array_max_ulp(one_delta, delta.ravel()[i], maxulp=4)
 
 
 EPS = np.finfo(float).eps
