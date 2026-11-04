@@ -28,7 +28,7 @@ figures:
 - {geometry: films, source: plane_wave, reference: "**pyElli** dispersions", figure: [pyelli-tauc-lorentz, pyelli-drude]}
 - {geometry: films, source: plane_wave, reference: "numerical Kramers–Kronig; QUADPACK Cauchy-weight principal value", figure: kramers-kronig-closed-forms}
 - {geometry: films, source: plane_wave, reference: "**pyElli** 2×2 and 4×4, dispersive stacks", figure: pyelli-dispersive-stack}
-- {geometry: films, source: plane_wave, reference: "explicit phase average of coherent solves; `inc_tmm`", figure: backside-reflection}
+- {geometry: films, source: plane_wave, reference: "explicit phase average of coherent solves; PyStratify's own incoherent solver in `planar`", figure: backside-reflection}
 - {geometry: films, source: dipole, reference: "dipole in a homogeneous film = free space", figure: film-dipole-homogeneous}
 - {geometry: films, source: dipole, reference: "independent flux budget (escape + guided + absorbed = total)", figure: [film-coating-budget-electric, film-coating-budget-magnetic]}
 - {geometry: films, source: dipole, reference: "guided-pole uncertainty within tolerance; 3D sources are not line sources", figure: [film-guided-pole-tolerance, film-guide-budget]}

@@ -288,5 +288,42 @@ def plot_kramers_kronig():
              "dispersion.kramers_kronig_real, and that Cody-Lorentz ε₁ stays continuous across E_g and E_t.")
 
 
+@figure("backside-reflection", "Backside reflection", "λ [nm]", "R, Re r_s r̄_p")
+def plot_backside_reflection():
+    from ellipsometry_codes import backside_phase_average
+
+    from pystratify import dispersion as dm
+    from pystratify import ellipsometry as el
+
+    film, glass, thickness, angle = dm.Cauchy(2.0, 0.01), dm.Constant(1.52), 1e5, 65.0
+    sample = el.Sample([el.Layer(film, 120.0)], substrate=glass, substrate_thickness=thickness)
+    lam = np.linspace(400.0, 900.0, 51)
+    every = 2  # the references every 20 nm
+    ss, pp, sp, _, _ = el._response(sample, lam, np.full(lam.size, angle))
+    inc_s, inc_p, avg_sp = [], [], []
+    for w in lam[::every]:
+        n = [1.0, film.index(w), 1.52, 1.0]
+        d, c = [np.inf, 120.0, thickness, np.inf], ["i", "c", "i", "i"]
+        inc_s.append(planar.inc_tmm("s", n, d, c, np.radians(angle), w)["R"])
+        inc_p.append(planar.inc_tmm("p", n, d, c, np.radians(angle), w)["R"])
+        avg_sp.append(backside_phase_average(n, d, w, angle)[2])
+    inc_s, inc_p, avg_sp = map(np.array, (inc_s, inc_p, avg_sp))
+    return result(
+        lam,
+        [line("ss", "Σ|r_s|², PyStratify", np.real(ss)), line("pp", "Σ|r_p|², PyStratify", np.real(pp)),
+         line("sp", "Re Σ r_s r̄_p, PyStratify", np.real(sp)),
+         dots("ss_ref", "R_s, inc_tmm", inc_s, every, size=lam.size),
+         dots("pp_ref", "R_p, inc_tmm", inc_p, every, size=lam.size),
+         dots("sp_ref", "Re r_s r̄_p, phase average", np.real(avg_sp), every, size=lam.size)],
+        worst=max(largest(np.real(ss[::every]), inc_s), largest(np.real(pp[::every]), inc_p),
+                  float(np.max(np.abs(np.asarray(sp)[::every] - avg_sp)))),
+        worst_label="largest |difference|",
+        note="Light returning from a thick substrate's back adds in power, so an ellipsometer sees sums over the "
+             "partial waves: Σ|r_s|² and Σ|r_p|² are inc_tmm's R, and the cross term Σ r_s r̄_p, which sets the "
+             "depolarisation, equals r_s r̄_p of the coherent stack averaged over one period of the substrate's "
+             "round-trip phase (64 coherent solves per point, benchmarks/ellipsometry_codes.py "
+             "backside_phase_average).")
+
+
 if __name__ == "__main__":
     run(__file__)

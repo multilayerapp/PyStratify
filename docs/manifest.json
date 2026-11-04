@@ -9860,9 +9860,9 @@
    "kind": "benchmark",
    "geometry": "films",
    "source": "plane_wave",
-   "reference": "explicit phase average of coherent solves; `inc_tmm`",
+   "reference": "explicit phase average of coherent solves; PyStratify's own incoherent solver in `planar`",
    "reference_kind": "method",
-   "quantity": "backside reflection: Σ|r|² and the s–p cross term behind depolarisation",
+   "quantity": "the `ellipsometry` module's backside reflection, its own partial-wave sums: Σ|r_s|² and Σ|r_p|² against `planar.inc_tmm`'s R, and all three sums, the s–p cross term behind depolarisation included, against r_s r̄_p of the coherent stack averaged over one period of the substrate's round-trip phase (64 solves)",
    "script": "`tests/test_ellipsometry.py`",
    "tolerance": "1e-12",
    "status": "suite",
@@ -50472,7 +50472,7 @@
     "worst": 3.654487233514193e-15,
     "worst_label": "largest |difference|",
     "note": "Light returning from a thick substrate's back adds in power, so an ellipsometer sees sums over the partial waves: Σ|r_s|² and Σ|r_p|² are inc_tmm's R, and the cross term Σ r_s r̄_p, which sets the depolarisation, equals r_s r̄_p of the coherent stack averaged over one period of the substrate's round-trip phase (64 coherent solves per point, benchmarks/ellipsometry_codes.py backside_phase_average).",
-    "script": "benchmarks/pages/films_plane_wave_tmm.py",
+    "script": "benchmarks/pages/films_plane_wave_consistency.py",
     "function": "plot_backside_reflection",
     "rmse": 6.236500710020251e-16,
     "calculator": {
@@ -50536,7 +50536,7 @@
      ],
      "link": true
     },
-    "summary": "the glass's back reflection at 65° against inc_tmm and a phase average"
+    "summary": "the glass's back reflection at 65° against the incoherent solver and a phase average"
    },
    "film-dipole-homogeneous": {
     "id": "film-dipole-homogeneous",

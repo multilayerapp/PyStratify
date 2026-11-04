@@ -315,7 +315,7 @@ SUMMARIES = {
     'pyelli-drude': "a free-electron metal's ε against pyElli's DrudeEnergy",
     'pyelli-dispersive-stack': "Ψ and Δ at 70° against pyElli's 2×2 and 4×4 solvers",
     'inc-tmm-lineage': "PyStratify's incoherent solver against inc_tmm, the code it replaced",
-    'backside-reflection': "the glass's back reflection at 65° against inc_tmm and a phase average",
+    'backside-reflection': "the glass's back reflection at 65° against the incoherent solver and a phase average",
     'tmmax-single-layer': 'R against tmmax as shipped (JAX, float32)',
     'tmmax-bragg-mirror': 'tmmax as shipped is wrong beyond one layer; with its scan step fixed it agrees',
     'film-dipole-homogeneous': 'a film matched to its surroundings is no film: Γ/Γ₀ = 1 everywhere',
