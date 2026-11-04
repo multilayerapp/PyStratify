@@ -1,0 +1,128 @@
+# fixture catalogue: a handful of pages of the refractiveindex.info database (CC0), commit a66ef88
+
+- SHELF: main
+  name: main
+  content:
+    - BOOK: 'TlBr'
+      name: 'TlBr'
+      content:
+        - PAGE: 'Palik'
+          name: 'Palik'
+          data: 'main/TlBr/nk/Palik.yml'
+    - BOOK: 'CdTe'
+      name: 'CdTe'
+      content:
+        - PAGE: 'Marple'
+          name: 'Marple'
+          data: 'main/CdTe/nk/Marple.yml'
+    - BOOK: 'BeAl6O10'
+      name: 'BeAl6O10'
+      content:
+        - PAGE: 'Pestryakov-β'
+          name: 'Pestryakov-β'
+          data: 'main/BeAl6O10/nk/Pestryakov-beta.yml'
+    - BOOK: 'CuCl'
+      name: 'CuCl'
+      content:
+        - PAGE: 'Feldman'
+          name: 'Feldman'
+          data: 'main/CuCl/nk/Feldman.yml'
+    - BOOK: 'Ar'
+      name: 'Ar'
+      content:
+        - PAGE: 'Peck-15C'
+          name: 'Peck-15C'
+          data: 'main/Ar/nk/Peck-15C.yml'
+    - BOOK: 'Si'
+      name: 'Si'
+      content:
+        - PAGE: 'Edwards'
+          name: 'Edwards'
+          data: 'main/Si/nk/Edwards.yml'
+    - BOOK: 'TlCl'
+      name: 'TlCl'
+      content:
+        - PAGE: 'Schroter'
+          name: 'Schroter'
+          data: 'main/TlCl/nk/Schroter.yml'
+    - BOOK: 'MoS2'
+      name: 'MoS2'
+      content:
+        - PAGE: 'Yim-3nm'
+          name: 'Yim-3nm'
+          data: 'main/MoS2/nk/Yim-3nm.yml'
+    - BOOK: 'K'
+      name: 'K'
+      content:
+        - PAGE: 'Ives'
+          name: 'Ives'
+          data: 'main/K/nk/Ives.yml'
+    - BOOK: 'AgGaSe2'
+      name: 'AgGaSe2'
+      content:
+        - PAGE: 'Boyd-o'
+          name: 'Boyd-o'
+          data: 'main/AgGaSe2/nk/Boyd-o.yml'
+    - BOOK: 'CuO'
+      name: 'CuO'
+      content:
+        - PAGE: 'Brimhall'
+          name: 'Brimhall'
+          data: 'main/CuO/nk/Brimhall.yml'
+    - BOOK: 'CdF2'
+      name: 'CdF2'
+      content:
+        - PAGE: 'Bosomworth-300K'
+          name: 'Bosomworth-300K'
+          data: 'main/CdF2/nk/Bosomworth-300K.yml'
+- SHELF: organic
+  name: organic
+  content:
+    - BOOK: 'urea'
+      name: 'urea'
+      content:
+        - PAGE: 'Rosker-e'
+          name: 'Rosker-e'
+          data: 'organic/CH4N2O - urea/nk/Rosker-e.yml'
+    - BOOK: 'polyvinylpyrrolidone'
+      name: 'polyvinylpyrrolidone'
+      content:
+        - PAGE: 'Konig'
+          name: 'Konig'
+          data: 'organic/(C6H9NO)n - polyvinylpyrrolidone/nk/Konig.yml'
+- SHELF: specs
+  name: specs
+  content:
+    - BOOK: 'SCHOTT-optical'
+      name: 'SCHOTT-optical'
+      content:
+        - PAGE: 'LF7'
+          name: 'LF7'
+          data: 'specs/schott/obsolete/LF7.yml'
+    - BOOK: 'HIKARI-optical'
+      name: 'HIKARI-optical'
+      content:
+        - PAGE: 'E-LLF2'
+          name: 'E-LLF2'
+          data: 'specs/hikari/optical/E-LLF2.yml'
+    - BOOK: 'AMI-infrared'
+      name: 'AMI-infrared'
+      content:
+        - PAGE: 'AMTIR-2'
+          name: 'AMTIR-2'
+          data: 'specs/ami/infrared/AMTIR-2.yml'
+    - BOOK: 'Cargille'
+      name: 'Cargille'
+      content:
+        - PAGE: 'acrylic_matching_liquid'
+          name: 'acrylic_matching_liquid'
+          data: 'specs/cargille/index-matching liquids/nk/acrylic_matching_liquid.yml'
+- SHELF: other
+  name: other
+  content:
+    - BOOK: 'CR-39'
+      name: 'CR-39'
+      content:
+        - PAGE: 'mono'
+          name: 'mono'
+          data: 'other/commercial polymers/CR-39/nk/mono.yml'
