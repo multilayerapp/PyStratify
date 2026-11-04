@@ -5,7 +5,10 @@ Notable changes to PyStratify. Every release is on [PyPI](https://pypi.org/proje
 
 ## Unreleased — one stable film kernel
 
-One new module, and one fix that changes results only at a layer's exact critical angle.
+One new module; the films' H field, ellipsometric angles and incoherent-layer field profile, which multilayer.app's
+API computed on its own until now (assurance WP07-D2); and three fixes: one changes results only at a layer's exact
+critical angle, one returns Δ = NaN where a reflected amplitude vanishes, and one corrects the field profile of
+stacks with incoherent layers (O-W7-12).
 
 - **`planar.coh_tmm` at a layer's own critical angle** (WP07, O-W7-10): where cos θ = 0 inside an interior layer
   the reflection recursion lost the 0·∞ limit between a perfectly reflecting interface and a vanishing phase, and
@@ -30,6 +33,37 @@ One new module, and one fix that changes results only at a layer's exact critica
   exits against their closed forms and limits, and the harvester's own kernels to ≤ 3.4e-14 through a committed
   fixture (`benchmarks/stable_fixtures.py`). `benchmarks/byrnes_tmm.py` compares `planar.coh_tmm`, `inc_tmm` and
   `stable_tmm` with Byrnes's `tmm` 0.2.0 (≤ 1e-14; lineage), now in the `benchmarks` extra.
+
+- **`planar.psi_delta(r_s, r_p)`** (WP07-D2): ψ = atan2(|r_p|, |r_s|) and Δ = arg(−r_p r_s*) in (−π, π], in
+  radians, vectorised. An amplitude at or below 64 ε max(|r_s|, |r_p|, 1) is rounding, so ψ needs one amplitude above
+  that floor and Δ needs both; an undefined angle is NaN. This is multilayer.app's rule: the API's
+  `serialize_ellipsometry_amplitudes`, which `psi_delta` replaces, is frozen in `tests/oracles/`, and on 3000 random
+  stacks the two serialize identically after the API's degree and [0°, 360°) formatting (1.4e-14° unrounded).
+  `ellips` now calls it and takes `mu_list`, passed to `coh_tmm`. **Fix:** at a Brewster angle `ellips` returned
+  Δ = −π, the phase of a rounding-level r_p; it now returns NaN. Everywhere else ψ and Δ move by at most 4e-16 rad
+  (atan2 in place of the arctan of a ratio). `tests/test_planar_api_oracles.py`.
+- **H in `planar.position_resolved`** (WP07-D2): `Hx`, `Hy`, `Hz` (complex), in units of the incident wave's
+  |H₀| = |y₀| |E₀|, with y = n/μ_r. They come from the same forward and backward amplitudes as E (s: Hx = −(y/|y₀|)
+  cos θ (E_f − E_b), Hz = (y/|y₀|) sin θ (E_f + E_b); p: Hy = (y/|y₀|)(E_f + E_b)). On 400 random stacks with absorbing
+  and magnetic layers, Re(E × H*)_z equals `poyn` to 4.4e-16, and tangential E and H, normal B and normal D are
+  continuous to 9e-16. On 2000 random stacks H is bit for bit the API's `magnetic_field_components` (frozen in
+  `tests/oracles/`) at all 70 618 points. E, `poyn` and `absor` are unchanged (bit for bit
+  against the previous code on 8820 points).
+- **`planar.inc_field(layer, distance, inc_data)`** (WP07-D2): phase-averaged |E|²/|E₀|² and |H|²/|H₀|² at any depth
+  of a stack with incoherent layers, from `inc_tmm`'s output, with `distance` a scalar or an array. `inc_tmm`'s
+  intensities are powers (normal Poynting flux over the incident flux), so each is converted to the amplitude² of the
+  medium it travels in through Re(n cos θ) (s) or Re(n cos θ*) (p), lossy media and complex angles included; a coherent
+  layer weights the stack's forward and reversed solutions by F and B converted to the amplitude² of their own incident
+  media (`docs/NUMERICS.md`). **Fixes O-W7-12**: multilayer.app's API plotted the powers themselves. Inside an
+  incoherent layer that read |E|² too high by Re(n cos θ)/(n₀ cos θ₀) (×1.5 in glass, ×3.5 for n = 3.5, ×1.87 for p at
+  45°) and |H|² too low (×0.67, ×0.29, ×0.83). A coherent film read 1–3 % off in front of a thick slab and 50 % off
+  behind one. The check is a band-averaged coherent field (`coh_tmm` + `position_resolved` alone, Hann-weighted over
+  whole cycles of every standing wave), and it agrees to 9e-14 for lossless slabs, 8e-10 and 5e-8 for absorbing ones,
+  and 6e-6 for coherent films on a 4 mm slab. The closed form of a lossless slab agrees to 4e-16, and a coherent stack
+  routed through `inc_tmm` gives `position_resolved`'s field to 3e-15 (`benchmarks/planar_field_checks.py` →
+  `PLANAR_FIELD_CHECKS.md`, `tests/test_planar_fields.py`).
+- `planar.inc_tmm` also returns `th_list`, `pol`, `n_list`, `d_list`, `c_list`, `th_0` and `lam_vac`, which
+  `inc_field` reads. Nothing it already returned changes.
 
 ## 0.11.0 — thin-film ellipsometry: dispersion models and fits
 

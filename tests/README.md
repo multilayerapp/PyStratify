@@ -12,6 +12,14 @@ pytest
   closed forms and limits, the harvester's numbers (`stable_fixtures.json`, written by
   `benchmarks/stable_fixtures.py`), the refusals; and `benchmarks/byrnes_tmm.py` (lineage: `planar` and `stable`
   against Byrnes's `tmm` 0.2.0; skipped unless `tmm` is installed).
+* `test_planar_fields.py`: `position_resolved`'s H and `inc_field` through `benchmarks/planar_field_checks.py`: H against
+  Maxwell's equations (Poynting flux, tangential E and H, normal B and D) on random stacks, magnetic ones included;
+  the incoherent slab in closed form; `inc_field` against a band-averaged coherent field (lossless and absorbing
+  slabs, s and p, 0 and 45 deg, coherent films on a thick slab); a coherent stack routed through `inc_tmm`; and
+  `inc_field`'s array depths and refusals (evanescent incoherent layer, critical-angle coherent layer).
+* `test_planar_api_oracles.py`: `psi_delta` and H against the multilayer.app API code they replace, frozen verbatim
+  in `tests/oracles/multilayer_api_ef9c946.py` (3000 and 2000 random stacks; the null rule at its floor; `ellips`
+  at Brewster and with `mu_list`).
 * `test_planar_emission_references.py`: film emitter rates (electric and magnetic, perpendicular and
   parallel) against the Sommerfeld reference of `benchmarks/emitter_references.py`, itself checked
   against the image dipole at a perfect mirror; sources outside lossless guides against the lossless

@@ -33,6 +33,9 @@ direct integration of Maxwell's equations and the replication harvester's own ke
 ([benchmarks/STABLE_CHECKS.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/STABLE_CHECKS.md));
 `python benchmarks/byrnes_tmm.py` compares `planar` and `stable` with Byrnes's `tmm`, the lineage both descend from
 ([benchmarks/BYRNES_TMM.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/BYRNES_TMM.md)).
+`python benchmarks/planar_field_checks.py` checks the films' fields: `position_resolved`'s H against Maxwell's
+equations, and `inc_field` (stacks with incoherent layers) against a closed form and a band-averaged coherent field
+([benchmarks/PLANAR_FIELD_CHECKS.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/PLANAR_FIELD_CHECKS.md)).
 `python benchmarks/dispersion_codes.py` compares every `pystratify.dispersion` model with pyElli's
 ([benchmarks/DISPERSION_CODES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/DISPERSION_CODES.md)),
 and `python benchmarks/ellipsometry_codes.py` (with `lmfit`) the ellipsometry module: Ψ, Δ of dispersive stacks

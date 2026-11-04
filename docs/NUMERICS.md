@@ -224,3 +224,55 @@ calculator's repeat groups (WP07, 2026-11-03), in `planar.coh_tmm`'s conventions
   matrices, 1e-14).
 * **Limits.** Coherent and non-magnetic (μ = 1) only; uniaxial layers only with the optic axis along the normal,
   between isotropic half-spaces.
+
+## Films: fields and ellipsometric angles
+
+`planar.position_resolved(layer, z, coh_tmm(...))` gives the field of a coherent stack at depth z of a layer from that
+layer's forward and backward amplitudes, E_f = v e^{i k_z z} and E_b, the backward one propagated from the layer's far
+face so that a thick absorbing layer never multiplies an underflowed amplitude by an overflowing exponential. θ is
+complex in an absorbing medium and beyond a critical angle.
+
+* **E**, in units of the incident amplitude (1): s gives E = (0, E_f + E_b, 0); p gives
+  E = ((E_f − E_b) cos θ, 0, −(E_f + E_b) sin θ).
+* **H** (since 2026-11-03, assurance WP07-D2), in units of the incident wave's |H₀| = |y₀| |E₀|, with y = n/μ_r the
+  admittance index (`admittance_index`): H = y k̂ × E / Z₀ for each wave, so s gives
+  H = (−y cos θ (E_f − E_b), 0, y sin θ (E_f + E_b)) / |y₀| and p gives H = (0, y (E_f + E_b), 0) / |y₀|. In these
+  units Re(E × H*)_z |y₀| / Re(y₀ cos θ₀) is `poyn` (cos θ₀* for p). On 400 random stacks with absorbing and magnetic
+  layers that flux agrees to 4e-16, and tangential E and H, normal B = μ H_z and normal D = ε E_z are continuous to
+  9e-16 (`benchmarks/planar_field_checks.py`).
+* **ψ and Δ** (`psi_delta`, which `ellips` calls): ψ = atan2(|r_p|, |r_s|) and Δ = arg(−r_p r_s*), in (−π, π]. The
+  minus sign is this package's p basis, which flips at normal incidence (r_p = −r_s there). An amplitude at or below
+  64 ε max(|r_s|, |r_p|, 1) is rounding, not a wave: ψ needs one amplitude above that floor and Δ needs both, and an
+  undefined angle is NaN, so a bare dielectric at its Brewster angle has ψ = 0 and Δ = NaN. `pystratify.ellipsometry`
+  reports an instrument's Δ, which is π minus this one.
+
+**Stacks with incoherent layers** (`inc_field(layer, z, inc_tmm(...))`, since 2026-11-03). `inc_tmm`'s intensities
+are **powers**: V and W (`VW_list`) are the forward and backward normal Poynting flux at the front of an incoherent
+layer, F and B (`stackFB_list`) the flux arriving at a coherent stack from in front and from behind, each over the
+incident flux. A field needs each one converted to the amplitude² of the medium it travels in, through the flux a unit
+amplitude carries there: Re(n cos θ) for s and Re(n cos θ*) for p, the factor of `T_from_t`.
+
+* *In an incoherent layer* (the half-spaces included) each of V e^{−αz} and W e^{+αz}, with α = 4π Im(n cos θ)/λ, is
+  one plane wave of amplitude² a = P Re(n₀ cos θ₀)/Re(n cos θ) (cos θ* for p). Averaging over the layer's phase drops
+  their cross term, so |E|² = a_f + a_b for s and (|cos θ|² + |sin θ|²)(a_f + a_b) for p, and
+  |H|² = |n/n₀|² (|cos θ|² + |sin θ|²)(a_f + a_b) for s and |n/n₀|² (a_f + a_b) for p. A lossless slab at normal
+  incidence has |E|² = (V + W) n₀/n and |H|² = (V + W) n/n₀.
+* *In a coherent layer* the field is the stack's forward solution weighted by F Re(n₀ cos θ₀)/Re(n_a cos θ_a), plus
+  its reversed solution weighted by B Re(n₀ cos θ₀)/Re(n_b cos θ_b), where a and b are the incoherent media in front
+  of and behind the stack (cos θ* for p). The two are mutually incoherent, so they add as intensities.
+* *What it leaves out.* An incoherent layer has no standing wave. Within a coherence length of an interface, where the
+  light and its reflection are still coherent, a measured field interferes and this one does not. The incident
+  medium in front of a coherent stack is one such place.
+* *Checked* against a band-averaged coherent field, which is what a source whose spectrum spans many free spectral
+  ranges sees, computed by `coh_tmm` and `position_resolved` alone. The band is Hann-weighted in 1/λ and makes the
+  slab's round trip and the standing wave at every sampled depth advance by whole cycles; an absorbing slab keeps its
+  absorption coefficient across the band. Agreement is 9e-14 for lossless slabs (n = 1.5 and 3.5, s and p, 0° and
+  45°), 8e-10 and 5e-8 for absorbing ones, and 6e-6 for coherent films on a 4 mm slab, where the residue is the films'
+  own phase drifting across the band and falls as 1/thickness. Against the closed form of a lossless slab the
+  agreement is 4e-16 (`benchmarks/planar_field_checks.py` → `PLANAR_FIELD_CHECKS.md`).
+* *The defect this replaces* (assurance O-W7-12). multilayer.app's API plotted the powers themselves as |E|²/|E₀|²
+  and |H|²/|H₀|². Inside an incoherent layer |E|² read Re(n cos θ)/(n₀ cos θ₀) too high (×1.5 in glass, ×3.5 for
+  n = 3.5, ×1.87 for p at 45°) and |H|² too low by Re(n cos θ) n₀²/(n₀ cos θ₀ |n|²) (×0.67, ×0.29, ×0.83); the D2
+  evidence measured these within its band's 1–5 % noise, and the reference above reproduces them exactly. A coherent
+  film was off by 1–3 % in front of a thick slab (B taken as |E₀|² of the slab) and by 50 % behind one (F taken the
+  same way).
