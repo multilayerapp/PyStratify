@@ -134,7 +134,7 @@ papers from their stated parameters.
 
 ## Verified against independent codes
 
-![PyStratify's largest differences from sixteen independent references, and a dipole beside a fibre against 3D FDTD](https://raw.githubusercontent.com/multilayerapp/PyStratify/main/docs/images/verification.png)
+![PyStratify's largest differences in sixteen comparisons (eleven other programs, and three extended-precision evaluations of its own series, which check precision rather than the formulation), and a dipole beside a fibre against 3D FDTD](https://raw.githubusercontent.com/multilayerapp/PyStratify/main/docs/images/verification.png)
 
 Codes that solve the same equations exactly agree with PyStratify to between 1e-15 and 2e-6, the larger differences
 being the reference's own precision (float32 in tmmax, a contour integral in smuthi). Solvers that discretize space
