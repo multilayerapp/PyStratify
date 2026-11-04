@@ -144,9 +144,15 @@ def _wrap(angle_deg):
     return (angle_deg + 180.0) % 360.0 - 180.0
 
 
+#: (case, wavelength nm, angle deg) where PyStratify's Psi is undefined (both amplitudes rounding noise), filled
+#: by `compare` and printed by `report`.
+UNDEFINED_PSI = set()
+
+
 def compare(cases=CASES, angles_deg=ANGLES_DEG, wavelengths=WAVELENGTHS_NM):
     """Worst absolute difference per (case, reference, quantity)."""
     worst = {}
+    UNDEFINED_PSI.clear()
 
     def record(name, reference, quantity, value):
         # max(0.0, nan) is 0.0: a NaN from either code must read as a failure, not agreement
@@ -184,6 +190,16 @@ def compare(cases=CASES, angles_deg=ANGLES_DEG, wavelengths=WAVELENGTHS_NM):
                     theirs = elli_result(case, wavelength, theta, solver)
                     record(name, label, "R",
                            max(abs(ours["s"]["R"] - theirs["Rs"]), abs(ours["p"]["R"] - theirs["Rp"])))
+                    if np.isnan(ellips["psi"]):
+                        # psi_delta: Psi is undefined where BOTH amplitudes are rounding noise (below 64 eps),
+                        # e.g. a half-wave gap at normal incidence; pyElli reports the ratio of the residues.
+                        # Skipped and listed (Ilia, 2026-11-03), and only there: anywhere else NaN fails.
+                        tiny = max(abs(ours["s"]["r"]), abs(ours["p"]["r"])) < 1e-12
+                        if tiny:
+                            UNDEFINED_PSI.add((name, wavelength, angle))
+                        else:
+                            record(name, label, "Psi (deg)", np.inf)
+                        continue
                     record(name, label, "Psi (deg)", abs(np.degrees(ellips["psi"]) - theirs["psi"]))
                     if np.degrees(ellips["psi"]) > 1e-6:  # Delta is undefined where r_p = 0
                         record(name, label, "Delta (deg)",
@@ -216,6 +232,12 @@ def report(worst):
         for name in rows:
             cells = [f"{worst[(name, reference, q)]:.1e}" if (name, reference, q) in worst else "-" for q in used]
             print(f"| {name} | " + " | ".join(cells) + " |")
+        print()
+    if UNDEFINED_PSI:
+        print("Psi undefined in PyStratify, so not compared: both reflected amplitudes are rounding noise (below")
+        print("64 eps; `planar.psi_delta`), where pyElli reports the ratio of the two residues:\n")
+        for name, wavelength, angle in sorted(UNDEFINED_PSI):
+            print(f"- {name}, {wavelength:g} nm, {angle:g} deg")
         print()
 
 

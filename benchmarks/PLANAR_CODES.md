@@ -28,25 +28,25 @@ differ in number.
 
 | stack | R | Psi (deg) | Delta (deg) |
 |---|---|---|---|
-| AR pair on glass | 2.8e-16 | 2.1e-14 | 2.8e-14 |
-| Bragg mirror, 10 pairs | 1.1e-15 | 7.8e-14 | 1.7e-13 |
+| AR pair on glass | 2.8e-16 | 2.8e-14 | 2.8e-14 |
+| Bragg mirror, 10 pairs | 1.1e-15 | 7.1e-14 | 1.7e-13 |
 | Au 20 nm on glass | 8.9e-16 | 2.1e-14 | 2.8e-14 |
-| opaque Au 500 nm | 4.4e-16 | 1.4e-14 | 5.7e-14 |
+| opaque Au 500 nm | 4.4e-16 | 2.1e-14 | 5.7e-14 |
 | absorber 20 um on Si | 2.2e-16 | 1.1e-14 | 2.8e-14 |
-| glass to air beyond critical | 4.4e-16 | 1.4e-14 | 2.8e-14 |
-| frustrated TIR, 200 nm gap | 7.8e-16 | 3.6e-14 | 2.8e-14 |
+| glass to air beyond critical | 4.4e-16 | 7.1e-15 | 2.8e-14 |
+| frustrated TIR, 200 nm gap | 7.8e-16 | 2.8e-14 | 2.8e-14 |
 
 ## pyElli 4x4
 
 | stack | R | Psi (deg) | Delta (deg) |
 |---|---|---|---|
-| AR pair on glass | 7.2e-16 | 2.8e-14 | 5.7e-14 |
-| Bragg mirror, 10 pairs | 4.9e-15 | 1.9e-13 | 5.7e-13 |
+| AR pair on glass | 6.7e-16 | 2.8e-14 | 5.7e-14 |
+| Bragg mirror, 10 pairs | 4.4e-15 | 2.1e-13 | 3.4e-13 |
 | Au 20 nm on glass | 8.9e-16 | 2.1e-14 | 5.7e-14 |
-| opaque Au 500 nm | 7.8e-16 | 2.8e-14 | 5.7e-14 |
-| absorber 20 um on Si | 8.9e-16 | 4.3e-14 | 2.8e-14 |
-| glass to air beyond critical | 2.2e-16 | 1.4e-14 | 2.8e-14 |
-| frustrated TIR, 200 nm gap | 7.8e-16 | 3.0e-14 | 2.8e-14 |
+| opaque Au 500 nm | 6.7e-16 | 1.4e-14 | 5.7e-14 |
+| absorber 20 um on Si | 8.9e-16 | 2.8e-14 | 2.8e-14 |
+| glass to air beyond critical | 2.2e-16 | 2.1e-14 | 2.8e-14 |
+| frustrated TIR, 200 nm gap | 1.1e-15 | 2.5e-14 | 2.8e-14 |
 
 ## slab dispersion
 
@@ -55,4 +55,9 @@ differ in number.
 | symmetric slab, n 2.0 in air, 500 nm | 6.6e-14 |
 | asymmetric slab, n 2.0 on 1.45, 400 nm | 8.9e-16 |
 | SiN on SiO2 at 1550 nm | 2.2e-16 |
+
+Psi undefined in PyStratify, so not compared: both reflected amplitudes are rounding noise (below
+64 eps; `planar.psi_delta`), where pyElli reports the ratio of the two residues:
+
+- frustrated TIR, 200 nm gap, 400 nm, 0 deg
 
