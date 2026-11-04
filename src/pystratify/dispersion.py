@@ -16,7 +16,9 @@ result feeds any solver here through ``index``::
 The oscillator forms (pole, Lorentz, Gaussian, Tauc-Lorentz, resistivity Drude, Bruggeman)
 are the ones multilayer.app's oscillator dialog offers, with the same parameter meanings.
 Cauchy, Sellmeier, Cody-Lorentz, energy-form Drude, Maxwell Garnett and tabulated data are
-added for the rest of the usual ellipsometry set. No fitting is done here: these are the
+added for the rest of the usual ellipsometry set; Tauc-Lorentz-Urbach (Foldyna's tail joined to
+Tauc-Lorentz), the single-term Forouhi-Bloomer n,k model and the carrier-density Drude form
+(plasma frequency from N and m*) serve printed models whose parameters a paper gives. No fitting is done here: these are the
 forward models a fit would vary.
 
 Conventions (each also in its class docstring):
@@ -51,7 +53,10 @@ __all__ = [
     "Gaussian",
     "TaucLorentz",
     "CodyLorentz",
+    "TaucLorentzUrbach",
+    "ForouhiBloomer",
     "DrudeEnergy",
+    "DrudeCarrier",
     "DrudeResistivity",
     "Bruggeman",
     "MaxwellGarnett",
@@ -422,6 +427,157 @@ class CodyLorentz(Dispersion):
 
 
 @dataclass(frozen=True)
+class TaucLorentzUrbach(Dispersion):
+    """Tauc-Lorentz above ``Ec`` with an Urbach tail below it (Foldyna's TLU, Coatings 10, 1063 (2020),
+    Eqs. 36-42): eps2 = A E0 C (E - Eg)^2 / (E [(E^2 - E0^2)^2 + C^2 E^2]) for E >= Ec and
+    (Au / E) exp(E / Eu) below, with Eu and Au making eps2 *and its first derivative* continuous at Ec.
+    All energies in eV (A too); needs A, E0, C > 0, 0 < Eg < Ec and C < sqrt(2) E0.
+
+    * Eu follows the derivative-continuity condition the paper states for Eq. (37),
+      1/Eu = 2/(Ec - Eg) - 2 Ec [C^2 + 2 (Ec^2 - E0^2)] / [C^2 Ec^2 + (Ec^2 - E0^2)^2];
+      the page's printed Eq. (37) carries an extra factor 2 on (Ec^2 - E0^2)^2 that leaves the
+      derivative discontinuous, and the continuity form is closer to every Eu in the paper's Table 2
+      (78.5/68.9/79.1/79.1 meV for S1-S4 against 79.1/69.3/79.5/79.5 from the printed factor).
+      Au = exp(-Ec/Eu) A E0 C (Ec - Eg)^2 / [(Ec^2 - E0^2)^2 + C^2 Ec^2], as printed.
+    * eps1 is the closed-form Kramers-Kronig transform of eps2 (Eqs. 39-42): the Tauc-Lorentz part
+      with the integral cut at Ec (Eq. 41 as printed) plus the Urbach part,
+      (Au / pi E) {exp(-E/Eu) [Ei(E/Eu) - Ei((Ec+E)/Eu)] + exp(E/Eu) [Ei((Ec-E)/Eu) - Ei(-E/Eu)]}.
+      The printed second line of Eq. (42) carries exp(-E/Eu) and -Re expint(E/Eu) where the integral
+      gives exp(+E/Eu) and +expint(E/Eu) (it misses the numerical Kramers-Kronig integral by ~4e-3 at
+      1 eV; this form by < 1e-6).  Both logarithmic singularities at E = Ec cancel; an energy within
+      1e-7 eV of Ec is read 1e-7 eV above it.
+    * eps1 tends to 0 at high energy: the paper's eps1(inf) is **not** part of this class, add
+      ``EpsilonInf`` as with :class:`TaucLorentz`.
+
+    Ported from the replication-corpus harvester (nk_model_table.py); tests/oracles keeps that code frozen.
+    """
+
+    A: float
+    E0: float
+    C: float
+    Eg: float
+    Ec: float
+
+    def __post_init__(self):
+        values = (self.A, self.E0, self.C, self.Eg, self.Ec)
+        if not all(np.isfinite(values)):
+            raise ValueError("tauc-lorentz-urbach parameters must be finite numbers in eV")
+        if min(self.A, self.E0, self.C) <= 0:
+            raise ValueError("tauc-lorentz-urbach needs A, E0 and C > 0")
+        if not 0 < self.Eg < self.Ec:
+            raise ValueError("tauc-lorentz-urbach needs 0 < Eg < Ec")
+        if self.C**2 >= 2 * self.E0**2:
+            raise ValueError("tauc-lorentz-urbach closed forms (Eq. 41) need C < sqrt(2) E0")
+        self.urbach()  # refuses parameters with no positive Urbach energy
+
+    def urbach(self) -> tuple:
+        """(Eu, Au) in eV: the Urbach energy and amplitude that make eps2 and its derivative continuous at Ec."""
+        A, E0, C, Eg, Ec = self.A, self.E0, self.C, self.Eg, self.Ec
+        D = (Ec**2 - E0**2) ** 2 + C**2 * Ec**2
+        inv = 2.0 / (Ec - Eg) - 2.0 * Ec * (C**2 + 2.0 * (Ec**2 - E0**2)) / D
+        if inv <= 0:
+            raise ValueError("tauc-lorentz-urbach: these parameters give no positive Urbach energy")
+        Eu = 1.0 / inv
+        return Eu, np.exp(-Ec / Eu) * A * E0 * C * (Ec - Eg) ** 2 / D
+
+    def eps2(self, energy):
+        """Eq. (36): Tauc-Lorentz above Ec, the Urbach tail below; photon energy in eV, eps2 >= 0."""
+        A, E0, C, Eg, Ec = self.A, self.E0, self.C, self.Eg, self.Ec
+        E = np.asarray(energy, dtype=float)
+        Eu, _ = self.urbach()
+        # Au exp(E/Eu) written as eps2(Ec) Ec exp((E - Ec)/Eu): the same number, no overflow.
+        tail_amp = A * E0 * C * (Ec - Eg) ** 2 / ((Ec**2 - E0**2) ** 2 + C**2 * Ec**2)
+        with np.errstate(over="ignore", under="ignore"):
+            tl = A * E0 * C * (E - Eg) ** 2 / (E * ((E**2 - E0**2) ** 2 + C**2 * E**2))
+            tail = tail_amp / E * np.exp(np.minimum(E - Ec, 0.0) / Eu)
+        return np.where(E >= Ec, tl, tail)
+
+    def eps1(self, energy):
+        """Eqs. (39)-(42) without eps1(inf): the closed-form Kramers-Kronig transform of eps2, energy in eV."""
+        A, E0, C, Eg, Ec = self.A, self.E0, self.C, self.Eg, self.Ec
+        E = np.asarray(energy, dtype=float)
+        E = np.where(np.abs(E - Ec) < 1e-7, Ec + 1e-7, E)
+        Eu, _ = self.urbach()
+        gam2 = E0**2 - C**2 / 2.0
+        alpha = np.sqrt(4.0 * E0**2 - C**2)
+        s4 = (E**2 - E0**2) ** 2 + C**2 * E**2
+        aL = (Eg**2 - E0**2) * E**2 + Eg**2 * C**2 - E0**2 * (E0**2 + 3 * Eg**2)
+        aA = (E**2 - E0**2) * (E0**2 + Eg**2) + Eg**2 * C**2
+        pi = np.pi
+        tl = (
+            -A * E0 * C * (E**2 + Eg**2) / (pi * s4 * E) * np.log(np.abs(Ec - E) / (Ec + E))
+            + 2 * A * E0 * C * Eg / (pi * s4)
+            * np.log(np.abs(Ec - E) * (Ec + E) / np.sqrt((E0**2 - Ec**2) ** 2 + C**2 * Ec**2))
+            + A * C * aL / (2 * pi * s4 * alpha * E0)
+            * np.log((E0**2 + Ec**2 + alpha * Ec) / (E0**2 + Ec**2 - alpha * Ec))
+            - A * aA / (pi * s4 * E0) * (pi - np.arctan((2 * Ec + alpha) / C) - np.arctan((2 * Ec - alpha) / C))
+            + 4 * A * E0 * Eg * (E**2 - gam2) / (pi * s4 * alpha)
+            * (pi / 2 - np.arctan(2 * (Ec**2 - gam2) / (alpha * C)))
+        )  # fmt: skip
+        # Au e^{+-E/Eu} carried as eps2(Ec) Ec e^{(+-E - Ec)/Eu}, so no factor overflows.
+        amp = A * E0 * C * (Ec - Eg) ** 2 / ((Ec**2 - E0**2) ** 2 + C**2 * Ec**2)
+        x = E / Eu
+        with np.errstate(over="ignore", under="ignore", invalid="ignore"):
+            lower = np.exp(-(E + Ec) / Eu) * (special.expi(x) - special.expi((Ec + E) / Eu))
+            upper = np.exp((E - Ec) / Eu) * (special.expi((Ec - E) / Eu) - special.expi(-x))
+        ut = amp / (pi * E) * (lower + upper)
+        return tl + ut
+
+    def _epsilon(self, energy, wavelength):
+        return self.eps1(energy) + 1j * self.eps2(energy)
+
+
+@dataclass(frozen=True)
+class ForouhiBloomer(Dispersion):
+    """Single-term Forouhi-Bloomer n,k model for amorphous semiconductors and dielectrics
+    (Phys. Rev. B 34, 7018 (1986)); eps = (n + ik)^2.
+
+    k(E) = A (E - Eg)^2 / (E^2 - B E + C) above Eg and 0 below; n(E) = n_inf + (B0 E + C0) / (E^2 - B E + C),
+    the Kramers-Kronig partner they derive, with Q = sqrt(4C - B^2) / 2, B0 = (A/Q)(-B^2/2 + Eg B - Eg^2 + C),
+    C0 = (A/Q)((Eg^2 + C) B/2 - 2 Eg C).  A is dimensionless, B and Eg in eV, C in eV^2, ``n_inf`` the
+    index at high energy.  Needs A > 0, 4C - B^2 > 0 (Q real, so the denominator never vanishes and
+    k >= 0 at every E) and Eg >= 0.  Unlike the oscillator models it is an index model: it adds to
+    others only through the permittivity it returns, so use it alone.
+
+    Ported from the replication-corpus harvester (nk_model_table.py); tests/oracles keeps that code frozen.
+    """
+
+    A: float
+    B: float
+    C: float
+    n_inf: float
+    Eg: float
+
+    def __post_init__(self):
+        if not all(np.isfinite((self.A, self.B, self.C, self.n_inf, self.Eg))):
+            raise ValueError("forouhi-bloomer parameters must be finite numbers")
+        if self.A <= 0:
+            raise ValueError("forouhi-bloomer needs A > 0")
+        if 4 * self.C - self.B**2 <= 0:
+            raise ValueError(
+                f"forouhi-bloomer needs 4C - B^2 > 0 (Q real), got 4 x {self.C} - {self.B}^2 = "
+                f"{4 * self.C - self.B**2:.4g}"
+            )
+        if self.Eg < 0:
+            raise ValueError("forouhi-bloomer needs Eg >= 0")
+
+    def nk(self, energy):
+        """Complex n + ik at photon energies in eV."""
+        A, B, C, ninf, Eg = self.A, self.B, self.C, self.n_inf, self.Eg
+        E = np.asarray(energy, dtype=float)
+        Q = 0.5 * np.sqrt(4 * C - B**2)
+        B0 = A / Q * (-(B**2) / 2 + Eg * B - Eg**2 + C)
+        C0 = A / Q * ((Eg**2 + C) * B / 2 - 2 * Eg * C)
+        D = E**2 - B * E + C
+        n = ninf + (B0 * E + C0) / D
+        k = np.where(E > Eg, A * (E - Eg) ** 2 / D, 0.0)
+        return n + 1j * k
+
+    def _epsilon(self, energy, wavelength):
+        return self.nk(energy) ** 2
+
+
+@dataclass(frozen=True)
 class DrudeEnergy(Dispersion):
     """Free carriers, eps = -Ep^2 / (E^2 + i Gamma E): plasma energy Ep and damping Gamma in eV."""
 
@@ -430,6 +586,35 @@ class DrudeEnergy(Dispersion):
 
     def _epsilon(self, energy, wavelength):
         return -(self.Ep**2) / (energy**2 + 1j * self.Gamma * energy)
+
+
+@dataclass(frozen=True)
+class DrudeCarrier(Dispersion):
+    """Free carriers from a density: eps = -Ep^2 / (E^2 + i Gamma E) with hbar^2 omega_p^2 = Ep^2 and
+    omega_p^2 = N e^2 / (m* m_e eps0).  ``N`` is the carrier density in m^-3 (1 cm^-3 = 1e6 m^-3),
+    ``mstar`` the effective mass in units of m_e, ``Gamma`` the damping hbar gamma in eV.  A bound-electron
+    background is added as ``EpsilonInf``.  The same as :class:`DrudeEnergy` with ``Ep = plasma_energy``.
+    (The replication-corpus harvester's ``drude-n`` family.)
+    """
+
+    N: float
+    mstar: float
+    Gamma: float
+
+    def __post_init__(self):
+        if not all(np.isfinite((self.N, self.mstar, self.Gamma))):
+            raise ValueError("DrudeCarrier parameters must be finite numbers")
+        if self.N <= 0 or self.mstar <= 0 or self.Gamma < 0:
+            raise ValueError("DrudeCarrier needs N > 0 (m^-3), mstar > 0 and Gamma >= 0 (eV)")
+
+    @property
+    def plasma_energy(self) -> float:
+        """hbar omega_p in eV."""
+        omega_p = np.sqrt(self.N * constants.e**2 / (self.mstar * constants.m_e * VACUUM_PERMITTIVITY))
+        return float(omega_p * HBAR_EV_S)
+
+    def _epsilon(self, energy, wavelength):
+        return -(self.plasma_energy**2) / (energy**2 + 1j * self.Gamma * energy)
 
 
 @dataclass(frozen=True)
