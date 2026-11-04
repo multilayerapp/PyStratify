@@ -63,7 +63,10 @@ stacks with incoherent layers (O-W7-12).
   `serialize_ellipsometry_amplitudes`, which `psi_delta` replaces, is frozen in `tests/oracles/`, and on 3000 random
   stacks the two serialize identically after the API's degree and [0°, 360°) formatting (1.4e-14° unrounded).
   `ellips` now calls it and takes `mu_list`, passed to `coh_tmm`. **Fix:** at a Brewster angle `ellips` returned
-  Δ = −π, the phase of a rounding-level r_p; it now returns NaN. Everywhere else ψ and Δ move by at most 4e-16 rad
+  Δ = −π, the phase of a rounding-level r_p; it now returns NaN. Where BOTH amplitudes are rounding (a half-wave
+  layer between equal media, say) ψ is NaN too: the ratio of the residues only approximates the true limit
+  atan|r12p/r12s| (44.27° against 44.33° at 5°), and `benchmarks/planar_codes.py` skips and lists such a point
+  against pyElli. Everywhere else ψ and Δ move by at most 4e-16 rad
   (atan2 in place of the arctan of a ratio). `tests/test_planar_api_oracles.py`.
 - **H in `planar.position_resolved`** (WP07-D2): `Hx`, `Hy`, `Hz` (complex), in units of the incident wave's
   |H₀| = |y₀| |E₀|, with y = n/μ_r. They come from the same forward and backward amplitudes as E (s: Hx = −(y/|y₀|)
