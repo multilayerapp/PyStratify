@@ -10081,6 +10081,66 @@
    "status": "suite where `tmm` is installed (`benchmarks` extra)"
   },
   {
+   "id": "films-plane-wave-35",
+   "kind": "benchmark",
+   "geometry": "films",
+   "source": "plane_wave",
+   "reference": "refractiveindex.info pages: the pip `refractiveindex` 1.0.2 package (pinned, a reference only) and the multilayer.app API's former evaluator (frozen in `tests/oracles/api_rii.py`)",
+   "reference_kind": "lineage / code",
+   "quantity": "n, k of every catalogue page of the pinned database (a66ef88; 3543 ids, 3238 evaluated in full) at 25 log-spaced wavelengths against `pystratify.rii`; the package differs on six documented catalogue ids (two catalogue misroutes, unsorted repeated rows, a formula beside a table, an even-length formula 2)",
+   "script": "`benchmarks/refractiveindex_pages.py` → `REFRACTIVEINDEX_PAGES.md`; `tests/test_rii.py` (small CC0 fixture pages, one per formula 1–9 and table type), `tests/test_refractiveindex_pages.py`",
+   "tolerance": "1e-12 against the API evaluator (observed 1.4e-16, identical refusals); 0 undocumented differences from the package",
+   "status": "suite where `refractiveindex` is installed (`benchmarks` extra)"
+  },
+  {
+   "id": "films-plane-wave-36",
+   "kind": "benchmark",
+   "geometry": "films",
+   "source": "plane_wave",
+   "reference": "the API's energy-form Drude model (`backend/spheres.py`, frozen in `tests/oracles/api_spheres_drude.py`)",
+   "reference_kind": "lineage",
+   "quantity": "ε, γ_s, free-path ε, effective paths, v_F and the 1/|ε|-weighted `fit_drude` of `pystratify.drude`",
+   "script": "`tests/test_drude_energy.py`",
+   "tolerance": "1e-9 (the API's truncated ħ is 7.7e-11 off); observed ≤ 1.2e-10, fit identical",
+   "status": "suite"
+  },
+  {
+   "id": "films-plane-wave-37",
+   "kind": "benchmark",
+   "geometry": "films",
+   "source": "plane_wave",
+   "reference": "the harvester's printed-model evaluator (`nk_model_table.py`, frozen in `tests/oracles/harvester_nk_model_table.py`)",
+   "reference_kind": "lineage",
+   "quantity": "`TaucLorentzUrbach` (ε₁, ε₂, Eu, Au), `ForouhiBloomer`, `DrudeCarrier` (the `drude-n` family); the TLU ε₁ also against `kramers_kronig_real` of its ε₂",
+   "script": "`tests/test_dispersion_families.py`",
+   "tolerance": "1e-9 (identical numbers for TLU and Forouhi-Bloomer; `drude-n` 3e-9 of the cancelling terms with the harvester's truncated ħ, m_e, ε₀, 1e-11 with PyStratify's); TLU ε₁ vs numerical KK 1e-9 of the scale, observed 1.4e-14",
+   "status": "suite"
+  },
+  {
+   "id": "films-plane-wave-38",
+   "kind": "benchmark",
+   "geometry": "films",
+   "source": "plane_wave",
+   "reference": "fields of a film stack: Maxwell (flux, continuity), the closed form of an incoherent slab, and the band-averaged coherent field (a Hann-weighted band over whole cycles of the slab round trip and each depth's standing wave)",
+   "reference_kind": "analytic / method",
+   "quantity": "H in `position_resolved`; |E|², |H|² of stacks with incoherent layers (`inc_field`): lossless, absorbing and strongly absorbing slabs, s and p at 0° and 45°, films in front of, behind and on both faces of a thick slab",
+   "script": "`benchmarks/planar_field_checks.py` → `PLANAR_FIELD_CHECKS.md`; `tests/test_planar_fields.py`",
+   "tolerance": "1e-12 (H, lossless) to 5e-5 (films on an absorbing slab); observed ≤ 5.7e-6",
+   "status": "suite"
+  },
+  {
+   "id": "films-plane-wave-39",
+   "kind": "benchmark",
+   "geometry": "films",
+   "source": "plane_wave",
+   "reference": "the API's former ψ/Δ and H code (`serialize_ellipsometry_amplitudes`, `magnetic_field_components`; frozen in `tests/oracles/multilayer_api_ef9c946.py`)",
+   "reference_kind": "lineage",
+   "quantity": "`psi_delta` (with the API's degree and [0°, 360°) formatting, and the null rule below 64 ε) on 3000 random stacks and 17 edge cases; H at 70 618 points of 2000 stacks, a quarter magnetic",
+   "script": "`tests/test_planar_api_oracles.py`",
+   "tolerance": "1e-12; observed: formatted ψ/Δ identical, H bit-identical",
+   "status": "suite"
+  },
+  {
    "id": "films-dipole-1",
    "kind": "benchmark",
    "geometry": "films",
