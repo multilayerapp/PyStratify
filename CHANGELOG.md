@@ -22,6 +22,11 @@ stacks with incoherent layers (O-W7-12).
   O-W7-2: the harvester read its copy with no identity check). Needs PyYAML (`pystratify[rii]`).
   `benchmarks/REFRACTIVEINDEX_PAGES.md`: the pip package and the frozen API evaluator against it on every page of the
   database. `tests/test_rii.py` on small CC0 fixture pages.
+- **`rii`: a zero rational term has no pole.** Twelve catalogue pages (Y3Al5O12 and Lu3Al5O12 Hrabovsky, Lu2O3
+  Kaminskii, LiIO3 Umegaki, BeAl2O4 Walling, CaGdAlO4 and CaYAlO4 Loiko) write an unused formula-4 term as
+  0 λ⁰/(λ² − 0⁰), which is 0/0 at exactly 1 µm, so they refused a wavelength they cover (the multilayer.app API
+  answered 500 there before WP07, 422 after). A rational term (formulas 1, 2, 4) with a zero coefficient is now
+  skipped; every other value is unchanged. Found by the API's switch to `rii` (WP07-D2 step b).
 - **`dispersion.TaucLorentzUrbach`, `ForouhiBloomer`, `DrudeCarrier`**: from the harvester. Tauc-Lorentz with an
   Urbach tail below `Ec` (Foldyna's TLU; the Urbach energy from derivative continuity, not the printed Eq. 37
   factor, and the corrected second line of the Urbach Kramers-Kronig term; ε₁(∞) is yours to add with

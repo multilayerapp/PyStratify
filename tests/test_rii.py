@@ -237,3 +237,14 @@ def test_digest_reproduces_the_apis_pinned_snapshot():
     page = db.page("main/SiO2/Malitson")
     check(path, page)
     assert page.index(589.3) == pytest.approx(1.4585, abs=1e-4)
+
+
+def test_a_zero_rational_term_has_no_pole():
+    # Twelve catalogue pages (YAG Hrabovsky, Lu2O3 Kaminskii, ...) leave a formula-4 term unused as
+    # 0 * lambda^0 / (lambda^2 - 0^0): zero everywhere, but 0/0 at exactly 1 um, which they refused.
+    entry = {"type": "formula 4", "coefficients": "2.0 1.0 2 0.01 1 0 0 0 0"}
+    n = rii.evaluate_formula(entry, np.array([0.99, 1.0, 1.01]))
+    assert np.all(np.isfinite(n))
+    assert abs(n[1] - np.sqrt(2.0 + 1.0 / (1.0 - 0.01))) < 1e-14
+    sellmeier = {"type": "formula 2", "coefficients": "0 1.0 0.01 0 1.0"}   # an unused term with its pole at 1 um
+    assert np.isfinite(rii.evaluate_formula(sellmeier, 1.0))

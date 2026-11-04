@@ -212,6 +212,8 @@ def evaluate_formula(entry: dict, wavelength_um) -> np.ndarray:
         if formula_number == 1:
             n_squared = 1.0 + coefficient(0)
             for index in range(1, len(coefficients) - 1, 2):
+                if coefficients[index] == 0:
+                    continue  # a zero term is zero everywhere, its pole included (see formula 4)
                 n_squared = n_squared + (
                     coefficients[index] * wavelength**2 / (wavelength**2 - coefficients[index + 1] ** 2)
                 )
@@ -219,6 +221,8 @@ def evaluate_formula(entry: dict, wavelength_um) -> np.ndarray:
         elif formula_number == 2:
             n_squared = 1.0 + coefficient(0)
             for index in range(1, len(coefficients) - 1, 2):
+                if coefficients[index] == 0:
+                    continue  # a zero term is zero everywhere, its pole included (see formula 4)
                 n_squared = n_squared + (
                     coefficients[index] * wavelength**2 / (wavelength**2 - coefficients[index + 1])
                 )
@@ -230,11 +234,14 @@ def evaluate_formula(entry: dict, wavelength_um) -> np.ndarray:
             value = np.sqrt(n_squared)
         elif formula_number == 4:
             n_squared = coefficient(0)
-            if len(coefficients) >= 5:
+            # A page that leaves a rational term unused writes it as 0 * lambda^0 / (lambda^2 - 0^0): zero
+            # everywhere, but 0/0 at exactly 1 um, where twelve catalogue pages (YAG among them) refused a
+            # wavelength they cover. A zero term is skipped, so it contributes the zero it is.
+            if len(coefficients) >= 5 and coefficient(1) != 0:
                 n_squared = n_squared + (
                     coefficient(1) * wavelength ** coefficient(2) / (wavelength**2 - coefficient(3) ** coefficient(4))
                 )
-            if len(coefficients) >= 9:
+            if len(coefficients) >= 9 and coefficient(5) != 0:
                 n_squared = n_squared + (
                     coefficient(5) * wavelength ** coefficient(6) / (wavelength**2 - coefficient(7) ** coefficient(8))
                 )
