@@ -9773,7 +9773,7 @@
    "reference": "replication corpus: 295 published records from 280 papers (2026-11-03)",
    "reference_kind": "paper",
    "quantity": "R, T, A spectra and angle scans against digitized figures",
-   "script": "multilayer.app's replication pipeline (`harvester/verify.py`, not public), which computes on Byrnes's `tmm` 0.2.0, not on PyStratify; on every one of its 5.86 million transfer-matrix calls over both corpora the two agree to 2.3e-12 in R and T (assurance WP07, 2026-11-03); every record is on the [Replications page](https://multilayer.app/replications.html)",
+   "script": "multilayer.app's replication pipeline (`harvester/verify.py`, not public), which computes on `pystratify.planar` and `pystratify.stable` since assurance WP07-D1 (2026-11-03); before that it ran Byrnes's `tmm` 0.2.0, which agreed with PyStratify to 2.3e-12 in R and T on every one of its 5.86 million calls over both corpora, and the switch moved no score; every record is on the [Replications page](https://multilayer.app/replications.html)",
    "tolerance": "fit score per record",
    "status": "corpus"
   },
