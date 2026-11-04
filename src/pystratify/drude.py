@@ -20,7 +20,8 @@ from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
-from scipy import constants
+
+from . import _constants as constants
 
 __all__ = [
     "DrudeModel",
@@ -33,7 +34,7 @@ __all__ = [
     "free_path_permittivity",
 ]
 
-_HBAR_EV_S = constants.hbar / constants.e
+_HBAR_EV_S = constants.HBAR / constants.E
 
 
 @dataclass(frozen=True)
@@ -171,8 +172,8 @@ def free_electron_fermi_velocity(plasma_energy: float) -> float:
     """v_F in m/s of a free-electron gas with this plasma energy (eV): n = eps_0 m omega_p^2 / e^2 and
     v_F = hbar (3 pi^2 n)^(1/3) / m, with the bare electron mass.  1.39e6 m/s at 9 eV (gold)."""
     omega = plasma_energy / _HBAR_EV_S
-    density = constants.epsilon_0 * constants.m_e * omega**2 / constants.e**2
-    return constants.hbar * (3 * math.pi**2 * density) ** (1 / 3) / constants.m_e
+    density = constants.EPSILON_0 * constants.M_E * omega**2 / constants.E**2
+    return constants.HBAR * (3 * math.pi**2 * density) ** (1 / 3) / constants.M_E
 
 
 def fit_drude(energy, eps) -> tuple:

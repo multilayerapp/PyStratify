@@ -33,6 +33,11 @@ stacks with incoherent layers (O-W7-12).
   (the API used µm); constants from `scipy.constants` (the API's truncated ħ differs by 7.7e-11). The module's
   `DrudeModel`, `DRUDE`, `effective_path` and `free_path_correction` are unchanged. `tests/test_drude_energy.py`.
 
+- **Constants of its own** (WP07): ε₀ and mₑ, the two measured constants PyStratify uses (Drude models, the
+  free-electron Fermi velocity), were SciPy's, whose CODATA edition changed in SciPy 1.15 (2018 → 2022) while
+  PyStratify allows SciPy back to 1.10, so a Drude ε moved by ~7e-10 with the installed SciPy. `_constants` now
+  fixes CODATA 2022 (and spells out the SI-exact h, c, e); with SciPy ≥ 1.15 nothing changes, bit for bit.
+  `tests/test_constants.py`.
 - **`planar.coh_tmm` at a layer's own critical angle** (WP07, O-W7-10): where cos θ = 0 inside an interior layer
   the reflection recursion lost the 0·∞ limit between a perfectly reflecting interface and a vanishing phase, and
   returned R_s = 1 for an air gap between glass prisms whose R_s is 0.3304 (Byrnes's `tmm` does the same). Wherever

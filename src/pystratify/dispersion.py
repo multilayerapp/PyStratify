@@ -38,7 +38,9 @@ from pathlib import Path
 from typing import Union
 
 import numpy as np
-from scipy import constants, integrate, special
+from scipy import integrate, special
+
+from . import _constants as constants
 
 __all__ = [
     "Dispersion",
@@ -66,10 +68,10 @@ __all__ = [
     "kramers_kronig_real",
 ]
 
-#: h c in eV nm, hbar in eV s and the vacuum permittivity in F/m (CODATA, via scipy.constants).
-HC_EV_NM = constants.h * constants.c / constants.e * 1e9
-HBAR_EV_S = constants.hbar / constants.e
-VACUUM_PERMITTIVITY = constants.epsilon_0
+#: h c in eV nm, hbar in eV s and the vacuum permittivity in F/m (`_constants`: SI-exact, and CODATA 2022 for eps_0).
+HC_EV_NM = constants.H * constants.C / constants.E * 1e9
+HBAR_EV_S = constants.HBAR / constants.E
+VACUUM_PERMITTIVITY = constants.EPSILON_0
 
 
 def photon_energy(wavelength_nm):
@@ -610,7 +612,7 @@ class DrudeCarrier(Dispersion):
     @property
     def plasma_energy(self) -> float:
         """hbar omega_p in eV."""
-        omega_p = np.sqrt(self.N * constants.e**2 / (self.mstar * constants.m_e * VACUUM_PERMITTIVITY))
+        omega_p = np.sqrt(self.N * constants.E**2 / (self.mstar * constants.M_E * VACUUM_PERMITTIVITY))
         return float(omega_p * HBAR_EV_S)
 
     def _epsilon(self, energy, wavelength):
