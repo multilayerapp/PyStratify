@@ -749,6 +749,14 @@ def position_resolved(layer, distance, coh_tmm_data):
     return {'poyn': poyn, 'absor': absor, 'Ex': Ex, 'Ey': Ey, 'Ez': Ez, 'Hx': Hx, 'Hy': Hy, 'Hz': Hz}
 
 
+def _field_intensities(pol, th, y, y_0, Ef, Eb):
+    """(|E|^2, |H|^2) of the waves Ef, Eb, with position_resolved's E and `_magnetic_field`'s H."""
+    if pol == 's':
+        e2 = abs(Ef + Eb) ** 2
+    else:
+        e2 = abs((Ef - Eb) * cos(th)) ** 2 + abs((-Ef - Eb) * sin(th)) ** 2
+    return e2, sum(abs(component) ** 2 for component in _magnetic_field(pol, th, y, y_0, Ef, Eb))
+
 def find_in_structure(d_list, distance):
     """
     d_list is list of thicknesses of layers, all of which are finite.
@@ -1615,6 +1623,9 @@ def inc_tmm(pol, n_list, d_list, c_list, th_0, lam_vac):
     * power_entering_list--n'th element is the normalized Poynting vector
       crossing the interface into the n'th incoherent layer from the previous
       (coherent or incoherent) layer.
+    * th_list--(complex) propagation angle in each layer, as list_snell gives it
+    * pol, n_list, d_list, c_list, th_0, lam_vac--same as input (n_list and
+      d_list as arrays); `inc_field` reads them
     * Plus, all the outputs of inc_group_layers
 
     """
@@ -1802,7 +1813,9 @@ def inc_tmm(pol, n_list, d_list, c_list, th_0, lam_vac):
             'coh_tmm_data_list':coh_tmm_data_list,
             'coh_tmm_bdata_list':coh_tmm_bdata_list,
             'stackFB_list':stackFB_list,
-            'power_entering_list':power_entering_list}
+            'power_entering_list':power_entering_list,
+            'th_list': th_list, 'pol': pol, 'n_list': n_list, 'd_list': d_list,
+            'c_list': c_list, 'th_0': th_0, 'lam_vac': lam_vac}
     ans.update(group_layers_data)
     return ans
 
@@ -1904,6 +1917,149 @@ def inc_find_absorp_analytic_fn(layer, inc_data):
     backfunc.flip()
     return forwardfunc.add(backfunc)
 
+
+def _flux_per_amplitude(pol, n, th):
+    """Normal Poynting flux of one plane wave of unit amplitude (E itself for s; the amplitude whose E is
+    (cos th, 0, -sin th) for p) in a medium of index n at angle th, in T_from_t's units: Re(n cos th) for s,
+    Re(n cos th*) for p."""
+    if pol == 's':
+        return float((n * cos(th)).real)
+    if pol == 'p':
+        return float((n * conj(cos(th))).real)
+    raise ValueError("Polarization must be 's' or 'p'")
+
+
+def _incoherent_layer_field(layer, z, inc_data, flux_0):
+    """|E|^2, |H|^2 in an incoherent layer: V and W are powers, each one plane wave of this medium."""
+    pol, n_list, th_list = inc_data['pol'], inc_data['n_list'], inc_data['th_list']
+    n, th, n_0 = n_list[layer], th_list[layer], n_list[0]
+    flux = _flux_per_amplitude(pol, n, th)
+    if is_evanescent_angle(n, th) or flux <= 0:
+        raise ValueError(
+            f"layer {layer} is incoherent and carries no propagating wave at this angle (Re(n cos theta) = "
+            f"{(n * cos(th)).real:.3g}): inc_tmm's powers fix no field there")
+    lam_vac, d_list = inc_data['lam_vac'], inc_data['d_list']
+    alpha = 4 * np.pi * (n * cos(th)).imag / lam_vac
+    last = len(n_list) - 1
+    if layer == 0:
+        forward = exp(-alpha * z)                       # the incident wave, power 1 at the first interface
+        backward = float(np.real(inc_data['R'])) * exp(alpha * z)
+    else:
+        V, W = inc_data['VW_list'][inc_data['inc_from_all'][layer]]
+        forward = V * exp(-alpha * z)
+        if layer == last:
+            backward = W * exp(alpha * z)               # W = 0: nothing returns from the exit medium
+        else:
+            # W is the backward power at the layer's front face; inc_tmm propagates it through the single-pass
+            # factor P (floored at 1e-30 for an opaque layer), so take the back face's power W/P and attenuate
+            # from there: no overflow, and the same numbers as W e^{alpha z} wherever P is not floored.
+            d = d_list[layer]
+            P = max(exp(-alpha * d), 1e-30)
+            backward = (W / P) * exp(-alpha * (d - z))
+    # Each power over the flux one unit amplitude of this medium carries, in units of the incident amplitude.
+    amplitude2 = (forward + backward) * flux_0 / flux
+    lateral = abs(cos(th)) ** 2 + abs(sin(th)) ** 2     # |E|^2 per |amplitude|^2 of a p wave, |H|^2 of an s wave
+    admittance2 = abs(n) ** 2 / abs(n_0) ** 2
+    if pol == 's':
+        return amplitude2, amplitude2 * admittance2 * lateral
+    return amplitude2 * lateral, amplitude2 * admittance2
+
+
+def _coherent_layer_field(layer, z, inc_data, flux_0):
+    """|E|^2, |H|^2 in a coherent layer: the stack's forward and reversed solutions, each weighted by its power
+    converted to the amplitude^2 of its own incident medium."""
+    pol, n_0 = inc_data['pol'], inc_data['n_list'][0]
+    stack_index, within = (int(value) for value in inc_data['stack_from_all'][layer])
+    forward_data = inc_data['coh_tmm_data_list'][stack_index]
+    backward_data = inc_data['coh_tmm_bdata_list'][stack_index]
+    F, B = inc_data['stackFB_list'][stack_index]
+    d = inc_data['d_list'][layer]
+    e2 = np.zeros(np.shape(z))
+    h2 = np.zeros(np.shape(z))
+    for data, power, index, depth in ((forward_data, F, within, z),
+                                      (backward_data, B, len(backward_data['d_list']) - 1 - within, d - z)):
+        power = float(np.real(power))
+        if power == 0:
+            continue
+        _refuse_critical(data, "the field")
+        flux = _flux_per_amplitude(pol, data['n_list'][0], data['th_0'])
+        if flux <= 0:
+            raise ValueError(f"the medium in front of the coherent stack holding layer {layer} carries no "
+                             "propagating wave at this angle: inc_tmm's powers fix no field there")
+        weight = power * flux_0 / flux
+        Ef, Eb = _layer_waves(index, depth, data)
+        layer_e2, layer_h2 = _field_intensities(pol, data['th_list'][index], data['y_list'][index], n_0, Ef, Eb)
+        e2 = e2 + weight * layer_e2
+        h2 = h2 + weight * layer_h2
+    return e2, h2
+
+
+def inc_field(layer, distance, inc_data):
+    """
+    Phase-averaged |E|^2 and |H|^2 in a stack with incoherent layers, at ``distance`` into ``layer``.
+
+    ``inc_data`` is the output of `inc_tmm` (or of `pim_tmm` for a stack with an incoherent interior layer).
+    ``layer`` indexes the full stack, half-spaces included, and (layer, distance) is defined as in
+    `position_resolved`: distance <= 0 in the incident medium, 0 <= distance <= d in a finite layer, >= 0 in the
+    exit medium. ``distance`` may be an array.
+
+    Returns ``{'E2': |E|^2/|E0|^2, 'H2': |H|^2/|H0|^2, 'coherent': bool}`` (floats for a scalar distance,
+    arrays otherwise) in `position_resolved`'s units: the incident wave has unit amplitude and |H0| = |n_0| |E0|.
+    ``coherent`` says whether ``layer`` belongs to a coherent stack.
+
+    `inc_tmm`'s intensities (``VW_list``, ``stackFB_list``) are powers, normal Poynting flux over the incident
+    flux, not |E|^2. Each is converted to the field amplitude^2 of the medium it travels in, through the flux one
+    unit amplitude carries there, Re(n cos th) for s and Re(n cos th*) for p (the factor of `T_from_t`):
+
+    * In an incoherent layer (the two half-spaces included) the forward and backward powers V e^{-alpha z} and
+      W e^{+alpha z}, alpha = 4 pi Im(n cos th)/lam_vac, are each one plane wave, of amplitude^2
+      a = (power) Re(n_0 cos th_0)/Re(n cos th) (s; cos th* for p). The phase average has no cross terms, so
+      |E|^2 = a_f + a_b for s and (|cos th|^2 + |sin th|^2)(a_f + a_b) for p, and
+      |H|^2 = |n/n_0|^2 (|cos th|^2 + |sin th|^2)(a_f + a_b) for s and |n/n_0|^2 (a_f + a_b) for p. Lossy media
+      and complex angles included; for a lossless slab at normal incidence |E|^2 = (V + W) n_0/n and
+      |H|^2 = (V + W) n/n_0.
+    * A coherent layer is the stack's forward solution (``coh_tmm_data_list``) weighted by the power F arriving
+      from the incoherent medium a in front of it, plus its reversed solution (``coh_tmm_bdata_list``) weighted
+      by the power B arriving from the medium b behind it. Each solution's field is per unit amplitude of its own
+      incident medium, so the weights are F Re(n_0 cos th_0)/Re(n_a cos th_a) and B Re(n_0 cos th_0)/Re(n_b cos
+      th_b) (cos th* for p). The two are mutually incoherent and add as intensities.
+
+    An incoherent layer carries no standing wave: within a coherence length of an interface the true field still
+    interferes with its reflection (the incident wave with the reflected light included), and this model drops
+    that by construction. Refuses (ValueError) an evanescent incoherent layer, where powers fix no field, and a
+    layer of a coherent stack at its own critical angle (as `position_resolved` does).
+
+    Before this function multilayer.app plotted the powers themselves as |E|^2 and |H|^2 (assurance WP07,
+    O-W7-12): |E|^2 Re(n cos th)/(n_0 cos th_0) too high inside an incoherent layer (x1.50 in glass) and |H|^2 too
+    low, and a coherent film's backward share B taken as |E0|^2 of the slab behind it.
+    """
+    if 'VW_list' not in inc_data:
+        raise ValueError("inc_field takes inc_tmm's output (or pim_tmm's for a stack with an incoherent interior "
+                         "layer); for a coherent stack use position_resolved")
+    num_layers = len(inc_data['n_list'])
+    if not 0 <= layer < num_layers:
+        raise ValueError(f"layer must be between 0 and {num_layers - 1}")
+    z = np.asarray(distance, dtype=float)
+    if layer == 0:
+        inside = np.all(z <= 0)
+    elif layer == num_layers - 1:
+        inside = np.all(z >= 0)
+    else:
+        inside = np.all((z >= 0) & (z <= inc_data['d_list'][layer]))
+    if not inside:
+        raise ValueError(f"distance is outside layer {layer} (<= 0 in the incident medium, 0..d in a finite layer, "
+                         ">= 0 in the exit medium)")
+    flux_0 = _flux_per_amplitude(inc_data['pol'], inc_data['n_list'][0], inc_data['th_0'])
+    coherent = not np.any(isnan(inc_data['stack_from_all'][layer]))
+    if coherent:
+        e2, h2 = _coherent_layer_field(layer, z, inc_data, flux_0)
+    else:
+        e2, h2 = _incoherent_layer_field(layer, z, inc_data, flux_0)
+    e2 = np.real(np.broadcast_to(e2, z.shape)).astype(float)
+    h2 = np.real(np.broadcast_to(h2, z.shape)).astype(float)
+    if z.ndim == 0:
+        return {'E2': float(e2), 'H2': float(h2), 'coherent': coherent}
+    return {'E2': e2, 'H2': h2, 'coherent': coherent}
 
 def layered_response(pol, n_list, d_list, c_list, th_0, lam_vac):
     """
