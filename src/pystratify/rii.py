@@ -481,7 +481,8 @@ class RIIDatabase:
                 for page in book.get("content") or []:
                     if isinstance(page, dict) and "PAGE" in page:
                         key = f"{shelf['SHELF']}/{book['BOOK']}/{page['PAGE']}"
-                        pages[key] = CATALOG_MISROUTES.get(key) or str(page.get("data") or "")
+                        # the first entry of an id wins (the catalogue lists 17 ids twice, with the same file)
+                        pages.setdefault(key, CATALOG_MISROUTES.get(key) or str(page.get("data") or ""))
         self._catalog = pages
         return pages
 

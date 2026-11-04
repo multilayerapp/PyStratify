@@ -31,6 +31,8 @@ search (1e-11) and the slab dispersion relation (7e-14).
 repeat groups, uniaxial layers and perfect-conductor and Bloch exits, against `planar.coh_tmm`, closed forms, a
 direct integration of Maxwell's equations and the replication harvester's own kernels
 ([benchmarks/STABLE_CHECKS.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/STABLE_CHECKS.md));
+`python benchmarks/refractiveindex_pages.py` evaluates every page of a refractiveindex.info database with `pystratify.rii`, the multilayer.app API's former evaluator (frozen in `tests/oracles/`) and the pip `refractiveindex` package, and writes [REFRACTIVEINDEX_PAGES.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/REFRACTIVEINDEX_PAGES.md).
+
 `python benchmarks/byrnes_tmm.py` compares `planar` and `stable` with Byrnes's `tmm`, the lineage both descend from
 ([benchmarks/BYRNES_TMM.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/BYRNES_TMM.md)).
 `python benchmarks/dispersion_codes.py` compares every `pystratify.dispersion` model with pyElli's

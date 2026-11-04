@@ -3,9 +3,32 @@
 Notable changes to PyStratify. Every release is on [PyPI](https://pypi.org/project/pystratify/) and
 [Zenodo](https://doi.org/10.5281/zenodo.23287561) (one DOI per version); `git log` has the full history.
 
-## Unreleased — one stable film kernel
+## Unreleased — one stable film kernel, and one owner of the material physics
 
-One new module, and one fix that changes results only at a layer's exact critical angle.
+One new module, one fix that changes results only at a layer's exact critical angle, and (WP07-D2, 2026-11-03) the
+material code that the multilayer.app API and the replication-corpus harvester each kept their own copy of.
+Every displaced implementation is kept as a frozen test oracle (`tests/oracles/`) or a pinned benchmark reference.
+
+- **`pystratify.rii`**: a refractiveindex.info page as a `Dispersion` (`RIIPage`, `RIIDatabase`). Formulas 1–9
+  (wavelength in µm), `tabulated n`, `k` and `nk`, a formula with a tabulated k; the first covering entry wins, a
+  wavelength no entry covers raises `ValueError` (no extrapolation). It is the multilayer.app API's evaluator
+  ported unchanged; where the pip `refractiveindex` package differs (unsorted repeated rows, a formula beside a
+  table, an even-length formula 2) it follows the API. **Database identity**: `database_identity` returns the
+  SHA-256 of a database (the digest the API pins for its a66ef88 snapshot, reproduced) and the git commit of a
+  checkout; `RIIDatabase(root, expected_sha256=…)` and `verify_database` refuse any other database (closes
+  O-W7-2: the harvester read its copy with no identity check). Needs PyYAML (`pystratify[rii]`).
+  `benchmarks/REFRACTIVEINDEX_PAGES.md`: the pip package and the frozen API evaluator against it on every page of the
+  database. `tests/test_rii.py` on small CC0 fixture pages.
+- **`dispersion.TaucLorentzUrbach`, `ForouhiBloomer`, `DrudeCarrier`**: from the harvester. Tauc-Lorentz with an
+  Urbach tail below `Ec` (Foldyna's TLU; the Urbach energy from derivative continuity, not the printed Eq. 37
+  factor, and the corrected second line of the Urbach Kramers-Kronig term; ε₁(∞) is yours to add with
+  `EpsilonInf`); the single-term Forouhi-Bloomer n,k model; free carriers from a density N (m⁻³), m* and ħγ.
+  `tests/test_dispersion_families.py`.
+- **`drude.DrudeEnergyModel`, `fit_drude`, `free_path_permittivity`, `layer_effective_path`,
+  `free_electron_fermi_velocity`**: from the API: eps_inf − ωp²/(ω(ω+iγ)) fitted to a metal's own permittivity (the
+  1/|ε|-weighted fit with ε∞ ≥ 1), and the surface-damping correction γ_s = γ + A v_F / L_eff. Lengths in nm
+  (the API used µm); constants from `scipy.constants` (the API's truncated ħ differs by 7.7e-11). The module's
+  `DrudeModel`, `DRUDE`, `effective_path` and `free_path_correction` are unchanged. `tests/test_drude_energy.py`.
 
 - **`planar.coh_tmm` at a layer's own critical angle** (WP07, O-W7-10): where cos θ = 0 inside an interior layer
   the reflection recursion lost the 0·∞ limit between a perfectly reflecting interface and a vanishing phase, and
