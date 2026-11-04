@@ -248,3 +248,13 @@ def test_a_zero_rational_term_has_no_pole():
     assert abs(n[1] - np.sqrt(2.0 + 1.0 / (1.0 - 0.01))) < 1e-14
     sellmeier = {"type": "formula 2", "coefficients": "0 1.0 0.01 0 1.0"}   # an unused term with its pole at 1 um
     assert np.isfinite(rii.evaluate_formula(sellmeier, 1.0))
+
+
+def test_a_rounding_negative_k_is_zero_and_a_real_one_is_refused():
+    # main/CdS/Treharne carries k = -1e-17 (rounding); main/GaP/Jellison reaches -0.0027 (gain)
+    def page(k_value):
+        return rii.RIIPage.from_record({"DATA": [{"type": "tabulated nk",
+                                                  "data": f"0.5 2.0 0.1\n0.6 2.1 {k_value}\n0.7 2.2 0.0\n"}]})
+    assert page("-1e-17").nk(0.6) == complex(2.1, 0.0)
+    with pytest.raises(ValueError, match="k must be finite and zero or positive"):
+        page("-0.0027").nk(0.6)

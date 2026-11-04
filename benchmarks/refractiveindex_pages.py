@@ -123,8 +123,25 @@ def compare(database, expect_sha256=None, points=POINTS, with_package=True):
             except ValueError:
                 ours_refused[i] = True
         entry["api_refused"] = int(refused.sum())
-        if (refused != ours_refused).any():
-            entry["refusal_mismatch"] = True
+        mismatch = refused != ours_refused
+        if mismatch.any():
+            # rii reads a k a rounding step below zero (rii.K_ROUNDING) as 0, where the API refused any k < 0
+            # (WP07-D2, main/CdS/Treharne's -1e-17). A mismatch is that rule, and only that, when every
+            # differing point is one the API refuses, rii reads, and rii with the rule switched off refuses.
+            strict = np.zeros(points, dtype=bool)
+            saved, rii.K_ROUNDING = rii.K_ROUNDING, 0.0
+            try:
+                for i in np.flatnonzero(mismatch):
+                    try:
+                        page.nk(float(wl[i]))
+                    except ValueError:
+                        strict[i] = True
+            finally:
+                rii.K_ROUNDING = saved
+            if (refused[mismatch] & ~ours_refused[mismatch] & strict[mismatch]).all():
+                entry["rounding_k"] = int(mismatch.sum())
+            else:
+                entry["refusal_mismatch"] = True
         if refused.all():
             continue
         if not refused.any():
@@ -164,6 +181,10 @@ def rows(results):
             "pages with a different refusal set", sum(bool(p.get("refusal_mismatch")) for p in pages), 0),
         row("pages the frozen API evaluator cannot load", "pages that fail to parse", len(results["load_errors"]), 0),
     ]
+    rounding = [p for p in pages if p.get("rounding_k")]
+    if rounding:
+        out.append(row("rii reads a k within rii.K_ROUNDING below zero as 0, where the API refused it (documented)",
+                       "pages (" + ", ".join(p["id"] for p in rounding) + ")", len(rounding), len(rounding)))
     if results["package"]:
         measured = [p for p in compared if "pkg_dn" in p]
         unexplained = [p for p in measured if max(p["pkg_dn"], p["pkg_dk"]) > TOL_PACKAGE and not _documented(p)]

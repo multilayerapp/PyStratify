@@ -24,7 +24,8 @@ Semantics (the multilayer.app API's evaluator, which this module replaces, porte
 * a table is sorted by wavelength before interpolation (``numpy.argsort`` default order, so rows repeated at
   one wavelength are interpolated through in whatever order that sort leaves them: ambiguous data, kept
   as the API does) and interpolated linearly in wavelength;
-* a formula that yields a non-finite or non-positive index, or a table whose k is negative, is refused.
+* a formula that yields a non-finite or non-positive index, or a table whose k is negative, is refused; a k
+  no more than ``K_ROUNDING`` (1e-12) below zero is rounding and read as 0 (``main/CdS/Treharne`` has -1e-17).
 
 Where the pip ``refractiveindex`` package differs from this (``main/CuO/Brimhall``: unsorted repeated rows;
 ``organic/polyvinylpyrrolidone/Konig``: a formula 5 beside a tabulated nk, whose n the package takes from
@@ -63,6 +64,7 @@ __all__ = [
     "evaluate_formula",
     "interpolate_table",
     "CATALOG_MISROUTES",
+    "K_ROUNDING",
 ]
 
 #: Pages whose entry in the pinned catalogue (database commit a66ef88) points at another book's file; the
@@ -74,6 +76,8 @@ CATALOG_MISROUTES = {
 
 CATALOG = "catalog-nk.yml"
 _RANGE_TOLERANCE_UM = 1e-12
+#: A tabulated k at most this far below zero is rounding and read as 0; anything further below is gain and refused.
+K_ROUNDING = 1e-12
 _FORMULAS = range(1, 10)
 
 
@@ -434,6 +438,9 @@ class RIIPage(Dispersion):
             k[pending_k] = 0.0
         if np.any(~np.isfinite(n)) or np.any(n <= 0):
             raise ValueError(f"{self._label()} n must be finite and positive.")
+        # A table's k a rounding step below zero is zero, not gain: main/CdS/Treharne carries k = -1e-17 in its
+        # transparent band. A real negative k (main/GaP/Jellison reaches -0.0027) is still refused.
+        k = np.where((k < 0) & (k >= -K_ROUNDING), 0.0, k)
         if np.any(~np.isfinite(k)) or np.any(k < 0):
             raise ValueError(f"{self._label()} k must be finite and zero or positive.")
         value = n + 1j * k

@@ -22,6 +22,11 @@ stacks with incoherent layers (O-W7-12).
   O-W7-2: the harvester read its copy with no identity check). Needs PyYAML (`pystratify[rii]`).
   `benchmarks/REFRACTIVEINDEX_PAGES.md`: the pip package and the frozen API evaluator against it on every page of the
   database. `tests/test_rii.py` on small CC0 fixture pages.
+- **`rii`: a k a rounding step below zero is zero** (`K_ROUNDING` = 1e-12). `main/CdS/Treharne` carries k = −1e-17
+  in its transparent band and was refused as if it were gain (the multilayer.app API refused it too); a real
+  negative k, such as `main/GaP/Jellison`'s −0.0027, is still refused. The all-pages benchmark lists Treharne as
+  the one page where `rii` now reads what the frozen API evaluator refused. Found by the harvester's switch to
+  `rii` (WP07-D2 step c).
 - **`rii`: a zero rational term has no pole.** Twelve catalogue pages (Y3Al5O12 and Lu3Al5O12 Hrabovsky, Lu2O3
   Kaminskii, LiIO3 Umegaki, BeAl2O4 Walling, CaGdAlO4 and CaYAlO4 Loiko) write an unused formula-4 term as
   0 λ⁰/(λ² − 0⁰), which is 0/0 at exactly 1 µm, so they refused a wavelength they cover (the multilayer.app API
