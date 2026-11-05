@@ -1,0 +1,26 @@
+# Assurance WP09, task 7 (applied 2026-11-05, D-W9-2): the skips the `tests` job (extra `test` only) may show. Three TAB-separated fields: test id glob, reason regex, where it runs instead.
+# Written by reading tests/ at PyStratify main 3d3d4f2 (2026-11-03); the first CI run confirms or corrects it, and
+# every correction is reviewed (a new line is a check that left CI).
+#
+# The benchmarks extra (PyMoosh, pyElli, lmfit, scattnlay, pyGDM2, meent, tmm): the `benchmarks` job runs these.
+tests.test_planar_codes*	PyMoosh|elli	CI job `benchmarks` (the benchmarks extra)
+tests.test_gdm_spheres*	pyGDM2	CI job `benchmarks`
+tests.test_rcwa_meent*	meent	CI job `benchmarks`
+tests.test_mie_codes*	scattnlay	CI job `benchmarks`
+tests.test_dispersion*	elli	CI job `benchmarks`
+tests.test_ellipsometry*	elli|lmfit	CI job `benchmarks`
+tests.test_page_scripts*	PyMoosh	CI job `benchmarks`
+tests.test_stable*	tmm	CI job `benchmarks` (Byrnes tmm 0.2.0, the lineage reference)
+#
+# Environments pip cannot make here: the local reference environments (tier T3, ~/.multilayer/bench,
+# `python3 benchmarks/verify_all.py`). A release that changes the numerics these cover names that run as evidence.
+tests.test_fem_ngsolve*	ngsolve	T3: local bench env `ngsolve` (verify_all.py)
+tests.test_fdtd_meep*	meep	T3: local bench env `meep` (conda)
+tests.test_mnpbem_spheres*	Octave	T3: local GNU Octave + MNPBEM
+tests.test_smuthi_spheres*	smuthi	T3: local bench env `smuthi` (Python 3.10)
+tests.test_planar_emission_references*	smuthi	T3: local bench env `smuthi` (Python 3.10)
+tests.test_tmmax_films*	tmmax	T3: local bench env `tmmax` (jax)
+#
+# A test that reads another repository by an absolute path on Ilia's Mac (test_rii.py, PyStratify main since
+# WP07-D2). Proposed: take the path from MULTILAYER_API_DATABASE and give it a CI leg that checks out the API.
+tests.test_rii*test_digest_reproduces_the_apis_pinned_snapshot	the API's shipped (refractiveindex )?database is not here	release machine (the API checkout beside PyStratify, or a CI leg setting PYSTRATIFY_RII_DATABASE; guard on PyStratify branch wp09-test-guards a06f51c)

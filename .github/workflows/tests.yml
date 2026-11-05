@@ -1,9 +1,29 @@
+# Assurance WP09, tasks 1 and 7 (umbrella docs/assurance/WP09-gates.md section 6); applied 2026-11-05 on Ilia's
+# ruling D-W9-2.
+#
+# What changes against the live file (c110b57):
+#   * every job writes a JUnit report and passes the explicit-skip gate (.github/scripts/skip_gate.py): a test
+#     skipped because a reference code is missing fails the job unless a reviewed rule names it and says where
+#     that check runs instead (the `benchmarks` job, or the local reference environments, tier T3);
+#   * the `benchmarks` job runs the WHOLE suite with the benchmarks extra, not five files: today three checks whose
+#     references are in that extra run in no CI job at all (test_rcwa_meent.py: meent; test_stable.py's Byrnes
+#     lineage leg: tmm; test_page_scripts.py's PyMoosh page: PyMoosh), because the `tests` job skips them and the
+#     `benchmarks` job does not list their files;
+#   * workflow_dispatch, so a commit that is about to be pinned (requirements-engine.txt, the harvester, the web
+#     content pin) can be given a run of its own: a push event runs only the head of the push, and production's
+#     engine 024b8cb never had one (WP09 manifest, C17).
 name: tests
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
 jobs:
   tests:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python: ["3.10", "3.12"]
     steps:
@@ -12,9 +32,20 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: pip install -e ".[test]"
-      - run: pytest -q
+      - run: pytest -q -rs --junitxml=junit-tests-${{ matrix.python }}.xml
+      - name: explicit skips only
+        if: always()
+        run: python .github/scripts/skip_gate.py junit-tests-${{ matrix.python }}.xml .github/expected-skips.txt --summary "$GITHUB_STEP_SUMMARY"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-tests-${{ matrix.python }}-${{ github.sha }}
+          path: junit-tests-${{ matrix.python }}.xml
   benchmarks:
-    # Independent codes (benchmarks/*_codes.py, gdm_spheres.py); optional dependencies, so a job of its own
+    # Independent codes (benchmarks/*_codes.py, gdm_spheres.py, the meent and Byrnes tmm references): every
+    # reference pip can install runs here. What still skips is listed in expected-skips-benchmarks.txt: the
+    # environments pip cannot make (NGSolve, Meep, Octave + MNPBEM, SMUTHI on 3.10, tmmax + jax), which live in
+    # ~/.multilayer/bench and run through benchmarks/verify_all.py (tier T3).
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,5 +53,12 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e ".[test,benchmarks]"
-      - run: pytest -q tests/test_planar_codes.py tests/test_mie_codes.py tests/test_gdm_spheres.py
-          tests/test_dispersion.py tests/test_ellipsometry.py
+      - run: pytest -q -rs --junitxml=junit-benchmarks.xml
+      - name: explicit skips only
+        if: always()
+        run: python .github/scripts/skip_gate.py junit-benchmarks.xml .github/expected-skips-benchmarks.txt --summary "$GITHUB_STEP_SUMMARY"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-benchmarks-${{ github.sha }}
+          path: junit-benchmarks.xml

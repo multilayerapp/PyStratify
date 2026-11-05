@@ -1,0 +1,11 @@
+# Assurance WP09, task 7 (applied 2026-11-05, D-W9-2): the skips the `benchmarks` job (extras `test` + `benchmarks`)
+# and the release gate may show. Every pip-installable reference must RUN
+# here, so nothing from the benchmarks extra is listed: a missing PyMoosh, pyElli, scattnlay, treams, pyGDM2, meent
+# or tmm fails the job.
+tests.test_fem_ngsolve*	ngsolve	T3: local bench env `ngsolve` (verify_all.py)
+tests.test_fdtd_meep*	meep	T3: local bench env `meep` (conda)
+tests.test_mnpbem_spheres*	Octave	T3: local GNU Octave + MNPBEM
+tests.test_smuthi_spheres*	smuthi	T3: local bench env `smuthi` (Python 3.10)
+tests.test_planar_emission_references*	smuthi	T3: local bench env `smuthi` (Python 3.10)
+tests.test_tmmax_films*	tmmax	T3: local bench env `tmmax` (jax)
+tests.test_rii*test_digest_reproduces_the_apis_pinned_snapshot	the API's shipped (refractiveindex )?database is not here	release machine (the API checkout beside PyStratify, or a CI leg setting PYSTRATIFY_RII_DATABASE; guard on PyStratify branch wp09-test-guards a06f51c)
