@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "generator": "pystratify 0.11.0",
+ "generator": "pystratify 0.12.0",
  "records": [
   {
    "id": "fresnel-equations",

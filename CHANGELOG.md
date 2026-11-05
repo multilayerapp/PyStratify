@@ -3,7 +3,7 @@
 Notable changes to PyStratify. Every release is on [PyPI](https://pypi.org/project/pystratify/) and
 [Zenodo](https://doi.org/10.5281/zenodo.23287561) (one DOI per version); `git log` has the full history.
 
-## Unreleased — one stable film kernel, and one owner of the material physics
+## 0.12.0 — one stable film kernel, and one owner of the material physics
 
 One new module (`stable`), and (assurance WP07-D2, 2026-11-03) the physics that multilayer.app's API and the
 replication-corpus harvester each kept their own copy of: the films' H field, ellipsometric angles and
@@ -105,6 +105,15 @@ stacks with incoherent layers (O-W7-12).
   `PLANAR_FIELD_CHECKS.md`, `tests/test_planar_fields.py`).
 - `planar.inc_tmm` also returns `th_list`, `pol`, `n_list`, `d_list`, `c_list`, `th_0` and `lam_vac`, which
   `inc_field` reads. Nothing it already returned changes.
+
+- **The new names are provisional until 1.0** (`docs/API.md`): `planar.psi_delta`, `planar.inc_field`,
+  `position_resolved`'s H keys and the other WP07-D2 additions, and the modules `pystratify.drude` and
+  `pystratify.rii` (listed now; they had been missing from the table, so implicitly internal).
+- **`python -m pystratify.docs build` builds in a clean checkout.** It now hands the committed manifest to the
+  build, so a classic whose git-ignored `results/` file is absent keeps its committed checks (the tests already
+  did this; the command did not, and stopped on the first classic).
+- **Tests:** `test_psi_delta_is_vectorised` compares the scalar and array ψ/Δ to 16 ε rad, Δ modulo 2π, not
+  bitwise: GitHub's runners round numpy's two paths differently (Δ near 0 was 201 ulp apart).
 
 ## 0.11.0 — thin-film ellipsometry: dispersion models and fits
 
