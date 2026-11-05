@@ -3,6 +3,7 @@ python -m pystratify.docs review SECTION-ID [--date YYYY-MM-DD] [--root .]"""
 
 import argparse
 import datetime
+import json
 import re
 import sys
 from pathlib import Path
@@ -50,8 +51,11 @@ def main(argv=None):
         print(f"stamped {path.relative_to(root)}: reviewed {args.date}, fingerprint {fingerprint}; "
               "now run `python -m pystratify.docs build`")
         return 0
-    manifest = build_manifest(root, run_classics=args.run_classics)
     target = root / "docs" / "manifest.json"
+    # A fresh clone has no crosscheck/classics/results/ (git-ignored): the committed manifest's checks stand in for a
+    # classic whose results file is absent, as they do in the tests. Without this a clean checkout could not build.
+    previous = json.loads(target.read_text()) if target.exists() else None
+    manifest = build_manifest(root, run_classics=args.run_classics, previous=previous)
     if args.check:
         changed = stale(manifest, target)
         if changed:

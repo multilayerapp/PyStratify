@@ -231,3 +231,21 @@ def test_a_review_holds_until_the_page_is_edited(tmp_path):
     page.write_text(original.replace("\nreviewed:\n", '\nreviewed:\nreviewed_fingerprint: "0123456789abcdef"\n'))
     with pytest.raises(ContentError, match="without a reviewed date"):
         load_learn(tmp_path)
+
+
+def test_the_build_command_hands_the_committed_manifest_to_the_build(monkeypatch, capsys):
+    # The command must pass the committed manifest as `previous`, or a clean checkout (no classics results/) cannot
+    # build: it did not until 2026-11-05, while the tests above, which pass it themselves, stayed green.
+    from pystratify.docs import __main__ as cli
+
+    seen = {}
+
+    def fake_build(root, run_classics=False, previous=None):
+        seen["previous"] = previous
+        return COMMITTED
+
+    monkeypatch.setattr(cli, "build_manifest", fake_build)
+    monkeypatch.setattr(cli, "stale", lambda manifest, target: [])
+    assert cli.main(["build", "--check", "--root", str(ROOT)]) == 0
+    assert seen["previous"] == COMMITTED
+
