@@ -15,7 +15,7 @@ approximation.
 """
 
 import numpy as np
-from _common import peak, report, save_csv
+from _common import curve, figure, mark, panel, peak, png, report, save_csv
 
 import pystratify as ps
 
@@ -39,6 +39,19 @@ ok = report("mohlenhoff_2005", [
     ("exact Mie, a = 4 µm: first maximum (cm-1)", 2470, peak(WN, q[4.0], 1500, 3200)[0], None, "differs: exact vs Eq. 8"),
     ("exact Mie, a = 4 µm: maximum Q", 3.2, peak(WN, q[4.0], 1500, 3200)[1], None, "differs: exact vs Eq. 8"),
 ])
+# The card's figure: exact Mie (the calculator, solid) beside the van de Hulst formula the paper plots (dashed), one
+# colour per radius; the paper's maximum and first-maximum positions are marked on its formula.
+x4_vdh = peak(WN, ada[4.0], 1500, 3200)[0]
+x4_mie = peak(WN, q[4.0], 1500, 3200)[0]
+figure("mohlenhoff_2005", "Non-absorbing spheres, n = 1.33, in air", [
+    panel("q", "Scattering efficiency", WN, "1/λ [cm⁻¹]", "Q_sca",
+          [c for a in (4.0, 6.0, 10.0) for c in (curve(f"mie{a:g}", f"Q_sca, exact, a = {a:g} µm", q[a], group=f"a{a:g}"),
+                                                  curve(f"vdh{a:g}", f"van de Hulst (their Eq. 8), a = {a:g} µm", ada[a], group=f"a{a:g}", dash=True))],
+          [mark("their formula, a = 4 µm: first maximum (cm-1)", series="vdh4", label="a = 4 µm"),
+           mark("their formula, a = 10 µm: first maximum (cm-1)", series="vdh10", label="a = 10 µm"),
+           mark("their formula: maximum Q", series="vdh4", at=x4_vdh),
+           mark("exact Mie, a = 4 µm: maximum Q", series="mie4", at=x4_mie)], points=320)],
+    note="Radii a = 4, 6 and 10 µm of the paper's eight. The calculator setup is the 4 µm sphere.")
 try:
     import matplotlib.pyplot as plt
 
@@ -51,7 +64,7 @@ try:
     ax.set_title("Mohlenhoff et al. 2005, Fig. 4, recomputed: n = 1.33 spheres", fontsize=9)
     ax.legend(fontsize=7, ncol=2)
     fig.tight_layout()
-    fig.savefig(__file__.replace("classics/", "classics/results/").replace(".py", ".png"), dpi=130)
+    fig.savefig(png("mohlenhoff_2005"), dpi=130)
 except ImportError:
     pass
 print("PASS" if ok else "CHECK")

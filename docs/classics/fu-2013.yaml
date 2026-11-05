@@ -10,8 +10,10 @@ shows: >-
   Scattering of a 150 nm silicon sphere from 380 to 780 nm with its multipoles, and its far-field scattering pattern: pick
   660 nm, where forward scattering dominates.
 inputs: Radius 75 nm, free space (Fig. 1 caption); Green 2008 silicon (the paper names none).
-agreement: >-
-  Forward/backward ratio peaks at 7.5 near 659 nm (paper: ~8 at 660 nm); F = B at 499 and 604 nm (paper: 500 and 603 nm).
+note: >-
+  The forward-to-backward ratio peaks at {F/B maximum} near {wavelength of the F/B maximum (nm)} nm (paper: ~{F/B
+  maximum|paper} at {wavelength of the F/B maximum (nm)|paper} nm); F = B at {F = B, electric dipole (nm)} and {F = B,
+  magnetic dipole (nm)} nm (paper: {F = B, electric dipole (nm)|paper} and {F = B, magnetic dipole (nm)|paper} nm).
 perturb: Change the radius to 65 nm and find the new wavelength of zero backward scattering.
 script: crosscheck/classics/fu_2013.py
 results: crosscheck/classics/results/fu_2013.json

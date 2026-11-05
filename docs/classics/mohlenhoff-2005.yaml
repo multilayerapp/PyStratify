@@ -10,9 +10,11 @@ shows: >-
   Scattering efficiency of a 4 µm sphere of n = 1.33 in air from 600 to 7000 cm⁻¹: the broad oscillation that distorts infrared
   spectra of cells and nuclei.
 inputs: n = 1.33, k = 0, radius 4 µm, air (Fig. 4 caption and Eq. 8).
-agreement: >-
-  The paper plots van de Hulst's approximation (its Eq. 8, maximum 3.17 near 2470 cm⁻¹), which the script reproduces; the
-  calculator's exact Mie peaks higher, Q = 4.0 near 2590 cm⁻¹.
+note: >-
+  The paper plots van de Hulst's approximation (its Eq. 8), which the script reproduces: maximum {their formula:
+  maximum Q}, the first near {their formula, a = 4 µm: first maximum (cm-1)} cm⁻¹ for a = 4 µm. The calculator's exact
+  Mie peaks higher and bluer, Q = {exact Mie, a = 4 µm: maximum Q} near {exact Mie, a = 4 µm: first maximum (cm-1)}
+  cm⁻¹: the two comparisons without a tolerance.
 perturb: 'Raise the radius to 10 µm: the first maximum moves to ~1000 cm⁻¹, right under the protein bands.'
 script: crosscheck/classics/mohlenhoff_2005.py
 results: crosscheck/classics/results/mohlenhoff_2005.json

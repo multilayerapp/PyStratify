@@ -10,7 +10,7 @@ Values read off Fig. 4 (±0.05).
 """
 
 import numpy as np
-from _common import peak, report, save_csv
+from _common import curve, figure, mark, panel, peak, png, report, save_csv
 
 import pystratify as ps
 
@@ -41,6 +41,31 @@ ok = report("lukosz_kunz_1977", [
     ("e, perp, n = 1.5, z0/λ1 = 0.4: back to ~1", 1.0, np.interp(0.4, x, e15[:, 0]), 0.05, "Fig. 4, read"),
     ("m, perp, n = 1.5, at contact", 2.0, curves[1.5, "magnetic"][0, 0], 0.15, "Fig. 6, read"),
 ])
+# The card's figure: the total decay rate against distance for the four dipoles, n = 1.5 and 3 in each; the calculator
+# setup is the electric dipole, perpendicular, above n = 1.5. Values read off Fig. 4 are points, a position a rule.
+x_min3, y_min3 = peak(x, -e3[:, 1], 0.05, 0.3)
+x_max3 = peak(x, e3[:, 1], 0.25, 0.45)[0]
+x_min3b = peak(x, -e3[:, 1], 0.5, 0.75)[0]
+DIPOLES = (("e-perp", "Electric, perpendicular", "electric", 0), ("e-par", "Electric, parallel", "electric", 1),
+           ("m-perp", "Magnetic, perpendicular", "magnetic", 0), ("m-par", "Magnetic, parallel", "magnetic", 1))
+MARKS = {
+    "e-perp": [mark("e, perp, n = 1.5, at contact", series="n1.5", at=x[0]),
+               mark("e, perp, n = 1.5, z0/λ1 = 0.4: back to ~1", series="n1.5", at=0.4)],
+    "e-par": [mark("e, par, n = 1.5, at contact", series="n1.5", at=x[0]),
+              mark("e, par, n = 3: first minimum", series="n3.0", at=x_min3),
+              mark("e, par, n = 3: z0/λ1 of the first minimum", series="n3.0", label="min"),
+              mark("e, par, n = 3: second minimum near z0/λ1 = 0.6", series="n3.0", at=x_min3b),
+              mark("e, par, n = 3: maximum near z0/λ1 = 0.35", series="n3.0", at=x_max3)],
+    "m-perp": [mark("m, perp, n = 1.5, at contact", series="n1.5", at=x[0])],
+    "m-par": [],
+}
+figure("lukosz_kunz_1977", "Dipoles above a lossless half-space, n = 1.5 and 3 (λ₀ = 600 nm, n₁ = 1)", [
+    panel(pid, title, x, "z₀ / λ₁", "Γ / Γ₀",
+          [curve(f"n{n2:.1f}", f"n = {n2:g}", curves[n2, kind][:, j], quantity="gamma_tot_film", group=f"n{n2:.1f}") for n2 in (1.5, 3.0)],
+          MARKS[pid])
+    for pid, title, kind, j in DIPOLES],
+    note="Γ₀ is the rate in medium 1 alone, Lukosz and Kunz's L/L∞. The contact values are the curves' first points, "
+         "z₀ = 3 nm.")
 try:
     import matplotlib.pyplot as plt
 
@@ -56,7 +81,7 @@ try:
         ax.set_xlabel("z0 / λ1")
     fig.suptitle("Lukosz & Kunz 1977, Fig. 4, recomputed: L/L_inf", fontsize=9)
     fig.tight_layout()
-    fig.savefig(__file__.replace("classics/", "classics/results/").replace(".py", ".png"), dpi=130)
+    fig.savefig(png("lukosz_kunz_1977"), dpi=130)
 except ImportError:
     pass
 print("PASS" if ok else "CHECK")

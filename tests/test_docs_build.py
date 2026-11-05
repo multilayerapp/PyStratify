@@ -249,3 +249,97 @@ def test_the_build_command_hands_the_committed_manifest_to_the_build(monkeypatch
     assert cli.main(["build", "--check", "--root", str(ROOT)]) == 0
     assert seen["previous"] == COMMITTED
 
+
+
+def test_classic_figure_files_are_current(manifest):
+    """Every classic has its reproduction figure in docs/classics/figures/<id>.json, byte for byte what a build writes
+    (from the script's results/<paper>.figure.json, or on a fresh clone the tracked file itself)."""
+    import hashlib
+
+    from pystratify.docs.build import figure_files
+
+    files = figure_files(manifest)
+    classics = [r for r in manifest["records"] if r["kind"] == "classic"]
+    assert {Path(f).stem for f in files} == {c["id"] for c in classics}
+    for c in classics:
+        text = files[c["reproduction"]["file"]]
+        assert (ROOT / "docs" / c["reproduction"]["file"]).read_text() == text, f"{c['id']}: run `python -m pystratify.docs build`"
+        assert c["reproduction"]["sha256"] == hashlib.sha256(text.encode()).hexdigest()
+    assert {p.name for p in (ROOT / "docs" / "classics" / "figures").glob("*.json")} == {Path(f).name for f in files}
+
+
+def test_a_classic_card_takes_every_number_from_its_checks(manifest):
+    """R-CLASSICS-CONTENT (Ilia, 2026-11-05): the agreement sentence is generated from the checks, the note's numbers
+    are filled from them, and every mark of the figure sits at its check's paper value (recomputed here, not read
+    back), on a series of its panel and inside the plotted range."""
+    from pystratify.docs.build import FIGURE_BUDGET, agreement, computed_shown, figure_files, shown
+
+    files = figure_files(manifest)
+    for c in (r for r in manifest["records"] if r["kind"] == "classic"):
+        checks = {k["check"]: k for k in c["checks"]}
+        for k in c["checks"]:
+            assert k["display"] == {"paper": shown(k["paper"]), "computed": computed_shown(k),
+                                    "tolerance": None if k["tolerance"] is None else shown(k["tolerance"])}
+        assert c["agreement"] == agreement(c["checks"])
+        assert "{" not in c["note"] and "}" not in c["note"]
+        figure = json.loads(files[c["reproduction"]["file"]])
+        assert figure["id"] == c["id"] and 0 <= figure["default"] == c["reproduction"]["default"] < len(figure["panels"])
+        assert c["reproduction"]["panels"] == [p["title"] for p in figure["panels"]]
+        numbers = 0
+        for p in figure["panels"]:
+            numbers += len(p["x"]) * (1 + len(p["series"]))
+            lo, hi = min(p["x"]), max(p["x"])
+            keys = {s["key"] for s in p["series"]}
+            for m in p["marks"]:
+                paper = checks[m["check"]]["paper"]
+                value = 10 ** paper if m.get("log10") else paper
+                assert m["pass"] == checks[m["check"]]["pass"]
+                assert m.get("series") is None or m["series"] in keys
+                if m["kind"] == "rule":
+                    assert m["x"] == value and "at" not in m
+                else:
+                    assert m["y"] == value
+                    assert [m["x"], m["x2"]] == m["at"] if m["kind"] == "level" else m["x"] == m["at"]
+                assert all(lo <= x <= hi for x in (m["x"], m.get("x2", m["x"])))
+        assert numbers <= FIGURE_BUDGET
+
+
+def _copy_classics(tmp_path):
+    for part in ("docs", "crosscheck/classics/data"):
+        shutil.copytree(ROOT / part, tmp_path / part, ignore=shutil.ignore_patterns("manifest.json", "results"))
+    for script in (ROOT / "crosscheck" / "classics").glob("*.py"):
+        shutil.copy(script, tmp_path / "crosscheck" / "classics" / script.name)
+    return {r["id"]: r for r in COMMITTED["records"] if r["kind"] == "classic"}
+
+
+def test_a_fresh_clone_builds_the_tracked_figures(tmp_path):
+    # No crosscheck/classics/results/ (git-ignored): the committed checks and the tracked figures stand in, and the
+    # build writes the tracked figures back unchanged.
+    from pystratify.docs.build import Materials, figure_text, load_classics
+
+    earlier = _copy_classics(tmp_path)
+    for c in load_classics(tmp_path, Materials(tmp_path), previous=earlier):
+        assert c["_figure"] == (ROOT / "docs" / c["reproduction"]["file"]).read_text()
+        assert c["agreement"] == earlier[c["id"]]["agreement"] and c["note"] == earlier[c["id"]]["note"]
+        assert figure_text(json.loads(c["_figure"])) == c["_figure"]
+
+
+@pytest.mark.parametrize("edit, refusal", [
+    (lambda fig, rec: fig.write_text(fig.read_text().replace('"check":"80 nm: z of the maximum (nm)"', '"check":"80 nm: z of the peak"')),
+     "not exactly one of the checks"),
+    (lambda fig, rec: fig.write_text(fig.read_text().replace('"series":"d80","label":"max"', '"series":"d90","label":"max"')),
+     "names no series"),
+    (lambda fig, rec: rec.write_text(rec.read_text().replace("{80 nm: fluorescence maximum}", "{80 nm: fluorescence peak}", 1)),
+     "the note names"),
+    (lambda fig, rec: rec.write_text(rec.read_text().replace("note: >-", "agreement: Hand-written, 3.5 near 12 nm.\nnote: >-")),
+     "generated from the checks"),
+    (lambda fig, rec: fig.write_text(fig.read_text().replace('"at":20.0', '"at":200.0', 1)),
+     "outside"),
+])
+def test_a_classic_figure_or_note_that_does_not_match_its_checks_is_refused(tmp_path, edit, refusal):
+    from pystratify.docs.build import Materials, load_classics
+
+    earlier = _copy_classics(tmp_path)
+    edit(tmp_path / "docs" / "classics" / "figures" / "anger-2006.json", tmp_path / "docs" / "classics" / "anger-2006.yaml")
+    with pytest.raises(ContentError, match=refusal):
+        load_classics(tmp_path, Materials(tmp_path), previous=earlier)

@@ -12,9 +12,11 @@ shows: >-
 inputs: >-
   Drude core (radius 0.3485 λp), ε = 12.96 shell to 0.5623 λp, Drude shell to 0.6370 λp, in air; losses 0.004 ωp and 0.012
   ωp; axial-magnetic polarization. The scale λp = 137.6 nm (silver) is ours: the paper is scale-free.
-agreement: >-
-  Peak scattering 1.92 and absorption 0.73 (in 2λ/π) as printed; without loss the script reaches 7.87 against the printed
-  7.94.
+note: >-
+  Peak scattering {lossy: total scattering peak (2λ/π)} and absorption {lossy: absorption peak (2λ/π)} (in 2λ/π)
+  against the printed {lossy: total scattering peak (2λ/π)|paper} and {lossy: absorption peak (2λ/π)|paper}; without
+  loss the script reaches {lossless: total scattering peak (2λ/π)} against the printed {lossless: total scattering
+  peak (2λ/π)|paper}.
 perturb: >-
   Thin the high-index shell by 1 nm: the four resonances separate and the superscattering peak falls apart.
 script: crosscheck/classics/ruan_fan_2010.py

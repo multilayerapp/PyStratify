@@ -12,7 +12,7 @@ dielectric function, which matters below ~10 nm only.  Values read off Fig. 7 (Â
 """
 
 import numpy as np
-from _common import report, save_csv
+from _common import png, report, save_csv
 
 import pystratify as ps
 
@@ -54,7 +54,7 @@ try:
     ax.legend(fontsize=8)
     ax.set_title("Ford & Weber 1984, Fig. 7, recomputed (Ag, 1.96 eV, local)", fontsize=9)
     fig.tight_layout()
-    fig.savefig(__file__.replace("classics/", "classics/results/").replace(".py", ".png"), dpi=130)
+    fig.savefig(png("ford_weber_1984"), dpi=130)
 except ImportError:
     pass
 print("PASS" if ok else "CHECK")

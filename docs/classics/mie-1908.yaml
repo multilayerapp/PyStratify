@@ -11,8 +11,9 @@ shows: >-
   turns the sol violet.
 inputs: >-
   Gold n, k at seven wavelengths from Mie's table (p. 417) as an uploaded table; water n = 1.337, from his λ′ column.
-agreement: >-
-  56 printed values, diameters 20–180 nm: all within 10%, 51 within 5%. His loss per mm is 1500·Q/d with d in nm.
+note: >-
+  Mie's printed values for diameters 20–180 nm, a hand calculation, each toleranced at 10% of the value (at least
+  1.5). His loss per mm is 1500·Q/d with d in nm.
 perturb: 'Shrink the radius from 50 to 10 nm: the peak returns to ~525 nm, the red of fine gold.'
 script: crosscheck/classics/mie_1908.py
 results: crosscheck/classics/results/mie_1908.json

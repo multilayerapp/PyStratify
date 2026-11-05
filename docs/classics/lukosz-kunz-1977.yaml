@@ -10,9 +10,10 @@ shows: >-
   The decay rate of an electric dipole in air, 3 to 600 nm above glass (n = 1.5) at 600 nm, perpendicular and parallel, relative
   to the same dipole in air.
 inputs: Medium 1 air, medium 2 n = 1.5 (the paper gives only the ratio); λ = 600 nm, so z0/λ1 = 1 at 600 nm.
-agreement: >-
-  2.25 (perpendicular) and 1.36 (parallel) at contact against the paper's ~2.3 and ~1.4; the oscillation about 1 matches Fig.
-  4.
+note: >-
+  {e, perp, n = 1.5, at contact} (perpendicular) and {e, par, n = 1.5, at contact} (parallel) at contact against the
+  paper's ~{e, perp, n = 1.5, at contact|paper} and ~{e, par, n = 1.5, at contact|paper}; the oscillation about 1
+  follows Fig. 4.
 perturb: >-
   Make the substrate n = 3: the near-contact rise grows and the parallel dipole oscillates more strongly.
 script: crosscheck/classics/lukosz_kunz_1977.py

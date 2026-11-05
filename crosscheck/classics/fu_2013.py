@@ -10,7 +10,7 @@ data; we use Green 2008.  Checks: F/B maximum ~8 at 660 nm, minimum below 0.5 at
 """
 
 import numpy as np
-from _common import material, peak, report, save_csv
+from _common import curve, figure, mark, material, panel, peak, png, report, save_csv
 
 import pystratify as ps
 
@@ -45,6 +45,18 @@ ok = report("fu_2013", [
     ("F = B, magnetic dipole (nm)", 603, crossings[np.argmin(abs(crossings - 603))], 15, "p. 3"),
     ("hemispheres add up to the cross section (rel. error)", 0, np.max(abs(fwd + bwd - ps.cross_sections(sol).sca) / ps.cross_sections(sol).sca), 5e-3, "energy check (quadrature)"),
 ])
+# The card's figure: Fig. 1a as two panels, the hemispheres' cross sections and their ratio with F = B as a guide.
+figure("fu_2013", "A silicon sphere of radius 75 nm in free space", [
+    panel("hemispheres", "Forward and backward scattering", nm, "λ [nm]", "C_sca [µm²]",
+          [curve("forward", "C_sca, forward hemisphere", fwd), curve("backward", "C_sca, backward hemisphere", bwd)]),
+    panel("ratio", "Forward-to-backward ratio", nm, "λ [nm]", "F / B",
+          [curve("ratio", "F / B", ratio), curve("one", "F = B", np.ones_like(ratio), guide=True)],
+          [mark("F/B maximum", series="ratio", at=x_max), mark("wavelength of the F/B maximum (nm)", series="ratio", label="max"),
+           mark("F/B minimum wavelength (nm)", series="ratio", label="min"),
+           mark("F = B, electric dipole (nm)", series="ratio", label="F = B"),
+           mark("F = B, magnetic dipole (nm)", series="ratio", label="F = B")])],
+    note="Unpolarized light. The paper prints the ratio's minimum only as below 0.5: the table keeps it, the figure "
+         "does not mark it.", default=1)
 try:
     import matplotlib.pyplot as plt
 
@@ -59,7 +71,7 @@ try:
     ax.legend(loc="upper left", fontsize=8)
     ax.set_title("Fu et al. 2013, Fig. 1a, recomputed: Si sphere R = 75 nm", fontsize=9)
     fig.tight_layout()
-    fig.savefig(__file__.replace("classics/", "classics/results/").replace(".py", ".png"), dpi=130)
+    fig.savefig(png("fu_2013"), dpi=130)
 except ImportError:
     pass
 print("PASS" if ok else "CHECK")

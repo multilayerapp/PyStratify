@@ -10,7 +10,10 @@ shows: >-
   Extinction and scattering of a 150 nm silicon sphere in free space from 430 to 800 nm, split into its electric and magnetic
   multipoles.
 inputs: 'Diameter 150 nm (Fig. 3c); free space. The paper names no silicon data: Green 2008.'
-agreement: Ten md, ed and mq peaks across six sizes, all within 5 nm of Fig. 3.
+note: >-
+  For the 150 nm sphere, the calculator's setup, the magnetic dipole peaks at {150 nm: md peak (nm)} nm and the
+  electric dipole at {150 nm: ed peak (nm)} nm, against {150 nm: md peak (nm)|paper} and {150 nm: ed peak (nm)|paper}
+  nm in Fig. 3c.
 perturb: >-
   Sweep the radius from 50 to 135 nm: the magnetic dipole walks from ~470 to ~730 nm, the colours of the paper's Fig. 1.
 script: crosscheck/classics/kuznetsov_2012.py

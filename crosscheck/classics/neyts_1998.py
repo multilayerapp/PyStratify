@@ -13,7 +13,7 @@ with the dipole at the air side and n_e d_e / λ = 0.73, where F = 0.817.
 """
 
 import numpy as np
-from _common import peak, report, save_csv
+from _common import curve, figure, mark, panel, peak, png, report, save_csv
 
 import pystratify as ps
 
@@ -45,6 +45,22 @@ ok = report("neyts_1998", [
     ("next thickness maximum, n_e d_e / λ (half a wave later)", 1.23, second, None, "the (0.19 + 0.5 l) rule of p. 969 is for Fig. 7's normal direction"),
     ("F near the mirror (z_ = 5 nm) is large", 5.0, total[np.argmin(abs(z_mirror - 0.005))], None, "Fig. 9: contours 2-5 near Al"),
 ])
+# The card's figure: the escaping fraction and the total rate as the dipole crosses the layer (the calculator's sweep,
+# its setup), and the escaping fraction against the layer's thickness with the dipole at the air side.
+th = thick * N_E / LAM
+figure("neyts_1998", "Air / ZnS / Al at 600 nm, an isotropic dipole", [
+    # depth z below the air interface, the calculator's sweep axis (the mirror at z = d_e = 190.4 nm)
+    panel("across", "Across the layer, n_e d_e / λ = 0.73", (D_E - z_mirror[::-1]) * 1e3, "z [nm]", "Γ / Γ₀ and fraction",
+          [curve("F", "F = Γ_tot / Γ₀", total[::-1], quantity="gamma_tot_film"), curve("E_appl", "E_appl = Γ_up / Γ_tot", e_appl[::-1])],
+          [mark("maximum E_appl (dipole at the air side)", series="E_appl", at=(D_E - z_mirror[-1]) * 1e3),
+           mark("F at that point", series="F", at=(D_E - z_mirror[-1]) * 1e3),
+           mark("F near the mirror (z_ = 5 nm) is large", series="F", at=(D_E - z_mirror[np.argmin(abs(z_mirror - 0.005))]) * 1e3)], log=True),
+    panel("thickness", "Thickness, dipole at the air side", th, "nₑdₑ / λ", "E_appl",
+          [curve("E_appl", "E_appl = Γ_up / Γ_tot", row)],
+          [mark("optimum thickness n_e d_e / λ (dipole at the air side)", series="E_appl", label="optimum"),
+           mark("next thickness maximum, n_e d_e / λ (half a wave later)", series="E_appl", label="next")])],
+    note="E_appl is the fraction of the radiated power that escapes into the air; F the total rate against the dipole in "
+         "bulk ZnS. Al is a 200 nm layer on air: opaque.")
 try:
     import matplotlib.pyplot as plt
 
@@ -60,7 +76,7 @@ try:
     b.set_ylabel("E_appl, dipole at the air side")
     fig.suptitle("Neyts 1998, Figs. 9-10, recomputed: air / ZnS / Al at 600 nm", fontsize=9)
     fig.tight_layout()
-    fig.savefig(__file__.replace("classics/", "classics/results/").replace(".py", ".png"), dpi=130)
+    fig.savefig(png("neyts_1998"), dpi=130)
 except ImportError:
     pass
 print("PASS" if ok else "CHECK")

@@ -12,7 +12,7 @@ his truncation, a1 + a2 + p1 (Eq. 100: electric dipole and quadrupole, magnetic 
 """
 
 import numpy as np
-from _common import nk_rows, report, save_csv
+from _common import curve, figure, mark, nk_rows, panel, png, report, save_csv
 
 import pystratify as ps
 
@@ -54,11 +54,31 @@ for d, row in TABLE_K.items():
         checks.append((f"d = {d} nm, {wl:.0f} nm: K (per mille){' [a1, a2, p1]' if d >= 140 else ''}",
                        paper, ours, round(max(1.5, 0.10 * paper), 2), "table p. 438"))
 
+# The card's figure: the light loss at every wavelength from 420 to 650 nm, Mie's seven n, k interpolated linearly
+# between his rows as the calculator interpolates an uploaded table (exact at his wavelengths, where his table sits).
+LAM_PLOT = np.arange(420, 651) * 1e-3
+gold_plot = np.interp(LAM_PLOT, lam, gold.real) + 1j * np.interp(LAM_PLOT, lam, gold.imag)
+N_PLOT = np.column_stack([gold_plot, np.full(LAM_PLOT.size, N_WATER)])
+loss = {}
+for d, row in TABLE_K.items():
+    if row is None:
+        continue
+    cs = ps.cross_sections(ps.solve([d * 1e-3 / 2], N_PLOT, LAM_PLOT))
+    q_trunc = (cs.ext_by_order[:, ps.TM, 0] + cs.ext_by_order[:, ps.TM, 1] + cs.ext_by_order[:, ps.TE, 0]) / (np.pi * (d * 1e-3 / 2) ** 2)
+    loss[d] = 1500 * (q_trunc if d >= 140 else cs.q_ext) / d
+    assert np.allclose(loss[d][np.isin(np.arange(420, 651), MIE_GOLD[:, 0])], computed[d], rtol=1e-12)
+
 save_csv("mie_1908_table_p438", "wavelength_nm," + ",".join(f"K d={d}nm" for d in computed), [MIE_GOLD[:, 0], *computed.values()])
 # The table the calculator link uploads: Mie's seven rows, verbatim.
 (__import__("pathlib").Path(__file__).parent / "results" / "mie_1908_gold_nk.json").write_text(
     __import__("json").dumps(nk_rows(lam, gold)))
 ok = report("mie_1908", checks)
+figure("mie_1908", "Light loss of colloidal gold in water, particle diameters 20–180 nm", [
+    panel("loss", "Light loss K", LAM_PLOT * 1e3, "λ [nm]", "K [‰ per mm]",
+          [curve(f"d{d}", f"d = {d} nm", loss[d]) for d in loss],
+          [mark(c[0], series=f"d{int(c[0].split()[2])}", at=float(c[0].split(", ")[1].split()[0])) for c in checks])],
+    note="K = 1500 Q_ext / d (d in nm), Mie's loss per mille through 1 mm at 10⁻⁶ gold by volume. "
+         "From d = 140 nm, his truncation a₁ + a₂ + p₁. The table's values are the circles.")
 within5 = sum(abs(o - p) <= max(1.5, 0.05 * p) for _, p, o, _, _ in checks)
 print(f"{within5} of {len(checks)} printed values within 5% (all toleranced at 10%: a 1908 hand calculation)")
 
@@ -76,7 +96,7 @@ try:
     ax.set_title("Mie 1908, p. 438: lines PyStratify, dots Mie's table", fontsize=9)
     ax.legend(fontsize=7, ncol=2)
     fig.tight_layout()
-    fig.savefig(__file__.replace("classics/", "classics/results/").replace(".py", ".png"), dpi=130)
+    fig.savefig(png("mie_1908"), dpi=130)
 except ImportError:
     pass
 print("PASS" if ok else "CHECK")

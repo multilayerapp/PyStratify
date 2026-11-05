@@ -15,9 +15,12 @@ shows: >-
 inputs: >-
   n = 1.55, λ = 0.6328 µm, air, normal incidence (p. 207). The book plots C_sca/V = 4Q/(πd); the calculator shows the efficiency
   Q.
-agreement: >-
-  The parallel maxima 7.28, 9.52, 9.97 and 8.85 (×10⁴ cm⁻¹) at 0.16–0.61 µm diameter, and the perpendicular 7.97 at 0.50 µm,
-  against ~7.3, 9.5, 10.0, 8.8 and 8.0 read off Fig. 8.7.
+note: >-
+  The parallel maxima {parallel: first maximum}, {parallel: second maximum}, {parallel: highest maximum} and
+  {parallel: shoulder after it} (×10⁴ cm⁻¹), the highest at {parallel: diameter of the highest maximum (µm)} µm
+  diameter, and the perpendicular {perpendicular: maximum} at {perpendicular: diameter of the maximum (µm)} µm,
+  against ~{parallel: first maximum|paper}, {parallel: second maximum|paper}, {parallel: highest maximum|paper},
+  {parallel: shoulder after it|paper} and {perpendicular: maximum|paper} read off Fig. 8.7.
 perturb: >-
   Make the cylinder absorbing (k = 0.05): the ripple dies and both polarizations fall toward the geometric limit Q = 2.
 script: crosscheck/classics/bohren_huffman_1983.py

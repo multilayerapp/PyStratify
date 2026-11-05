@@ -12,7 +12,7 @@ at 300 dpi (±0.2 in units of 1e4 cm-1, ±0.03 µm).
 """
 
 import numpy as np
-from _common import peak, report, save_csv
+from _common import curve, figure, mark, panel, peak, png, report, save_csv
 
 import pystratify as ps
 
@@ -33,6 +33,21 @@ ok = report("bohren_huffman_1983", [
     ("perpendicular: maximum", 8.0, peak(d, perp)[1], 0.2, "Fig. 8.7, read"),
     ("perpendicular: diameter of the maximum (µm)", 0.50, peak(d, perp)[0], 0.03, "Fig. 8.7, read"),
 ])
+# The card's figure: Fig. 8.7, the asymptote drawn where it fits the axis (8/(πd) ≤ 10.6).
+asymptote = np.where(8 / (np.pi * d) <= 10.6, 8 / (np.pi * d), np.nan)
+figure("bohren_huffman_1983", "A non-absorbing cylinder in air, n = 1.55, λ = 632.8 nm", [
+    panel("csca", "Scattering per unit volume", d, "d [µm]", "C_sca / V [10⁴ cm⁻¹]",
+          [curve("par", "E along the axis", par, quantity="q_sca_e"), curve("perp", "H along the axis", perp, quantity="q_sca_m"),
+           curve("asymptote", "geometric-optics limit 8/(πd)", asymptote, guide=True)],
+          [mark("parallel: first maximum", series="par", at=peak(d, par, 0.08, 0.25)[0]),
+           mark("parallel: second maximum", series="par", at=peak(d, par, 0.25, 0.40)[0]),
+           mark("parallel: highest maximum", series="par", at=peak(d, par)[0]),
+           mark("parallel: diameter of the highest maximum (µm)", series="par", label="max ∥"),
+           mark("parallel: shoulder after it", series="par", at=peak(d, par, 0.55, 0.70)[0]),
+           mark("perpendicular: maximum", series="perp", at=peak(d, perp)[0]),
+           mark("perpendicular: diameter of the maximum (µm)", series="perp", label="max ⊥")], points=400)],
+    note="Parallel and perpendicular are the book's names for the incident electric field along and across the axis. "
+         "C_sca / V = 4 Q_sca / (π d).")
 try:
     import matplotlib.pyplot as plt
 
@@ -46,7 +61,7 @@ try:
     ax.legend(fontsize=8)
     ax.set_title("Bohren & Huffman 1983, Fig. 8.7, recomputed: n = 1.55, λ = 0.6328 µm", fontsize=9)
     fig.tight_layout()
-    fig.savefig(__file__.replace("classics/", "classics/results/").replace(".py", ".png"), dpi=130)
+    fig.savefig(png("bohren_huffman_1983"), dpi=130)
 except ImportError:
     pass
 print("PASS" if ok else "CHECK")

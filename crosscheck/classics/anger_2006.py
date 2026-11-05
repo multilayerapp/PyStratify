@@ -13,7 +13,7 @@ distance sweep.  Values read off Fig. 1 (±5%); the paper's solid curves are exa
 """
 
 import numpy as np
-from _common import peak, report, save_csv
+from _common import curve, figure, mark, panel, peak, png, report, save_csv
 
 import pystratify as ps
 
@@ -48,6 +48,25 @@ ok = report("anger_2006", [
     ("20 nm: fluorescence maximum", 1.05, peak(zz, curves[0.020][2])[1], 0.15, "Fig. 1b, read"),
     ("80 nm: quenched at contact (z = 0.5 nm)", 0.0, fl80[0], 0.3, "Fig. 1b"),
 ])
+# The card's figure: Fig. 1a as two panels (the excitation from the plane-wave near field, the quantum yield from the
+# calculator's dipole sweep) and Fig. 1b, their product for four sizes.
+figure("anger_2006", "A molecule beside a gold sphere at λ = 650 nm, ε = −12.99 + 1.09i", [
+    panel("excitation", "Excitation, 80 nm sphere (Fig. 1a)", zz, "z [nm]", "|Eᵣ|² / |E₀|²",
+          [curve("excitation", "excitation rate, |E_r|² / |E₀|²", exc80)],
+          [mark(f"80 nm: excitation at z = {z0} nm", series="excitation", at=z0) for z0 in (20, 30, 60)]),
+    panel("yield", "Quantum yield, 80 nm sphere (Fig. 1a)", zz, "z [nm]", "q",
+          [curve("q", "q, radial dipole", q80, quantity="q_yield")],
+          [mark(f"80 nm: quantum yield at z = {z0} nm", series="q", at=z0) for z0 in (20, 30, 60)]),
+    panel("fluorescence", "Fluorescence, 20–100 nm spheres (Fig. 1b)", zz, "z [nm]", "fluorescence / free space",
+          [curve(f"d{d*1e3:.0f}", f"{d*1e3:.0f} nm sphere", curves[d][2]) for d in (0.020, 0.060, 0.080, 0.100)],
+          [mark("80 nm: fluorescence maximum", series="d80", at=peak(zz, fl80)[0]),
+           mark("80 nm: z of the maximum (nm)", series="d80", label="max"),
+           mark("100 nm: fluorescence maximum", series="d100", at=peak(zz, curves[0.100][2])[0]),
+           mark("60 nm: fluorescence maximum", series="d60", at=peak(zz, curves[0.060][2])[0]),
+           mark("20 nm: fluorescence maximum", series="d20", at=peak(zz, curves[0.020][2])[0]),
+           mark("80 nm: quenched at contact (z = 0.5 nm)", series="d80", at=zz[0])])],
+    note="z is the molecule's distance from the surface, the molecule and the field along the axis through it. "
+         "Fluorescence = excitation × quantum yield (their Eq. 1).", default=2)
 try:
     import matplotlib.pyplot as plt
 
@@ -65,7 +84,7 @@ try:
     b.legend(fontsize=8)
     fig.suptitle("Anger, Bharadwaj & Novotny 2006, Fig. 1, recomputed (λ = 650 nm)", fontsize=9)
     fig.tight_layout()
-    fig.savefig(__file__.replace("classics/", "classics/results/").replace(".py", ".png"), dpi=130)
+    fig.savefig(png("anger_2006"), dpi=130)
 except ImportError:
     pass
 print("PASS" if ok else "CHECK")

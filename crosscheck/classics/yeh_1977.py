@@ -12,7 +12,7 @@ the first band and the next (closed, for quarter-wave layers, at λ0/2), the TM 
 """
 
 import numpy as np
-from _common import report, save_csv
+from _common import curve, figure, mark, panel, png, report, save_csv
 
 import pystratify.planar as pl
 
@@ -23,8 +23,13 @@ d_list = [np.inf] + [d1, d2] * PERIODS + [np.inf]
 LAM = np.linspace(0.6, 2.5, 1901)
 
 
+_R = {}
+
+
 def R(pol, theta_deg):
-    return np.array([pl.coh_tmm(pol, n_list, d_list, np.radians(theta_deg), l)["R"] for l in LAM])
+    if (pol, theta_deg) not in _R:
+        _R[pol, theta_deg] = np.array([pl.coh_tmm(pol, n_list, d_list, np.radians(theta_deg), l)["R"] for l in LAM])
+    return _R[pol, theta_deg]
 
 
 r0 = R("s", 0)
@@ -49,6 +54,21 @@ ok = report("yeh_1977", [
     ("TM at 0 deg: band peak equals TE (the gap exists off θ_B)", r0[(LAM > 0.9) & (LAM < 1.1)].max(), tm_0[(LAM > 0.9) & (LAM < 1.1)].max(), 1e-9, "Fig. 8"),
     ("TE at 85 deg: R across the long-wavelength range", 1.0, te_85[LAM > 1.2].min(), 0.01, "Fig. 7, top panel"),
 ])
+# The card's figure: R against wavelength at five angles inside GaAs, TE (s) and TM (p) as the calculator draws them,
+# s solid and p dashed: normal incidence, two below the Brewster angle and two beyond the critical one. The calculator
+# setup shows TM.
+ANGLES = (0, 30, theta_b, 75, 85)
+figure("yeh_1977", "15 GaAs/AlGaAs periods, quarter-wave at 1 µm, angles inside GaAs", [
+    panel(name, title, LAM * 1e3, "λ [nm]", "R",
+          [curve(f"a{a:.1f}", f"{'R_s' if pol == 's' else 'R_p'}, θ = {a:.1f}°" if a == theta_b else f"{'R_s' if pol == 's' else 'R_p'}, θ = {a:.0f}°",
+                 R(pol, a), quantity="R_s" if pol == "s" else "R_p", group=f"a{a:.1f}") for a in ANGLES],
+          marks, points=300)
+    for name, title, pol, marks in (
+        ("te", "TE (Fig. 7)", "s", [mark("first band peak R at 0 deg (Yeh's unprinted pair has more contrast)", series="a0.0", at=(900, 1100)),
+                                    mark("TE at 85 deg: R across the long-wavelength range", series="a85.0", at=(1200, 2500))]),
+        ("tm", "TM (Fig. 8)", "p", [mark("TM at the Brewster angle: largest R anywhere", series=f"a{theta_b:.1f}", at=(600, 2500))]))],
+    note=f"The TM gaps close at the Brewster angle, θ_B = {theta_b:.1f}°; beyond the critical angle, {np.degrees(np.arcsin(N1 / N2)):.1f}°, "
+         "R is total at long wavelengths. The paper's statements are the levels.", default=1)
 print(f"Brewster angle in GaAs: {theta_b:.2f} deg; critical angle {np.degrees(np.arcsin(N1 / N2)):.2f} deg")
 try:
     import matplotlib.pyplot as plt
@@ -64,7 +84,7 @@ try:
     axes[1].legend(fontsize=7)
     fig.suptitle("Yeh, Yariv & Hong 1977, Figs. 7-8, recomputed: 15 GaAs/AlGaAs periods", fontsize=9)
     fig.tight_layout()
-    fig.savefig(__file__.replace("classics/", "classics/results/").replace(".py", ".png"), dpi=130)
+    fig.savefig(png("yeh_1977"), dpi=130)
 except ImportError:
     pass
 print("PASS" if ok else "CHECK")

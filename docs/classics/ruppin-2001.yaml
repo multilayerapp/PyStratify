@@ -10,9 +10,10 @@ shows: >-
   Extinction efficiency (log scale) of a 1 nm Na wire in vacuum, light polarized across the wire, from 156 to 545 nm (ω/ωp
   = 1.4 to 0.4).
 inputs: Drude sodium as printed (ωp = 8.65e15 s⁻¹, γ = 0.01 ωp), as an uploaded table.
-agreement: >-
-  Resonance at ωp/√2 and peak log₁₀ C_e = 0.65, as in Fig. 1; the paper's solid curve adds a hydrodynamic correction the calculator
-  does not model.
+note: >-
+  The local resonance at ωp/√2, and the peak log₁₀ C_e = {a = 1 nm: log10 of the local peak} against Fig. 1's {a = 1
+  nm: log10 of the local peak|paper}; the paper's solid curve adds a hydrodynamic correction the calculator does not
+  model.
 perturb: >-
   Put the wire in a medium of ε = 2 (n = 1.414): the resonance moves to ωp/√3, as in the paper's Fig. 4.
 script: crosscheck/classics/ruppin_2001.py

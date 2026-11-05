@@ -10,7 +10,7 @@ calculator's extinction efficiency.  Local resonance at ωp/√(1 + ε_m) (print
 """
 
 import numpy as np
-from _common import drude_nk, nk_rows, peak, report, save_csv
+from _common import curve, drude_nk, figure, mark, nk_rows, panel, peak, report, save_csv
 
 import pystratify as ps
 
@@ -36,4 +36,15 @@ ok = report("ruppin_2001", [
     ("a = 2 nm, ε_m = 2: local resonance (ω/ωp)", 0.5774, x4, 0.004, "ωp/√3, p. 208"),
     ("a = 1 nm: log10 C_e at 1.4 ωp", -3.35, np.log10(fig1[-1]), 0.25, "Fig. 1 dashed, read"),
 ])
+# The card's figure: the local extinction of both wires on a log axis, as the calculator draws it.
+figure("ruppin_2001", "Sodium nanowires, E across the wire (Drude, γ = 0.01 ωp)", [
+    panel("qext", "Extinction (Figs. 1 and 4, dashed)", x, "ω / ωp", "Q_ext",
+          [curve("fig1", "Q_ext, a = 1 nm, ε_m = 1 (Fig. 1)", fig1, quantity="q_ext_m", group="fig1"),
+           curve("fig4", "Q_ext, a = 2 nm, ε_m = 2 (Fig. 4)", fig4, quantity="q_ext_m", group="fig4")],
+          [mark("a = 1 nm, ε_m = 1: local resonance (ω/ωp)", series="fig1", label="ωp/√2"),
+           mark("a = 1 nm: log10 of the local peak", series="fig1", at=x1, log10=True),
+           mark("a = 2 nm, ε_m = 2: local resonance (ω/ωp)", series="fig4", label="ωp/√3"),
+           mark("a = 1 nm: log10 C_e at 1.4 ωp", series="fig1", at=1.4, log10=True)], log=True)],
+    note="C_e, the extinction width over the diameter, is the calculator's Q_ext. The paper's solid curves add the "
+         "hydrodynamic (nonlocal) response, which the calculator does not model.")
 print("PASS" if ok else "CHECK")

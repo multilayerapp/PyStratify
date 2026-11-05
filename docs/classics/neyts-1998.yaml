@@ -12,8 +12,10 @@ shows: >-
 inputs: >-
   ZnS n = 2.3, Al n = 1 + 6i, air (printed); the optimum thickness n·d/λ = 0.73. Al is a 200 nm opaque layer, since the calculator's
   outer media must be lossless.
-agreement: >-
-  Useful emission 0.376 and total rate 0.825 with the dipole at the air side, against the printed 0.38 and 0.817.
+note: >-
+  Useful emission {maximum E_appl (dipole at the air side)} and total rate {F at that point} with the dipole at the
+  air side, against the printed {maximum E_appl (dipole at the air side)|paper} and {F at that point|paper}. Without a
+  tolerance: the next thickness maximum, and the rate near the mirror, which Fig. 9 shows large.
 perturb: Change the ZnS thickness by a quarter wave (65 nm) and watch the outcoupled fraction collapse.
 script: crosscheck/classics/neyts_1998.py
 results: crosscheck/classics/results/neyts_1998.json

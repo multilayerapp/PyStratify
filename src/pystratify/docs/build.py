@@ -14,8 +14,13 @@ import numpy as np
 SCHEMA = 1
 GEOMETRIES = ("films", "cylinders", "spheres")
 LEARN_GEOMETRIES = GEOMETRIES + ("common",)
-CLASSIC_FIELDS = ("id", "kind", "position", "geometry", "title", "cite", "doi", "figure", "shows", "inputs", "agreement",
+CLASSIC_FIELDS = ("id", "kind", "position", "geometry", "title", "cite", "doi", "figure", "shows", "inputs",
                   "perturb", "script", "results", "calculator")
+# A classic's reproduction figure (R-CLASSICS-CONTENT, Ilia 2026-11-05): its script writes the computed curves beside its
+# checks, the build copies them to docs/classics/figures/<id>.json. At most this many numbers per classic (x and every y
+# of every panel), about 100 kB of JSON inline on its Learn page: decimate the script's grid to plotting resolution.
+FIGURE_BUDGET = 12_000
+FIGURE_FOLDER = "classics/figures"
 LEARN_FIELDS = ("id", "title", "geometry", "description", "summary", "references")
 # Search engines show about 160 characters of a description; the index cards show it whole.
 DESCRIPTION_LIMIT = 160
@@ -713,6 +718,162 @@ def _run_classics(root, scripts):
                        stdout=subprocess.DEVNULL)
 
 
+SUPERSCRIPT = str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹")
+
+
+def _digits(value):
+    """The significant digits of a number as the paper prints it: 466 -> 3, 0.38 -> 2, 1.0 -> 2, 0.0 -> 1."""
+    mantissa = repr(float(value) if isinstance(value, float) else value).lower().split("e")[0]
+    return max(1, len(mantissa.lstrip("-").replace(".", "").lstrip("0")))
+
+
+def shown(value, digits=None):
+    """A number as a classic's card prints it: as written when `digits` is None (a paper value, a tolerance), else to
+    that many significant digits; a minus sign, and a power of ten outside 1e-3 to 1e5."""
+    value = float(value) if digits is not None or isinstance(value, float) else value
+    if value == 0:
+        return "0"
+    if abs(value) < 1e-3 or abs(value) >= 1e5:
+        mantissa, exponent = f"{value:.{max(0, (digits or _digits(value)) - 1)}e}".split("e")
+        mantissa = mantissa.rstrip("0").rstrip(".") if "." in mantissa else mantissa
+        text = ("" if mantissa in ("1", "-1") else mantissa + "×") + "10" + str(int(exponent)).translate(SUPERSCRIPT)
+        text = ("-" + text if mantissa == "-1" else text)
+    else:
+        text = f"{value:.{digits}g}" if digits is not None else repr(value)
+    return text.replace("-", "−")
+
+
+def computed_shown(check):
+    """A check's computed value: one significant digit more than its paper value, at least three, at most six."""
+    return shown(check["computed"], min(6, max(3, _digits(check["paper"]) + 1)))
+
+
+def agreement(checks):
+    """The agreement sentence of a classic, generated from its checks (R-CLASSICS-CONTENT, Ilia 2026-11-05): how many
+    agree within their tolerances, every one that does not, and how many are shown without a tolerance. Its numbers
+    cannot drift from the checks; the record's `note` frames it in prose, its numbers placeholders (`expand_note`)."""
+    graded = [c for c in checks if c["tolerance"] is not None]
+    passed = [c for c in graded if c["pass"]]
+    failed = [c for c in graded if c["pass"] is False]
+    free = len(checks) - len(graded)
+    within = " with a tolerance agree within it" if free else " agree within their tolerances"
+    if not graded:
+        sentence = "No check carries a tolerance"
+    elif not failed:
+        sentence = (("The one check with a tolerance agrees within it" if free else "The one check agrees within its tolerance")
+                    if len(graded) == 1 else f"All {len(graded)} checks{within}")
+    else:
+        sentence = (f"{len(passed)} of {len(graded)} checks{within}; "
+                    + "; ".join(f"“{c['check']}” does not: {computed_shown(c)} against {shown(c['paper'])} ± "
+                                f"{shown(c['tolerance'])}" for c in failed))
+    if free:
+        sentence += f"; {free} more {'is' if free == 1 else 'are'} shown without one"
+    return sentence + "."
+
+
+# A placeholder in a classic's note: {<check>} is its computed value as the card prints it, {<check>|paper} the
+# paper's value, {<check>|tolerance} its tolerance -- the check named exactly as its script names it.
+PLACEHOLDER = re.compile(r"\{([^{}|]+)(?:\|(paper|computed|tolerance))?\}")
+
+
+def expand_note(text, checks, where):
+    """A classic's note with every placeholder filled from its checks; prose in the note carries no number of its own
+    that a check holds, so the card's numbers all come from the checks."""
+    def fill(match):
+        name, field = " ".join(match.group(1).split()), match.group(2) or "computed"
+        found = [c for c in checks if c["check"] == name]
+        if len(found) != 1:
+            raise ContentError(f"{where}: the note names {name!r}, which is not exactly one of the checks")
+        return computed_shown(found[0]) if field == "computed" else shown(found[0][field])
+
+    out = PLACEHOLDER.sub(fill, " ".join(str(text or "").split()))
+    if "{" in out or "}" in out:
+        raise ContentError(f"{where}: an unmatched brace in the note")
+    return out
+
+
+def _number(value, where):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ContentError(f"{where}: {value!r} is not a finite number")
+    return value
+
+
+def resolve_figure(figure, checks, where):
+    """A classic's reproduction figure, checked against its checks: every panel's curves on its x grid, and every mark
+    placed at its check's paper value -- a point (`at`: x), a level over a range (`at`: [lo, hi]) or, with no `at`,
+    a vertical rule at that value (a peak's or a crossing's position); `log10` when the check is the base-10 log of
+    the plotted quantity. The mark's coordinates are recomputed from the check on every build, so a figure cannot show
+    a paper value its checks do not hold."""
+    by_name = {}
+    for c in checks:
+        by_name.setdefault(c["check"], []).append(c)
+    panels = figure.get("panels")
+    if not isinstance(panels, list) or not panels:
+        raise ContentError(f"{where}: a reproduction figure needs panels")
+    out, ids, numbers = [], set(), 0
+    for p in panels:
+        here = f"{where}: panel {p.get('id')!r}"
+        _require(p, ("id", "title", "x_label", "y_label", "x", "series"), here)
+        if p["id"] in ids:
+            raise ContentError(f"{here}: duplicate panel id")
+        ids.add(p["id"])
+        x = [_number(v, here) for v in p["x"]]
+        steps = np.diff(x)
+        if len(x) < 2 or not (np.all(steps > 0) or np.all(steps < 0)):
+            raise ContentError(f"{here}: x must run monotonically over at least two points")
+        lo, hi = min(x), max(x)
+        keys = [s["key"] for s in p["series"]]
+        if not keys or len(set(keys)) != len(keys):
+            raise ContentError(f"{here}: series keys must be present and distinct")
+        for s in p["series"]:
+            _require(s, ("key", "label", "y"), f"{here}, series {s.get('key')!r}")
+            if len(s["y"]) != len(x) or any(v is not None and _number(v, here) is None for v in s["y"]):
+                raise ContentError(f"{here}, series {s['key']!r}: y must hold one number (or null) per x")
+        numbers += len(x) * (1 + len(keys))
+        marks = []
+        for m in p.get("marks", []):
+            found = by_name.get(m.get("check"), [])
+            if len(found) != 1:
+                raise ContentError(f"{here}: a mark names {m.get('check')!r}, which is not exactly one of the checks")
+            check = found[0]
+            if m.get("series") is not None and m["series"] not in keys:
+                raise ContentError(f"{here}: a mark of {check['check']!r} names no series of the panel ({m['series']!r})")
+            value = _number(check["paper"], f"{here}, mark {check['check']!r}")
+            value = 10 ** value if m.get("log10") else value
+            at = m.get("at")
+            mark = {k: m[k] for k in ("check", "series", "label", "at", "log10") if m.get(k) is not None}
+            if at is None:
+                mark.update(kind="rule", x=value)
+                xs = [value]
+            elif isinstance(at, list) and len(at) == 2:
+                mark.update(kind="level", x=_number(at[0], here), x2=_number(at[1], here), y=value)
+                xs = at
+            else:
+                mark.update(kind="point", x=_number(at, here), y=value)
+                xs = [at]
+            if any(not (lo - 1e-9 * (hi - lo) <= v <= hi + 1e-9 * (hi - lo)) for v in xs):
+                raise ContentError(f"{here}: the mark of {check['check']!r} lies outside x = {lo:g}..{hi:g}")
+            if p.get("log") and mark.get("y", 1) <= 0:
+                raise ContentError(f"{here}: the mark of {check['check']!r} is not positive on a log axis")
+            mark["pass"] = check["pass"]
+            marks.append(mark)
+        out.append({"id": p["id"], "title": p["title"], "x_label": p["x_label"], "y_label": p["y_label"],
+                    "log": bool(p.get("log", False)), "x": x,
+                    "series": [{k: s[k] for k in ("key", "label", "quantity", "dash", "y") if k in s} for s in p["series"]],
+                    "marks": marks})
+    if numbers > FIGURE_BUDGET:
+        raise ContentError(f"{where}: {numbers} numbers, at most {FIGURE_BUDGET}: decimate the curves to plotting resolution")
+    default = figure.get("default", 0)
+    if not isinstance(default, int) or not 0 <= default < len(out):
+        raise ContentError(f"{where}: `default` must index a panel")
+    return {"title": figure.get("title", ""), "note": figure.get("note", ""), "script": figure.get("script", ""),
+            "default": default, "panels": out}
+
+
+def figure_text(figure):
+    return json.dumps(figure, ensure_ascii=False, separators=(",", ":")) + "\n"
+
+
 def load_classics(root, materials, run_classics=False, previous=None):
     paths = sorted((root / "docs" / "classics").glob("*.yaml"))
     records = [(p, load_yaml(p)) for p in paths]
@@ -724,6 +885,9 @@ def load_classics(root, materials, run_classics=False, previous=None):
         _require(record, CLASSIC_FIELDS, where)
         if record["id"] != path.stem or record["geometry"] not in GEOMETRIES:
             raise ContentError(f"{where}: the id must be the file name and the geometry one of {GEOMETRIES}")
+        if "agreement" in record:
+            raise ContentError(f"{where}: the agreement sentence is generated from the checks (R-CLASSICS-CONTENT); "
+                               "write any framing prose, without the checks' numbers, as `note`")
         if not (root / record["script"]).exists():
             raise ContentError(f"{where}: no script {record['script']}")
         results = root / record["results"]
@@ -733,7 +897,24 @@ def load_classics(root, materials, run_classics=False, previous=None):
             checks = previous[record["id"]]["checks"]
         else:
             raise ContentError(f"{where}: no {record['results']}; run the script, or build with --run-classics")
-        record = dict(record, calculator=resolve_calculator(record["calculator"], materials, where), checks=checks)
+        # Each check as the card prints it, so the table, the sentence and the note show one number one way.
+        checks = [dict({k: v for k, v in c.items() if k != "display"},
+                       display={"paper": shown(c["paper"]), "computed": computed_shown(c),
+                                "tolerance": None if c["tolerance"] is None else shown(c["tolerance"])}) for c in checks]
+        # The reproduction figure: the script's dataset beside its checks (results/<paper>.figure.json, git-ignored),
+        # else -- a fresh clone -- the tracked copy the last build wrote; either way checked against the checks.
+        written = results.with_name(results.stem + ".figure.json")
+        tracked = root / "docs" / FIGURE_FOLDER / f"{record['id']}.json"
+        source = written if written.exists() else tracked
+        if not source.exists():
+            raise ContentError(f"{where}: no {written.relative_to(root)}; run the script, or build with --run-classics")
+        figure = dict(resolve_figure(json.loads(source.read_text()), checks, str(source.relative_to(root))), id=record["id"])
+        text = figure_text(figure)
+        reproduction = {"file": f"{FIGURE_FOLDER}/{record['id']}.json", "sha256": __import__("hashlib").sha256(text.encode()).hexdigest(),
+                        "panels": [p["title"] for p in figure["panels"]], "default": figure["default"]}
+        record = dict(record, calculator=resolve_calculator(record["calculator"], materials, where), checks=checks,
+                      agreement=agreement(checks), note=expand_note(record.get("note"), checks, where),
+                      reproduction=reproduction, _figure=text)
         out.append(record)
     out.sort(key=lambda r: r["position"])
     if [r["position"] for r in out] != list(range(1, len(out) + 1)):
@@ -779,13 +960,19 @@ def build_manifest(root, run_classics=False, previous=None):
             if classic_id not in {c["id"] for c in classics}:
                 raise ContentError(f"learn section {section['id']}: no classic {classic_id!r} in docs/classics/")
     verification, benchmarks = load_verification(root, examples)
+    figures = {c["reproduction"]["file"]: c.pop("_figure") for c in classics}
     return {"schema": SCHEMA, "generator": f"pystratify {__version__}", "records": learn + classics + benchmarks,
-            "examples": examples, "verification": verification, "_sweeps": sweeps}
+            "examples": examples, "verification": verification, "_sweeps": sweeps, "_figures": figures}
 
 
 def sweep_files(manifest):
     """{docs-relative path: JSON text} of the sweeps a build computed (written beside the manifest)."""
     return {manifest["examples"][i]["sweep"]["file"]: text for i, text in manifest.get("_sweeps", {}).items()}
+
+
+def figure_files(manifest):
+    """{docs-relative path: JSON text} of the classics' reproduction figures (docs/classics/figures/<id>.json)."""
+    return dict(manifest.get("_figures", {}))
 
 
 def load_verification(root, examples):
@@ -832,30 +1019,40 @@ def dumps(manifest):
     return json.dumps({k: v for k, v in manifest.items() if not k.startswith("_")}, indent=1, ensure_ascii=False) + "\n"
 
 
+def _generated(manifest):
+    """{folder: {file name: text}} of everything a build writes beside the manifest: the sweeps and the figures."""
+    out = {"sweeps": {Path(name).name: text + "\n" for name, text in sweep_files(manifest).items()},
+           FIGURE_FOLDER: {}}
+    for name, text in figure_files(manifest).items():
+        out[str(Path(name).parent)][Path(name).name] = text
+    return out
+
+
 def write_manifest(manifest, path):
-    """docs/manifest.json and, beside it, docs/sweeps/<id>.json for every precomputed sweep (stale files removed)."""
+    """docs/manifest.json and, beside it, docs/sweeps/<id>.json for every precomputed sweep and
+    docs/classics/figures/<id>.json for every classic's reproduction figure (stale files removed)."""
     path = Path(path)
     path.write_text(dumps(manifest))
-    folder = path.parent / "sweeps"
-    folder.mkdir(exist_ok=True)
-    wanted = {Path(name).name: text for name, text in sweep_files(manifest).items()}
-    for stale in folder.glob("*.json"):
-        if stale.name not in wanted:
-            stale.unlink()
-    for name, text in wanted.items():
-        (folder / name).write_text(text + "\n")
+    for folder, wanted in _generated(manifest).items():
+        folder = path.parent / folder
+        folder.mkdir(parents=True, exist_ok=True)
+        for stale in folder.glob("*.json"):
+            if stale.name not in wanted:
+                stale.unlink()
+        for name, text in wanted.items():
+            (folder / name).write_text(text)
 
 
 def stale(manifest, path):
-    """What `write_manifest` would change: the manifest and sweep files whose content differs (for --check)."""
+    """What `write_manifest` would change: the manifest, sweep and figure files whose content differs (for --check)."""
     path = Path(path)
     out = []
     if (path.read_text() if path.exists() else "") != dumps(manifest):
         out.append(str(path))
-    folder = path.parent / "sweeps"
-    wanted = {Path(name).name: text + "\n" for name, text in sweep_files(manifest).items()}
-    for name, text in wanted.items():
-        if not (folder / name).exists() or (folder / name).read_text() != text:
-            out.append(str(folder / name))
-    out += [str(f) for f in (folder.glob("*.json") if folder.exists() else []) if f.name not in wanted]
+    for folder, wanted in _generated(manifest).items():
+        folder = path.parent / folder
+        for name, text in wanted.items():
+            if not (folder / name).exists() or (folder / name).read_text() != text:
+                out.append(str(folder / name))
+        out += [str(f) for f in (folder.glob("*.json") if folder.exists() else []) if f.name not in wanted]
     return out

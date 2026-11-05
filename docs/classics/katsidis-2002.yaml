@@ -12,9 +12,12 @@ shows: >-
 inputs: >-
   SiC from the paper's oscillator (ε∞ 6.7, Δε 3.3, ω_TO 796.5 cm⁻¹, γ 20 cm⁻¹) as an uploaded table; Si n = 3.42, 300 µm,
   incoherent.
-agreement: >-
-  Fringe band 0.34–0.46 (incoherent wafer) and 0.09–0.30 (semi-infinite) against Fig. 2's ~0.33–0.50 and ~0.07–0.30; identical
-  in the reststrahlen band.
+note: >-
+  Fringe band {finite wafer: R minimum, 2000-6000 cm-1}–{finite wafer: R maximum, 2000-6000 cm-1} (incoherent wafer)
+  and {semi-infinite: R minimum, 2000-6000 cm-1}–{semi-infinite: R maximum, 2000-6000 cm-1} (semi-infinite) against
+  Fig. 2's ~{finite wafer: R minimum, 2000-6000 cm-1|paper}–{finite wafer: R maximum, 2000-6000 cm-1|paper} and
+  ~{semi-infinite: R minimum, 2000-6000 cm-1|paper}–{semi-infinite: R maximum, 2000-6000 cm-1|paper}; identical in the
+  reststrahlen band.
 perturb: >-
   Make the wafer the substrate instead of an incoherent layer: the whole level drops except between 790 and 870 cm⁻¹.
 script: crosscheck/classics/katsidis_2002.py

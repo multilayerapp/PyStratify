@@ -2,7 +2,9 @@
 
 Each script in this folder recomputes the headline figure of one classic paper with the
 inputs the multilayer.app calculator receives from the paper's share link, and writes a
-CSV, a PNG and the checks against numbers printed in (or read off) the paper.
+CSV, a PNG, the checks against numbers printed in (or read off) the paper (`report`), and
+the reproduction figure its Learn card draws (`figure`): the computed curves at plotting
+resolution, with the paper's values marked where its checks put them.
 
 Optical constants come from the refractiveindex.info database at the commit the
 calculator pins (`multilayer/backend/app.py`, `RI_DATABASE_SHA`), copied into `data/`
@@ -81,6 +83,11 @@ def nk_rows(wavelength_um, nk):
     return [[round(float(w), 6), round(float(v.real), 6), round(float(v.imag), 6)] for w, v in zip(wavelength_um, nk)]
 
 
+def png(name):
+    """results/<name>.png (built from RESULTS, not from __file__, which may sit under any folder name)."""
+    return RESULTS / f"{name}.png"
+
+
 def save_csv(name, header, columns):
     np.savetxt(RESULTS / f"{name}.csv", np.column_stack(columns), delimiter=",", header=header, comments="")
 
@@ -96,6 +103,7 @@ def report(name, checks):
         flag = "  " if passed is None else ("ok" if passed else "!!")
         print(f"{flag} {what}: paper {paper}, computed {float(ours):.4g}" + ("" if tol is None else f" (±{tol})") + f"  [{source}]")
     (RESULTS / f"{name}.json").write_text(json.dumps(out, indent=1, ensure_ascii=False))
+    REPORTED[name] = [c["check"] for c in out]
     return ok
 
 
@@ -109,3 +117,85 @@ def peak(x, y, lo=None, hi=None):
         m &= x <= hi
     i = np.flatnonzero(m)[np.argmax(y[m])]
     return x[i], y[i]
+
+
+# --- the reproduction figure (R-CLASSICS-CONTENT, Ilia 2026-11-05) ---------------------------------------------------
+# What a classic's card on multilayer.app draws: PyStratify's curves at plotting resolution and, as marks, the values
+# the paper prints or plots, each mark naming the check that compares it. `python -m pystratify.docs build` copies
+# results/<name>.figure.json to docs/classics/figures/<id>.json and places every mark at its check's paper value.
+
+REPORTED = {}  # name -> the check names report() wrote, so a mark can only name a check that exists
+FIGURE_POINTS = 240  # a panel keeps about this many points of its grid, plus every curve's extremes between them
+
+
+def _rounded(values, digits):
+    return [float(f"{v:.{digits}g}") if np.isfinite(v) else None for v in np.asarray(values, dtype=float)]
+
+
+def _plotting_indices(n, curves, target):
+    """Indices of an even subset of the grid, about `target` points, plus each curve's maximum and minimum between
+    two kept points: a decimated curve keeps every peak and dip (a needle resonance included) at its true height."""
+    if n <= 1.25 * target:
+        return np.arange(n)
+    step = int(np.ceil((n - 1) / target))
+    edges = list(range(0, n - 1, step)) + [n - 1]
+    keep = set(edges)
+    for y in curves:
+        y = np.asarray(y, dtype=float)
+        for a, b in zip(edges[:-1], edges[1:]):
+            seg = y[a:b + 1]
+            if np.isfinite(seg).any():
+                keep.update((a + int(np.nanargmax(seg)), a + int(np.nanargmin(seg))))
+    return np.array(sorted(keep))
+
+
+def curve(key, label, y, quantity=None, group=None, dash=False, guide=False):
+    """One plotted curve. `quantity` names the calculator quantity it is (q_ext, md_sca, R, gamma_tot, ...), so the
+    card draws it in the calculator's colour and stroke; curves of one `group` share a colour; `dash` dashes it;
+    `guide` draws a reference line (an asymptote, a level) in the neutral colour, dotted."""
+    out = {"key": key, "label": label, "y": y}
+    out.update({k: v for k, v in (("quantity", quantity), ("group", group)) if v})
+    out.update({k: True for k, v in (("dash", dash), ("guide", guide)) if v})
+    return out
+
+
+def mark(check, series=None, at=None, label=None, log10=False):
+    """Where the card draws the paper's value of a check (named as report() names it). Without `at`, a vertical rule
+    at that value (the position of a peak, a dip or a crossing); `at=x`, a point at (x, paper value); `at=(lo, hi)`,
+    the paper's value as a level across that range (a band's maximum or minimum). `series` ties it to a curve (its
+    colour); `label` is a short name drawn beside a rule; `log10` when the check is the log of the plotted quantity."""
+    out = {"check": check}
+    if series:
+        out["series"] = series
+    if at is not None:
+        out["at"] = [float(at[0]), float(at[1])] if isinstance(at, (tuple, list)) else float(at)
+    if label:
+        out["label"] = label
+    if log10:
+        out["log10"] = True
+    return out
+
+
+def panel(id, title, x, x_label, y_label, curves, marks=(), log=False, points=FIGURE_POINTS):
+    """One panel of a reproduction figure: curves on a common x grid, decimated to plotting resolution (x to seven
+    significant digits, y to five). Axis labels follow the calculator's: a symbol, then the unit in brackets."""
+    x = np.asarray(x, dtype=float)
+    for c in curves:
+        if np.shape(c["y"]) != x.shape:
+            raise ValueError(f"panel {id}: curve {c['key']} has {np.shape(c['y'])} values for {x.size} x")
+    keep = _plotting_indices(x.size, [c["y"] for c in curves], points)
+    return {"id": id, "title": title, "x_label": x_label, "y_label": y_label, "log": bool(log), "x": _rounded(x[keep], 7),
+            "series": [dict(c, y=_rounded(np.asarray(c["y"], dtype=float)[keep], 5)) for c in curves], "marks": list(marks)}
+
+
+def figure(name, title, panels, note="", default=0):
+    """results/<name>.figure.json, written after report(name, ...): every mark must name one of its checks."""
+    names = REPORTED.get(name)
+    if names is None:
+        raise ValueError(f"{name}: call report() before figure()")
+    for p in panels:
+        for m in p["marks"]:
+            if names.count(m["check"]) != 1:
+                raise ValueError(f"{name}: a mark names {m['check']!r}, which is not exactly one reported check")
+    out = {"script": f"{name}.py", "title": title, "note": note, "default": default, "panels": panels}
+    (RESULTS / f"{name}.figure.json").write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")))

@@ -11,9 +11,12 @@ shows: >-
   at contact, radiation enhanced beyond.
 inputs: >-
   Gold ε = −12.99 + 1.09i at 650 nm (printed), i.e. n + ik = 0.1511 + 3.6073i; free space; intrinsic quantum yield 1.
-agreement: >-
-  Times the plane-wave intensity at the molecule (a second run, the near field along the polarization), the fluorescence peaks
-  at 3.5 near z = 12 nm, as in Fig. 1b; 5.3, 2.2 and 1.04 for 100, 60 and 20 nm spheres.
+note: >-
+  Times the plane-wave intensity at the molecule (a second run, the near field along the polarization), the
+  fluorescence of the 80 nm sphere peaks at {80 nm: fluorescence maximum} near z = {80 nm: z of the maximum (nm)} nm,
+  against Fig. 1b's {80 nm: fluorescence maximum|paper} near {80 nm: z of the maximum (nm)|paper} nm; {100 nm:
+  fluorescence maximum}, {60 nm: fluorescence maximum} and {20 nm: fluorescence maximum} for 100, 60 and 20 nm
+  spheres.
 perturb: >-
   Shrink the sphere to 20 nm: the quantum yield collapses over a much longer range, and Fig. 1b's enhancement disappears.
 script: crosscheck/classics/anger_2006.py

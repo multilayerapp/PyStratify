@@ -11,9 +11,10 @@ shows: >-
 inputs: >-
   Radius 10 nm, host ε = 2.25, λ = 612 nm (printed); Johnson & Christy silver (the paper prints none), which puts the dipole
   plasmon at the paper's 3.05 eV.
-agreement: >-
-  Lifetime (the inverse of the total rate) 0.98 at kd = 1 and no oscillation beyond; tangential maximum 1.16 at kd = 0.19
-  (paper ~1.12 at ~0.2).
+note: >-
+  Lifetime (the inverse of the total rate) {radial: lifetime at d^ = 1} at kd = 1 and no oscillation beyond;
+  tangential maximum {tangential: maximum lifetime} at kd = {tangential: d^ of the maximum} (paper ~{tangential:
+  maximum lifetime|paper} at ~{tangential: d^ of the maximum|paper}).
 perturb: 'Switch the axis to wavelength at a fixed 10 nm gap: the l = 1 plasmon appears at ~407 nm (3.05 eV).'
 script: crosscheck/classics/ruppin_1982.py
 results: crosscheck/classics/results/ruppin_1982.json

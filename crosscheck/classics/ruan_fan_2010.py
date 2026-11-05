@@ -11,7 +11,7 @@ only relabels the axis: ω/ωp = 0.25-0.259 is λ = 531-550 nm.  Widths are show
 """
 
 import numpy as np
-from _common import drude_nk, nk_rows, peak, report, save_csv
+from _common import curve, drude_nk, figure, mark, nk_rows, panel, peak, png, report, save_csv
 
 import pystratify as ps
 
@@ -57,6 +57,27 @@ ok = report("ruan_fan_2010", [
     ("lossy: total scattering peak (2λ/π)", 1.92, peak(x, lossy[:, 0])[1], 0.1, "p. 3, printed"),
     ("lossy: absorption peak (2λ/π)", 0.73, peak(x, lossy[:, 1])[1], 0.05, "p. 4, printed"),
 ])
+# The card's figure: Fig. 1 on the coarse grid joined with the fine one, so the needle resonances keep their height,
+# and Fig. 4a (the calculator setup: silver-like loss). Widths in units of the single-channel limit 2λ/π.
+xs = np.concatenate([x, fine])
+order = np.argsort(xs, kind="stable")
+xs, first = np.unique(xs[order], return_index=True)
+total_all = np.concatenate([lossless[:, 0], fine_total[:, 0]])[order][first]
+orders_all = np.concatenate([orders, fine_orders])[order][first]
+figure("ruan_fan_2010", "A three-layer nanorod, H along the axis (λp = 137.6 nm)", [
+    panel("lossless", "Lossless (Fig. 1)", xs, "ω / ωp", "C_sca / (2λ/π)",
+          [curve("total", "C_sca, all channels", total_all, quantity="q_sca_m")]
+          + [curve(f"m{m}", f"channel m = ±{m}", orders_all[:, m]) for m in range(1, 5)],
+          [mark("lossless: total scattering peak (2λ/π)", series="total", at=xp),
+           mark("lossless: frequency of the peak (ω/ωp)", series="total", label="peak"),
+           mark("lossless: each channel m = 1..4 peaks at the single-channel limit (min of the four maxima)", at=(0.25, 0.259))],
+          points=160),
+    panel("lossy", "Silver-like loss (Fig. 4a)", x, "ω / ωp", "C / (2λ/π)",
+          [curve("sca", "C_sca", lossy[:, 0], quantity="q_sca_m"), curve("abs", "C_abs", lossy[:, 1], quantity="q_abs_m")],
+          [mark("lossy: total scattering peak (2λ/π)", series="sca", at=peak(x, lossy[:, 0])[0]),
+           mark("lossy: absorption peak (2λ/π)", series="abs", at=peak(x, lossy[:, 1])[0])])],
+    note="ω/ωp = 0.25–0.259 is λ = 531–550 nm with silver's plasma wavelength. Without loss the m = 3 and 4 "
+         "resonances are needles about 10⁻⁶ ωp wide, resolved on a fine grid.", default=1)
 try:
     import matplotlib.pyplot as plt
 
@@ -75,7 +96,7 @@ try:
     b.set_title("Fig. 4a: silver-like loss", fontsize=9)
     fig.suptitle("Ruan & Fan 2010, recomputed", fontsize=9)
     fig.tight_layout()
-    fig.savefig(__file__.replace("classics/", "classics/results/").replace(".py", ".png"), dpi=130)
+    fig.savefig(png("ruan_fan_2010"), dpi=130)
 except ImportError:
     pass
 print("PASS" if ok else "CHECK")

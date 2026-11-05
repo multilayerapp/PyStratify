@@ -10,7 +10,7 @@ need Bertie's 1994 toluene optical constants, which the paper only plots.  Value
 """
 
 import numpy as np
-from _common import peak, report, save_csv
+from _common import curve, figure, mark, panel, peak, png, report, save_csv
 
 import pystratify as ps
 
@@ -30,6 +30,19 @@ ok = report("davis_2011", [
     ("R = 5 µm: at 4000 cm-1 (%)", 70, T[5.0][-1], 6, "Fig. 5a, read"),
     ("R = 10 µm: at 800 cm-1 (%)", 42, T[10.0][0], 8, "Fig. 5b, read"),
 ])
+# The card's figure: Fig. 5's two fibers on one axis.
+x_min = peak(WN, -T[5.0], 900, 1400)[0]
+figure("davis_2011", "Non-absorbing fibers under a Cassegrain, NA 0.1–0.4", [
+    panel("t", "Transmission", WN, "1/λ [cm⁻¹]", "T [%]",
+          [curve("r5", "T, R = 5 µm, n₀ = 1.477 (Fig. 5a)", T[5.0]), curve("r10", "T, R = 10 µm, n₀ = 1.478 (Fig. 5b)", T[10.0])],
+          [mark("R = 5 µm: transmission minimum (%)", series="r5", at=x_min),
+           mark("R = 5 µm: wavenumber of the minimum (cm-1)", series="r5", label="min"),
+           mark("R = 5 µm: maximum near the fit range, 1900-2600 cm-1 (%)", series="r5", at=(1900, 2600)),
+           mark("R = 5 µm: dip near 3000 cm-1 (%)", series="r5", at=(2700, 3300)),
+           mark("R = 5 µm: at 4000 cm-1 (%)", series="r5", at=4000),
+           mark("R = 10 µm: at 800 cm-1 (%)", series="r10", at=800)])],
+    note="The paper draws wavenumber falling to the right, as spectrometers do. The focused beam left the calculator "
+         "on 2026-10-17; this figure is PyStratify's.")
 try:
     import matplotlib.pyplot as plt
 
@@ -43,7 +56,7 @@ try:
     axes[1].invert_xaxis()
     fig.suptitle("Davis, Carney & Bhargava 2011, Fig. 5 (constant n0), recomputed: NA 0.1-0.4", fontsize=9)
     fig.tight_layout()
-    fig.savefig(__file__.replace("classics/", "classics/results/").replace(".py", ".png"), dpi=130)
+    fig.savefig(png("davis_2011"), dpi=130)
 except ImportError:
     pass
 print("PASS" if ok else "CHECK")

@@ -12,7 +12,7 @@ Curve values are read off Figs. 1-3 (±0.05).
 """
 
 import numpy as np
-from _common import material, peak, report, save_csv
+from _common import curve, figure, mark, material, panel, peak, png, report, save_csv
 
 import pystratify as ps
 
@@ -47,6 +47,22 @@ ok = report("ruppin_1982", [
     ("Fig. 3: l = 1 plasmon, 10 nm (eV)", 3.05, e_peak, 0.08, "p. 1684: 'at about 3.05 eV'"),
     ("Fig. 3: total rate at the plasmon, 10 nm (order of magnitude, log10)", 2.0, np.log10(fig3[10].max()), 0.5, "Fig. 3, read ~1e2"),
 ])
+# The card's figure: the lifetime against distance (the calculator's sweep at 612 nm, as a rate) and the radial
+# dipole's total rate against photon energy.
+figure("ruppin_1982", "A molecule beside a silver sphere of radius 10 nm, in n = 1.5", [
+    panel("lifetime", "Lifetime against distance (Figs. 1–2)", dhat, "d̂ = k d", "τ / τ₀",
+          [curve("radial", "radial dipole", lifetime[:, 0]), curve("tangential", "tangential dipole", lifetime[:, 1])],
+          [mark("radial: lifetime at d^ = 0.5", series="radial", at=0.5), mark("radial: lifetime at d^ = 1", series="radial", at=1.0),
+           mark("radial: lifetime at d^ = 3 (no oscillation)", series="radial", at=3.0),
+           mark("tangential: maximum lifetime", series="tangential", at=tan_max_x),
+           mark("tangential: d^ of the maximum", series="tangential", label="max")]),
+    panel("energy", "Total rate against photon energy (Fig. 3)", energy, "E [eV]", "Γ / Γ₀",
+          [curve(f"d{d}", f"radial, {d} nm from the surface", y) for d, y in fig3.items()],
+          [mark("Fig. 3: l = 1 plasmon, 10 nm (eV)", series="d10", label="l = 1"),
+           mark("Fig. 3: total rate at the plasmon, 10 nm (order of magnitude, log10)", series="d10", at=e_peak, log10=True)],
+          log=True)],
+    note="d̂ = k d, with d the distance from the surface and k = 2πn/λ at λ = 612 nm (Figs. 1–2). Silver from Johnson "
+         "and Christy: the paper does not print its data.")
 try:
     import matplotlib.pyplot as plt
 
@@ -64,7 +80,7 @@ try:
     b.legend(fontsize=8)
     fig.suptitle("Ruppin 1982, Figs. 1-3, recomputed: Ag sphere R = 10 nm in n = 1.5", fontsize=9)
     fig.tight_layout()
-    fig.savefig(__file__.replace("classics/", "classics/results/").replace(".py", ".png"), dpi=130)
+    fig.savefig(png("ruppin_1982"), dpi=130)
 except ImportError:
     pass
 print("PASS" if ok else "CHECK")

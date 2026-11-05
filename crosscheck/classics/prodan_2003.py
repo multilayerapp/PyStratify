@@ -13,7 +13,7 @@ Peak marks read off Fig. 4A (±30 nm); arbitrary units, so only positions are co
 """
 
 import numpy as np
-from _common import material, peak, report, save_csv
+from _common import curve, figure, mark, material, panel, peak, png, report, save_csv
 
 import pystratify as ps
 
@@ -39,6 +39,16 @@ ok = report("prodan_2003", [
     ("hybridization: the bonding peak lies red of the outer shell alone", 1,
      float(peak(nm, full, 1300, 1900)[0] > peak(nm, outer, 1000, 1700)[0]), 0, "hybridization, Fig. 4A"),
 ])
+# The card's figure: the three extinction cross sections, the concentric shell (3) being the calculator setup; the
+# peaks Fig. 4A marks are rules.
+figure("prodan_2003", f"Gold nanoshells and the nanomatryushka, host n = {HOST}", [
+    panel("ext", "Extinction", nm, "λ [nm]", "C_ext [µm²]",
+          [curve("full", "C_ext, (3) concentric shells", full, quantity="q_ext"), curve("outer", "C_ext, (2) outer shell alone", outer),
+           curve("inner", "C_ext, (1) inner shell alone", inner)],
+          [mark("(3) antibonding dipole peak (nm)", series="full", label="(3)"), mark("(3) bonding dipole peak (nm)", series="full", label="(3)"),
+           mark("(2) outer shell alone (nm)", series="outer", label="(2)"), mark("(1) inner shell alone (nm)", series="inner", label="(1)")],
+          points=300)],
+    note="Fig. 4A is in arbitrary units: only the marked peak positions are compared, read to ±30 nm.")
 try:
     import matplotlib.pyplot as plt
 
@@ -52,7 +62,7 @@ try:
     ax.legend(fontsize=8)
     ax.set_title(f"Prodan et al. 2003, Fig. 4A, recomputed (host n = {HOST})", fontsize=9)
     fig.tight_layout()
-    fig.savefig(__file__.replace("classics/", "classics/results/").replace(".py", ".png"), dpi=130)
+    fig.savefig(png("prodan_2003"), dpi=130)
 except ImportError:
     pass
 print("PASS" if ok else "CHECK")

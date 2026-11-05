@@ -12,9 +12,11 @@ shows: >-
 inputs: >-
   Silica core 80 nm, gold 27 nm, silica 28 nm, gold 22 nm (Fig. 4 caption). The paper prints no optical constants or host:
   Johnson & Christy gold, Malitson silica, host n = 1.45 (the best fit to the marked peaks).
-agreement: >-
-  Peaks at 920 and 1465 nm against the marked ~900 and ~1550 nm; the shells alone peak at 913 and 1270 nm (marked ~900 and
-  ~1280).
+note: >-
+  Peaks at {(3) antibonding dipole peak (nm)} and {(3) bonding dipole peak (nm)} nm against the marked ~{(3)
+  antibonding dipole peak (nm)|paper} and ~{(3) bonding dipole peak (nm)|paper} nm; the shells alone peak at {(1)
+  inner shell alone (nm)} and {(2) outer shell alone (nm)} nm (marked ~{(1) inner shell alone (nm)|paper} and ~{(2)
+  outer shell alone (nm)|paper}).
 perturb: >-
   Thicken the silica spacer to 236 nm (Fig. 4C): the shells decouple and the hybridized pair merges back.
 script: crosscheck/classics/prodan_2003.py

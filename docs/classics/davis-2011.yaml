@@ -12,9 +12,12 @@ shows: >-
 inputs: >-
   Fiber n = 1.477 (Fig. 5 caption), radius 5 µm, in air. The paper does not state Fig. 5's aperture; NA 0.4 with a 0.1 obscuration
   (its Fig. 2) reproduces the shape.
-agreement: >-
-  Transmission minimum 9.9% near 1120 cm⁻¹, 77% near 2100 cm⁻¹ and 42% near 3000 cm⁻¹, against ~10%, ~76% and ~42% read off
-  Fig. 5a.
+note: >-
+  Transmission minimum {R = 5 µm: transmission minimum (%)}% near {R = 5 µm: wavenumber of the minimum (cm-1)} cm⁻¹, a
+  maximum of {R = 5 µm: maximum near the fit range, 1900-2600 cm-1 (%)}% between 1900 and 2600 cm⁻¹ and a dip to {R =
+  5 µm: dip near 3000 cm-1 (%)}% near 3000 cm⁻¹, against ~{R = 5 µm: transmission minimum (%)|paper}%, ~{R = 5 µm:
+  maximum near the fit range, 1900-2600 cm-1 (%)|paper}% and ~{R = 5 µm: dip near 3000 cm-1 (%)|paper}% read off Fig.
+  5a.
 perturb: 'Double the radius to 10 µm, as in Fig. 5b: the deep minimum near 1100 cm⁻¹ disappears.'
 script: crosscheck/classics/davis_2011.py
 results: crosscheck/classics/results/davis_2011.json

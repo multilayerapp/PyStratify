@@ -12,8 +12,9 @@ shows: >-
 inputs: >-
   The paper's figures are dimensionless; the indices are the GaAs/AlGaAs pair of its Fig. 12 (3.38, 2.89), quarter-wave layers
   at 1 µm.
-agreement: >-
-  14 zeros between bands, as the paper states for N = 15; TM reflectance vanishes at the Brewster angle.
+note: >-
+  {zeros of R between the first two bands (N - 1)} zeros between the bands, as the paper states for N = 15; TM
+  reflectance vanishes at the Brewster angle.
 perturb: >-
   Switch the view to TE: the gaps stay open at every angle. Then cut the stack to 8 periods and count the zeros again.
 script: crosscheck/classics/yeh_1977.py

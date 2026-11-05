@@ -1287,7 +1287,7 @@
    "figure": "Figs. 7–8: reflectivity of a 15-period stack for TE and TM waves from 0 to 85°",
    "shows": "Reflectance against wavelength and angle for TM light, in GaAs: the stop bands, the 14 zeros between bands, and the TM gap closing at the Brewster angle (40.5° inside GaAs).",
    "inputs": "The paper's figures are dimensionless; the indices are the GaAs/AlGaAs pair of its Fig. 12 (3.38, 2.89), quarter-wave layers at 1 µm.",
-   "agreement": "14 zeros between bands, as the paper states for N = 15; TM reflectance vanishes at the Brewster angle.",
+   "note": "14 zeros between the bands, as the paper states for N = 15; TM reflectance vanishes at the Brewster angle.",
    "perturb": "Switch the view to TE: the gaps stay open at every angle. Then cut the stack to 8 periods and count the zeros again.",
    "script": "crosscheck/classics/yeh_1977.py",
    "results": "crosscheck/classics/results/yeh_1977.json",
@@ -1344,7 +1344,12 @@
      "computed": 14.0,
      "tolerance": 0,
      "pass": true,
-     "source": "p. 426"
+     "source": "p. 426",
+     "display": {
+      "paper": "14",
+      "computed": "14",
+      "tolerance": "0"
+     }
     },
     {
      "check": "first band peak R at 0 deg (Yeh's unprinted pair has more contrast)",
@@ -1352,7 +1357,12 @@
      "computed": 0.9693,
      "tolerance": null,
      "pass": null,
-     "source": "Fig. 7"
+     "source": "Fig. 7",
+     "display": {
+      "paper": "1.0",
+      "computed": "0.969",
+      "tolerance": null
+     }
     },
     {
      "check": "TM at the Brewster angle: largest R anywhere",
@@ -1360,7 +1370,12 @@
      "computed": 0.0,
      "tolerance": 1e-06,
      "pass": true,
-     "source": "Fig. 4 / Fig. 8: gaps close at θ_B"
+     "source": "Fig. 4 / Fig. 8: gaps close at θ_B",
+     "display": {
+      "paper": "0",
+      "computed": "0",
+      "tolerance": "10⁻⁶"
+     }
     },
     {
      "check": "TM at 0 deg: band peak equals TE (the gap exists off θ_B)",
@@ -1368,7 +1383,12 @@
      "computed": 0.9693,
      "tolerance": 1e-09,
      "pass": true,
-     "source": "Fig. 8"
+     "source": "Fig. 8",
+     "display": {
+      "paper": "0.9693283453719409",
+      "computed": "0.9693",
+      "tolerance": "10⁻⁹"
+     }
     },
     {
      "check": "TE at 85 deg: R across the long-wavelength range",
@@ -1376,9 +1396,24 @@
      "computed": 1.0,
      "tolerance": 0.01,
      "pass": true,
-     "source": "Fig. 7, top panel"
+     "source": "Fig. 7, top panel",
+     "display": {
+      "paper": "1.0",
+      "computed": "1",
+      "tolerance": "0.01"
+     }
     }
-   ]
+   ],
+   "agreement": "All 4 checks with a tolerance agree within it; 1 more is shown without one.",
+   "reproduction": {
+    "file": "classics/figures/yeh-1977.json",
+    "sha256": "5a39b19f2ccefb8251ab7084ffc5272fd01f3a1619b0fdfefce7f972a140dddd",
+    "panels": [
+     "TE (Fig. 7)",
+     "TM (Fig. 8)"
+    ],
+    "default": 1
+   }
   },
   {
    "id": "lukosz-kunz-1977",
@@ -1391,7 +1426,7 @@
    "figure": "Fig. 4: total radiated power L/L∞ against distance z0/λ1, relative index n = 1.5",
    "shows": "The decay rate of an electric dipole in air, 3 to 600 nm above glass (n = 1.5) at 600 nm, perpendicular and parallel, relative to the same dipole in air.",
    "inputs": "Medium 1 air, medium 2 n = 1.5 (the paper gives only the ratio); λ = 600 nm, so z0/λ1 = 1 at 600 nm.",
-   "agreement": "2.25 (perpendicular) and 1.36 (parallel) at contact against the paper's ~2.3 and ~1.4; the oscillation about 1 matches Fig. 4.",
+   "note": "2.25 (perpendicular) and 1.36 (parallel) at contact against the paper's ~2.3 and ~1.4; the oscillation about 1 follows Fig. 4.",
    "perturb": "Make the substrate n = 3: the near-contact rise grows and the parallel dipole oscillates more strongly.",
    "script": "crosscheck/classics/lukosz_kunz_1977.py",
    "results": "crosscheck/classics/results/lukosz_kunz_1977.json",
@@ -1436,7 +1471,12 @@
      "computed": 2.2456,
      "tolerance": 0.1,
      "pass": true,
-     "source": "Fig. 4, read"
+     "source": "Fig. 4, read",
+     "display": {
+      "paper": "2.3",
+      "computed": "2.25",
+      "tolerance": "0.1"
+     }
     },
     {
      "check": "e, par, n = 1.5, at contact",
@@ -1444,7 +1484,12 @@
      "computed": 1.356,
      "tolerance": 0.1,
      "pass": true,
-     "source": "Fig. 4, read"
+     "source": "Fig. 4, read",
+     "display": {
+      "paper": "1.4",
+      "computed": "1.36",
+      "tolerance": "0.1"
+     }
     },
     {
      "check": "e, par, n = 3: first minimum",
@@ -1452,7 +1497,12 @@
      "computed": 0.8991,
      "tolerance": 0.05,
      "pass": true,
-     "source": "Fig. 4, read"
+     "source": "Fig. 4, read",
+     "display": {
+      "paper": "0.9",
+      "computed": "0.899",
+      "tolerance": "0.05"
+     }
     },
     {
      "check": "e, par, n = 3: z0/λ1 of the first minimum",
@@ -1460,7 +1510,12 @@
      "computed": 0.135,
      "tolerance": 0.04,
      "pass": true,
-     "source": "Fig. 4, read"
+     "source": "Fig. 4, read",
+     "display": {
+      "paper": "0.13",
+      "computed": "0.135",
+      "tolerance": "0.04"
+     }
     },
     {
      "check": "e, par, n = 3: second minimum near z0/λ1 = 0.6",
@@ -1468,7 +1523,12 @@
      "computed": 0.9046,
      "tolerance": 0.05,
      "pass": true,
-     "source": "Fig. 4, read"
+     "source": "Fig. 4, read",
+     "display": {
+      "paper": "0.92",
+      "computed": "0.905",
+      "tolerance": "0.05"
+     }
     },
     {
      "check": "e, par, n = 3: maximum near z0/λ1 = 0.35",
@@ -1476,7 +1536,12 @@
      "computed": 1.1589,
      "tolerance": 0.06,
      "pass": true,
-     "source": "Fig. 4, read"
+     "source": "Fig. 4, read",
+     "display": {
+      "paper": "1.15",
+      "computed": "1.159",
+      "tolerance": "0.06"
+     }
     },
     {
      "check": "e, perp, n = 1.5, z0/λ1 = 0.4: back to ~1",
@@ -1484,7 +1549,12 @@
      "computed": 0.9767,
      "tolerance": 0.05,
      "pass": true,
-     "source": "Fig. 4, read"
+     "source": "Fig. 4, read",
+     "display": {
+      "paper": "1.0",
+      "computed": "0.977",
+      "tolerance": "0.05"
+     }
     },
     {
      "check": "m, perp, n = 1.5, at contact",
@@ -1492,9 +1562,26 @@
      "computed": 2.0368,
      "tolerance": 0.15,
      "pass": true,
-     "source": "Fig. 6, read"
+     "source": "Fig. 6, read",
+     "display": {
+      "paper": "2.0",
+      "computed": "2.04",
+      "tolerance": "0.15"
+     }
     }
-   ]
+   ],
+   "agreement": "All 8 checks agree within their tolerances.",
+   "reproduction": {
+    "file": "classics/figures/lukosz-kunz-1977.json",
+    "sha256": "7ffa0c3652c76749e8405eff26a6efb6396e5f6a69a5e3e524e7779a00e880d8",
+    "panels": [
+     "Electric, perpendicular",
+     "Electric, parallel",
+     "Magnetic, perpendicular",
+     "Magnetic, parallel"
+    ],
+    "default": 0
+   }
   },
   {
    "id": "neyts-1998",
@@ -1507,7 +1594,7 @@
    "figure": "Figs. 9–10: emission into air (E_appl) and total rate F of a dipole in ZnS on aluminium",
    "shows": "A randomly oriented dipole swept through a 190.4 nm ZnS layer on Al at 600 nm, from the air side (depth 2 nm) to the mirror: how much of its light escapes into air, how much is trapped or absorbed.",
    "inputs": "ZnS n = 2.3, Al n = 1 + 6i, air (printed); the optimum thickness n·d/λ = 0.73. Al is a 200 nm opaque layer, since the calculator's outer media must be lossless.",
-   "agreement": "Useful emission 0.376 and total rate 0.825 with the dipole at the air side, against the printed 0.38 and 0.817.",
+   "note": "Useful emission 0.376 and total rate 0.8253 with the dipole at the air side, against the printed 0.38 and 0.817. Without a tolerance: the next thickness maximum, and the rate near the mirror, which Fig. 9 shows large.",
    "perturb": "Change the ZnS thickness by a quarter wave (65 nm) and watch the outcoupled fraction collapse.",
    "script": "crosscheck/classics/neyts_1998.py",
    "results": "crosscheck/classics/results/neyts_1998.json",
@@ -1566,7 +1653,12 @@
      "computed": 0.3762,
      "tolerance": 0.02,
      "pass": true,
-     "source": "Fig. 11 caption, p. 970"
+     "source": "Fig. 11 caption, p. 970",
+     "display": {
+      "paper": "0.38",
+      "computed": "0.376",
+      "tolerance": "0.02"
+     }
     },
     {
      "check": "F at that point",
@@ -1574,7 +1666,12 @@
      "computed": 0.8253,
      "tolerance": 0.03,
      "pass": true,
-     "source": "text p. 970"
+     "source": "text p. 970",
+     "display": {
+      "paper": "0.817",
+      "computed": "0.8253",
+      "tolerance": "0.03"
+     }
     },
     {
      "check": "optimum thickness n_e d_e / λ (dipole at the air side)",
@@ -1582,7 +1679,12 @@
      "computed": 0.725,
      "tolerance": 0.03,
      "pass": true,
-     "source": "p. 970, Fig. 11 caption"
+     "source": "p. 970, Fig. 11 caption",
+     "display": {
+      "paper": "0.73",
+      "computed": "0.725",
+      "tolerance": "0.03"
+     }
     },
     {
      "check": "next thickness maximum, n_e d_e / λ (half a wave later)",
@@ -1590,7 +1692,12 @@
      "computed": 1.25,
      "tolerance": null,
      "pass": null,
-     "source": "the (0.19 + 0.5 l) rule of p. 969 is for Fig. 7's normal direction"
+     "source": "the (0.19 + 0.5 l) rule of p. 969 is for Fig. 7's normal direction",
+     "display": {
+      "paper": "1.23",
+      "computed": "1.25",
+      "tolerance": null
+     }
     },
     {
      "check": "F near the mirror (z_ = 5 nm) is large",
@@ -1598,9 +1705,24 @@
      "computed": 19.5319,
      "tolerance": null,
      "pass": null,
-     "source": "Fig. 9: contours 2-5 near Al"
+     "source": "Fig. 9: contours 2-5 near Al",
+     "display": {
+      "paper": "5.0",
+      "computed": "19.5",
+      "tolerance": null
+     }
     }
-   ]
+   ],
+   "agreement": "All 3 checks with a tolerance agree within it; 2 more are shown without one.",
+   "reproduction": {
+    "file": "classics/figures/neyts-1998.json",
+    "sha256": "d7f91b2b353b5aeb2c97f67300abea1d60f7cd704950b4ce394bf5722469e383",
+    "panels": [
+     "Across the layer, n_e d_e / λ = 0.73",
+     "Thickness, dipole at the air side"
+    ],
+    "default": 0
+   }
   },
   {
    "id": "katsidis-2002",
@@ -1613,7 +1735,7 @@
    "figure": "Fig. 2: infrared reflectance of 2 µm SiC on a 300 µm Si wafer, finite incoherent or semi-infinite",
    "shows": "Reflectance from 1.43 to 14.3 µm (7000 to 700 cm⁻¹): film fringes riding on the wafer's back-face reflection, and the SiC reststrahlen band.",
    "inputs": "SiC from the paper's oscillator (ε∞ 6.7, Δε 3.3, ω_TO 796.5 cm⁻¹, γ 20 cm⁻¹) as an uploaded table; Si n = 3.42, 300 µm, incoherent.",
-   "agreement": "Fringe band 0.34–0.46 (incoherent wafer) and 0.09–0.30 (semi-infinite) against Fig. 2's ~0.33–0.50 and ~0.07–0.30; identical in the reststrahlen band.",
+   "note": "Fringe band 0.342–0.461 (incoherent wafer) and 0.0891–0.3 (semi-infinite) against Fig. 2's ~0.33–0.5 and ~0.07–0.3; identical in the reststrahlen band.",
    "perturb": "Make the wafer the substrate instead of an incoherent layer: the whole level drops except between 790 and 870 cm⁻¹.",
    "script": "crosscheck/classics/katsidis_2002.py",
    "results": "crosscheck/classics/results/katsidis_2002.json",
@@ -3667,7 +3789,12 @@
      "computed": 973.0796,
      "tolerance": 1,
      "pass": true,
-     "source": "my calc from the printed model, as the brief"
+     "source": "ω_TO √((ε∞ + Δε) / ε∞), from the model of p. 3983",
+     "display": {
+      "paper": "973",
+      "computed": "973.1",
+      "tolerance": "1"
+     }
     },
     {
      "check": "finite wafer: R maximum, 2000-6000 cm-1",
@@ -3675,7 +3802,12 @@
      "computed": 0.461,
      "tolerance": 0.04,
      "pass": true,
-     "source": "Fig. 2, read"
+     "source": "Fig. 2, read",
+     "display": {
+      "paper": "0.5",
+      "computed": "0.461",
+      "tolerance": "0.04"
+     }
     },
     {
      "check": "finite wafer: R minimum, 2000-6000 cm-1",
@@ -3683,7 +3815,12 @@
      "computed": 0.3423,
      "tolerance": 0.04,
      "pass": true,
-     "source": "Fig. 2, read"
+     "source": "Fig. 2, read",
+     "display": {
+      "paper": "0.33",
+      "computed": "0.342",
+      "tolerance": "0.04"
+     }
     },
     {
      "check": "semi-infinite: R maximum, 2000-6000 cm-1",
@@ -3691,7 +3828,12 @@
      "computed": 0.2997,
      "tolerance": 0.04,
      "pass": true,
-     "source": "Fig. 2, read"
+     "source": "Fig. 2, read",
+     "display": {
+      "paper": "0.3",
+      "computed": "0.3",
+      "tolerance": "0.04"
+     }
     },
     {
      "check": "semi-infinite: R minimum, 2000-6000 cm-1",
@@ -3699,7 +3841,12 @@
      "computed": 0.0891,
      "tolerance": 0.04,
      "pass": true,
-     "source": "Fig. 2, read"
+     "source": "Fig. 2, read",
+     "display": {
+      "paper": "0.07",
+      "computed": "0.0891",
+      "tolerance": "0.04"
+     }
     },
     {
      "check": "the two coincide in the reststrahlen band (max |ΔR|, 800-860 cm-1)",
@@ -3707,9 +3854,23 @@
      "computed": 0.0,
      "tolerance": 0.01,
      "pass": true,
-     "source": "p. 3982"
+     "source": "p. 3982",
+     "display": {
+      "paper": "0",
+      "computed": "0",
+      "tolerance": "0.01"
+     }
     }
-   ]
+   ],
+   "agreement": "All 6 checks agree within their tolerances.",
+   "reproduction": {
+    "file": "classics/figures/katsidis-2002.json",
+    "sha256": "25de2e0e31c50dd536555fe0964cd96f6b8cb0fdee6dfb58a414686bb900aa3f",
+    "panels": [
+     "Reflectance"
+    ],
+    "default": 0
+   }
   },
   {
    "id": "ruan-fan-2010",
@@ -3722,7 +3883,7 @@
    "figure": "Fig. 4a (and Fig. 1): a three-layer nanorod whose m = 1–4 resonances coincide",
    "shows": "Scattering and absorption widths of the silver-like rod across ω/ωp = 0.25–0.259 (531–550 nm), with the multipole orders that add up.",
    "inputs": "Drude core (radius 0.3485 λp), ε = 12.96 shell to 0.5623 λp, Drude shell to 0.6370 λp, in air; losses 0.004 ωp and 0.012 ωp; axial-magnetic polarization. The scale λp = 137.6 nm (silver) is ours: the paper is scale-free.",
-   "agreement": "Peak scattering 1.92 and absorption 0.73 (in 2λ/π) as printed; without loss the script reaches 7.87 against the printed 7.94.",
+   "note": "Peak scattering 1.917 and absorption 0.731 (in 2λ/π) against the printed 1.92 and 0.73; without loss the script reaches 7.87 against the printed 7.94.",
    "perturb": "Thin the high-index shell by 1 nm: the four resonances separate and the superscattering peak falls apart.",
    "script": "crosscheck/classics/ruan_fan_2010.py",
    "results": "crosscheck/classics/results/ruan_fan_2010.json",
@@ -5990,7 +6151,12 @@
      "computed": 7.8696,
      "tolerance": 0.15,
      "pass": true,
-     "source": "p. 3, printed"
+     "source": "p. 3, printed",
+     "display": {
+      "paper": "7.94",
+      "computed": "7.87",
+      "tolerance": "0.15"
+     }
     },
     {
      "check": "lossless: frequency of the peak (ω/ωp)",
@@ -5998,7 +6164,12 @@
      "computed": 0.2542,
      "tolerance": 0.0005,
      "pass": true,
-     "source": "p. 3, printed"
+     "source": "p. 3, printed",
+     "display": {
+      "paper": "0.2542",
+      "computed": "0.2542",
+      "tolerance": "5×10⁻⁴"
+     }
     },
     {
      "check": "lossless: each channel m = 1..4 peaks at the single-channel limit (min of the four maxima)",
@@ -6006,7 +6177,12 @@
      "computed": 0.978,
      "tolerance": 0.03,
      "pass": true,
-     "source": "p. 3"
+     "source": "p. 3",
+     "display": {
+      "paper": "1.0",
+      "computed": "0.978",
+      "tolerance": "0.03"
+     }
     },
     {
      "check": "lossy: total scattering peak (2λ/π)",
@@ -6014,7 +6190,12 @@
      "computed": 1.917,
      "tolerance": 0.1,
      "pass": true,
-     "source": "p. 3, printed"
+     "source": "p. 3, printed",
+     "display": {
+      "paper": "1.92",
+      "computed": "1.917",
+      "tolerance": "0.1"
+     }
     },
     {
      "check": "lossy: absorption peak (2λ/π)",
@@ -6022,9 +6203,24 @@
      "computed": 0.731,
      "tolerance": 0.05,
      "pass": true,
-     "source": "p. 4, printed"
+     "source": "p. 4, printed",
+     "display": {
+      "paper": "0.73",
+      "computed": "0.731",
+      "tolerance": "0.05"
+     }
     }
-   ]
+   ],
+   "agreement": "All 5 checks agree within their tolerances.",
+   "reproduction": {
+    "file": "classics/figures/ruan-fan-2010.json",
+    "sha256": "f642c5301bc5fb42cd3730d51b1c3409af5519fa080c057095220d55eecc4368",
+    "panels": [
+     "Lossless (Fig. 1)",
+     "Silver-like loss (Fig. 4a)"
+    ],
+    "default": 1
+   }
   },
   {
    "id": "bohren-huffman-1983",
@@ -6037,7 +6233,7 @@
    "figure": "Fig. 8.7: scattering per unit volume of a glass-like cylinder against diameter, polarized parallel and perpendicular to its axis",
    "shows": "Scattering efficiency of a non-absorbing cylinder (n = 1.55, in air, 632.8 nm) swept from 10 nm to 1.5 µm in radius, for light polarized along the axis; switch to the perpendicular polarization to see the textbook difference.",
    "inputs": "n = 1.55, λ = 0.6328 µm, air, normal incidence (p. 207). The book plots C_sca/V = 4Q/(πd); the calculator shows the efficiency Q.",
-   "agreement": "The parallel maxima 7.28, 9.52, 9.97 and 8.85 (×10⁴ cm⁻¹) at 0.16–0.61 µm diameter, and the perpendicular 7.97 at 0.50 µm, against ~7.3, 9.5, 10.0, 8.8 and 8.0 read off Fig. 8.7.",
+   "note": "The parallel maxima 7.28, 9.52, 9.968 and 8.85 (×10⁴ cm⁻¹), the highest at 0.475 µm diameter, and the perpendicular 7.97 at 0.505 µm, against ~7.3, 9.5, 10.0, 8.8 and 8.0 read off Fig. 8.7.",
    "perturb": "Make the cylinder absorbing (k = 0.05): the ripple dies and both polarizations fall toward the geometric limit Q = 2.",
    "script": "crosscheck/classics/bohren_huffman_1983.py",
    "results": "crosscheck/classics/results/bohren_huffman_1983.json",
@@ -6080,7 +6276,12 @@
      "computed": 7.2795,
      "tolerance": 0.2,
      "pass": true,
-     "source": "Fig. 8.7, read"
+     "source": "Fig. 8.7, read",
+     "display": {
+      "paper": "7.3",
+      "computed": "7.28",
+      "tolerance": "0.2"
+     }
     },
     {
      "check": "parallel: second maximum",
@@ -6088,7 +6289,12 @@
      "computed": 9.5203,
      "tolerance": 0.2,
      "pass": true,
-     "source": "Fig. 8.7, read"
+     "source": "Fig. 8.7, read",
+     "display": {
+      "paper": "9.5",
+      "computed": "9.52",
+      "tolerance": "0.2"
+     }
     },
     {
      "check": "parallel: highest maximum",
@@ -6096,7 +6302,12 @@
      "computed": 9.9683,
      "tolerance": 0.2,
      "pass": true,
-     "source": "Fig. 8.7, read"
+     "source": "Fig. 8.7, read",
+     "display": {
+      "paper": "10.0",
+      "computed": "9.968",
+      "tolerance": "0.2"
+     }
     },
     {
      "check": "parallel: diameter of the highest maximum (µm)",
@@ -6104,7 +6315,12 @@
      "computed": 0.4746,
      "tolerance": 0.03,
      "pass": true,
-     "source": "Fig. 8.7, read"
+     "source": "Fig. 8.7, read",
+     "display": {
+      "paper": "0.47",
+      "computed": "0.475",
+      "tolerance": "0.03"
+     }
     },
     {
      "check": "parallel: shoulder after it",
@@ -6112,7 +6328,12 @@
      "computed": 8.8543,
      "tolerance": 0.25,
      "pass": true,
-     "source": "Fig. 8.7, read"
+     "source": "Fig. 8.7, read",
+     "display": {
+      "paper": "8.8",
+      "computed": "8.85",
+      "tolerance": "0.25"
+     }
     },
     {
      "check": "perpendicular: maximum",
@@ -6120,7 +6341,12 @@
      "computed": 7.9708,
      "tolerance": 0.2,
      "pass": true,
-     "source": "Fig. 8.7, read"
+     "source": "Fig. 8.7, read",
+     "display": {
+      "paper": "8.0",
+      "computed": "7.97",
+      "tolerance": "0.2"
+     }
     },
     {
      "check": "perpendicular: diameter of the maximum (µm)",
@@ -6128,9 +6354,23 @@
      "computed": 0.5046,
      "tolerance": 0.03,
      "pass": true,
-     "source": "Fig. 8.7, read"
+     "source": "Fig. 8.7, read",
+     "display": {
+      "paper": "0.5",
+      "computed": "0.505",
+      "tolerance": "0.03"
+     }
     }
-   ]
+   ],
+   "agreement": "All 7 checks agree within their tolerances.",
+   "reproduction": {
+    "file": "classics/figures/bohren-huffman-1983.json",
+    "sha256": "e430faa66713388781512e77a8347e14e34daf04c31753df519f6b9172bb1753",
+    "panels": [
+     "Scattering per unit volume"
+    ],
+    "default": 0
+   }
   },
   {
    "id": "ruppin-2001",
@@ -6143,7 +6383,7 @@
    "figure": "Fig. 1, dashed curve: classical extinction of a sodium wire of radius 1 nm",
    "shows": "Extinction efficiency (log scale) of a 1 nm Na wire in vacuum, light polarized across the wire, from 156 to 545 nm (ω/ωp = 1.4 to 0.4).",
    "inputs": "Drude sodium as printed (ωp = 8.65e15 s⁻¹, γ = 0.01 ωp), as an uploaded table.",
-   "agreement": "Resonance at ωp/√2 and peak log₁₀ C_e = 0.65, as in Fig. 1; the paper's solid curve adds a hydrodynamic correction the calculator does not model.",
+   "note": "The local resonance at ωp/√2, and the peak log₁₀ C_e = 0.646 against Fig. 1's 0.65; the paper's solid curve adds a hydrodynamic correction the calculator does not model.",
    "perturb": "Put the wire in a medium of ε = 2 (n = 1.414): the resonance moves to ωp/√3, as in the paper's Fig. 4.",
    "script": "crosscheck/classics/ruppin_2001.py",
    "results": "crosscheck/classics/results/ruppin_2001.json",
@@ -8141,7 +8381,12 @@
      "computed": 217.7632,
      "tolerance": 0.2,
      "pass": true,
-     "source": "conversion of p. 207"
+     "source": "conversion of p. 207",
+     "display": {
+      "paper": "217.9",
+      "computed": "217.76",
+      "tolerance": "0.2"
+     }
     },
     {
      "check": "a = 1 nm, ε_m = 1: local resonance (ω/ωp)",
@@ -8149,7 +8394,12 @@
      "computed": 0.707,
      "tolerance": 0.004,
      "pass": true,
-     "source": "ωp/√2, p. 207"
+     "source": "ωp/√2, p. 207",
+     "display": {
+      "paper": "0.7071",
+      "computed": "0.707",
+      "tolerance": "0.004"
+     }
     },
     {
      "check": "a = 1 nm: log10 of the local peak",
@@ -8157,7 +8407,12 @@
      "computed": 0.6457,
      "tolerance": 0.08,
      "pass": true,
-     "source": "Fig. 1 dashed, read"
+     "source": "Fig. 1 dashed, read",
+     "display": {
+      "paper": "0.65",
+      "computed": "0.646",
+      "tolerance": "0.08"
+     }
     },
     {
      "check": "a = 2 nm, ε_m = 2: local resonance (ω/ωp)",
@@ -8165,7 +8420,12 @@
      "computed": 0.576,
      "tolerance": 0.004,
      "pass": true,
-     "source": "ωp/√3, p. 208"
+     "source": "ωp/√3, p. 208",
+     "display": {
+      "paper": "0.5774",
+      "computed": "0.576",
+      "tolerance": "0.004"
+     }
     },
     {
      "check": "a = 1 nm: log10 C_e at 1.4 ωp",
@@ -8173,9 +8433,23 @@
      "computed": -3.3617,
      "tolerance": 0.25,
      "pass": true,
-     "source": "Fig. 1 dashed, read"
+     "source": "Fig. 1 dashed, read",
+     "display": {
+      "paper": "−3.35",
+      "computed": "−3.362",
+      "tolerance": "0.25"
+     }
     }
-   ]
+   ],
+   "agreement": "All 5 checks agree within their tolerances.",
+   "reproduction": {
+    "file": "classics/figures/ruppin-2001.json",
+    "sha256": "631a7abc12879142a2414879ef60fa78b5e26883f0709462eb7bf3002b296387",
+    "panels": [
+     "Extinction (Figs. 1 and 4, dashed)"
+    ],
+    "default": 0
+   }
   },
   {
    "id": "davis-2011",
@@ -8188,7 +8462,7 @@
    "figure": "Fig. 5a: transmission through a non-absorbing fiber of radius 5 µm, n0 = 1.477",
    "shows": "Apparent absorbance of a fiber that absorbs nothing, under a Cassegrain (NA 0.1–0.4) from 4000 to 800 cm⁻¹: the refraction-and-scattering baseline that hides real bands.",
    "inputs": "Fiber n = 1.477 (Fig. 5 caption), radius 5 µm, in air. The paper does not state Fig. 5's aperture; NA 0.4 with a 0.1 obscuration (its Fig. 2) reproduces the shape.",
-   "agreement": "Transmission minimum 9.9% near 1120 cm⁻¹, 77% near 2100 cm⁻¹ and 42% near 3000 cm⁻¹, against ~10%, ~76% and ~42% read off Fig. 5a.",
+   "note": "Transmission minimum 9.85% near 1120 cm⁻¹, a maximum of 77.1% between 1900 and 2600 cm⁻¹ and a dip to 42.4% near 3000 cm⁻¹, against ~10%, ~76% and ~42% read off Fig. 5a.",
    "perturb": "Double the radius to 10 µm, as in Fig. 5b: the deep minimum near 1100 cm⁻¹ disappears.",
    "script": "crosscheck/classics/davis_2011.py",
    "results": "crosscheck/classics/results/davis_2011.json",
@@ -8229,7 +8503,12 @@
      "computed": 9.8497,
      "tolerance": 4,
      "pass": true,
-     "source": "Fig. 5a, read"
+     "source": "Fig. 5a, read",
+     "display": {
+      "paper": "10",
+      "computed": "9.85",
+      "tolerance": "4"
+     }
     },
     {
      "check": "R = 5 µm: wavenumber of the minimum (cm-1)",
@@ -8237,7 +8516,12 @@
      "computed": 1120.0,
      "tolerance": 80,
      "pass": true,
-     "source": "Fig. 5a, read"
+     "source": "Fig. 5a, read",
+     "display": {
+      "paper": "1100",
+      "computed": "1120",
+      "tolerance": "80"
+     }
     },
     {
      "check": "R = 5 µm: maximum near the fit range, 1900-2600 cm-1 (%)",
@@ -8245,7 +8529,12 @@
      "computed": 77.1153,
      "tolerance": 6,
      "pass": true,
-     "source": "Fig. 5a, read"
+     "source": "Fig. 5a, read",
+     "display": {
+      "paper": "76",
+      "computed": "77.1",
+      "tolerance": "6"
+     }
     },
     {
      "check": "R = 5 µm: dip near 3000 cm-1 (%)",
@@ -8253,7 +8542,12 @@
      "computed": 42.3581,
      "tolerance": 6,
      "pass": true,
-     "source": "Fig. 5a, read"
+     "source": "Fig. 5a, read",
+     "display": {
+      "paper": "42",
+      "computed": "42.4",
+      "tolerance": "6"
+     }
     },
     {
      "check": "R = 5 µm: at 4000 cm-1 (%)",
@@ -8261,7 +8555,12 @@
      "computed": 70.2422,
      "tolerance": 6,
      "pass": true,
-     "source": "Fig. 5a, read"
+     "source": "Fig. 5a, read",
+     "display": {
+      "paper": "70",
+      "computed": "70.2",
+      "tolerance": "6"
+     }
     },
     {
      "check": "R = 10 µm: at 800 cm-1 (%)",
@@ -8269,9 +8568,23 @@
      "computed": 42.2747,
      "tolerance": 8,
      "pass": true,
-     "source": "Fig. 5b, read"
+     "source": "Fig. 5b, read",
+     "display": {
+      "paper": "42",
+      "computed": "42.3",
+      "tolerance": "8"
+     }
     }
-   ]
+   ],
+   "agreement": "All 6 checks agree within their tolerances.",
+   "reproduction": {
+    "file": "classics/figures/davis-2011.json",
+    "sha256": "3960b84c658d43fa23bfb1e078af53e8ecfd68e393cc3ef8a90360772b15d2e8",
+    "panels": [
+     "Transmission"
+    ],
+    "default": 0
+   }
   },
   {
    "id": "mie-1908",
@@ -8284,7 +8597,7 @@
    "figure": "Fig. 25 and its table (p. 438): light loss of colloidal gold in water, particle diameters 0–180 nm",
    "shows": "Extinction efficiency of a 100 nm gold sphere in water from 420 to 650 nm, with Mie's own optical constants: the peak that turns the sol violet.",
    "inputs": "Gold n, k at seven wavelengths from Mie's table (p. 417) as an uploaded table; water n = 1.337, from his λ′ column.",
-   "agreement": "56 printed values, diameters 20–180 nm: all within 10%, 51 within 5%. His loss per mm is 1500·Q/d with d in nm.",
+   "note": "Mie's printed values for diameters 20–180 nm, a hand calculation, each toleranced at 10% of the value (at least 1.5). His loss per mm is 1500·Q/d with d in nm.",
    "perturb": "Shrink the radius from 50 to 10 nm: the peak returns to ~525 nm, the red of fine gold.",
    "script": "crosscheck/classics/mie_1908.py",
    "results": "crosscheck/classics/results/mie_1908.json",
@@ -8360,7 +8673,12 @@
      "computed": 41.7576,
      "tolerance": 4.27,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "42.7",
+      "computed": "41.76",
+      "tolerance": "4.27"
+     }
     },
     {
      "check": "d = 20 nm, 450 nm: K (per mille)",
@@ -8368,7 +8686,12 @@
      "computed": 38.1371,
      "tolerance": 3.88,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "38.8",
+      "computed": "38.14",
+      "tolerance": "3.88"
+     }
     },
     {
      "check": "d = 20 nm, 500 nm: K (per mille)",
@@ -8376,7 +8699,12 @@
      "computed": 61.2203,
      "tolerance": 6.22,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "62.2",
+      "computed": "61.22",
+      "tolerance": "6.22"
+     }
     },
     {
      "check": "d = 20 nm, 525 nm: K (per mille)",
@@ -8384,7 +8712,12 @@
      "computed": 73.1765,
      "tolerance": 7.66,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "76.6",
+      "computed": "73.18",
+      "tolerance": "7.66"
+     }
     },
     {
      "check": "d = 20 nm, 550 nm: K (per mille)",
@@ -8392,7 +8725,12 @@
      "computed": 60.3255,
      "tolerance": 6.16,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "61.6",
+      "computed": "60.33",
+      "tolerance": "6.16"
+     }
     },
     {
      "check": "d = 20 nm, 600 nm: K (per mille)",
@@ -8400,7 +8738,12 @@
      "computed": 17.8753,
      "tolerance": 1.85,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "18.5",
+      "computed": "17.88",
+      "tolerance": "1.85"
+     }
     },
     {
      "check": "d = 20 nm, 650 nm: K (per mille)",
@@ -8408,7 +8751,12 @@
      "computed": 7.4903,
      "tolerance": 1.5,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "8.0",
+      "computed": "7.49",
+      "tolerance": "1.5"
+     }
     },
     {
      "check": "d = 60 nm, 420 nm: K (per mille)",
@@ -8416,7 +8764,12 @@
      "computed": 48.6195,
      "tolerance": 4.88,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "48.8",
+      "computed": "48.62",
+      "tolerance": "4.88"
+     }
     },
     {
      "check": "d = 60 nm, 450 nm: K (per mille)",
@@ -8424,7 +8777,12 @@
      "computed": 44.8351,
      "tolerance": 4.54,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "45.4",
+      "computed": "44.84",
+      "tolerance": "4.54"
+     }
     },
     {
      "check": "d = 60 nm, 500 nm: K (per mille)",
@@ -8432,7 +8790,12 @@
      "computed": 67.7801,
      "tolerance": 6.74,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "67.4",
+      "computed": "67.78",
+      "tolerance": "6.74"
+     }
     },
     {
      "check": "d = 60 nm, 525 nm: K (per mille)",
@@ -8440,7 +8803,12 @@
      "computed": 90.03,
      "tolerance": 8.84,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "88.4",
+      "computed": "90.03",
+      "tolerance": "8.84"
+     }
     },
     {
      "check": "d = 60 nm, 550 nm: K (per mille)",
@@ -8448,7 +8816,12 @@
      "computed": 97.1769,
      "tolerance": 9.61,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "96.1",
+      "computed": "97.18",
+      "tolerance": "9.61"
+     }
     },
     {
      "check": "d = 60 nm, 600 nm: K (per mille)",
@@ -8456,7 +8829,12 @@
      "computed": 37.9242,
      "tolerance": 3.73,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "37.3",
+      "computed": "37.92",
+      "tolerance": "3.73"
+     }
     },
     {
      "check": "d = 60 nm, 650 nm: K (per mille)",
@@ -8464,7 +8842,12 @@
      "computed": 14.9982,
      "tolerance": 1.64,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "16.4",
+      "computed": "15",
+      "tolerance": "1.64"
+     }
     },
     {
      "check": "d = 80 nm, 420 nm: K (per mille)",
@@ -8472,7 +8855,12 @@
      "computed": 47.0797,
      "tolerance": 4.65,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "46.5",
+      "computed": "47.08",
+      "tolerance": "4.65"
+     }
     },
     {
      "check": "d = 80 nm, 450 nm: K (per mille)",
@@ -8480,7 +8868,12 @@
      "computed": 44.9401,
      "tolerance": 4.48,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "44.8",
+      "computed": "44.94",
+      "tolerance": "4.48"
+     }
     },
     {
      "check": "d = 80 nm, 500 nm: K (per mille)",
@@ -8488,7 +8881,12 @@
      "computed": 62.6936,
      "tolerance": 6.25,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "62.5",
+      "computed": "62.69",
+      "tolerance": "6.25"
+     }
     },
     {
      "check": "d = 80 nm, 525 nm: K (per mille)",
@@ -8496,7 +8894,12 @@
      "computed": 83.2295,
      "tolerance": 8.1,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "81.0",
+      "computed": "83.23",
+      "tolerance": "8.1"
+     }
     },
     {
      "check": "d = 80 nm, 550 nm: K (per mille)",
@@ -8504,7 +8907,12 @@
      "computed": 104.0008,
      "tolerance": 9.7,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "97.0",
+      "computed": "104",
+      "tolerance": "9.7"
+     }
     },
     {
      "check": "d = 80 nm, 600 nm: K (per mille)",
@@ -8512,7 +8920,12 @@
      "computed": 65.2016,
      "tolerance": 6.5,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "65.0",
+      "computed": "65.2",
+      "tolerance": "6.5"
+     }
     },
     {
      "check": "d = 80 nm, 650 nm: K (per mille)",
@@ -8520,7 +8933,12 @@
      "computed": 26.6124,
      "tolerance": 2.71,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "27.1",
+      "computed": "26.61",
+      "tolerance": "2.71"
+     }
     },
     {
      "check": "d = 100 nm, 420 nm: K (per mille)",
@@ -8528,7 +8946,12 @@
      "computed": 41.3944,
      "tolerance": 4.1,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "41.0",
+      "computed": "41.39",
+      "tolerance": "4.1"
+     }
     },
     {
      "check": "d = 100 nm, 450 nm: K (per mille)",
@@ -8536,7 +8959,12 @@
      "computed": 40.8708,
      "tolerance": 4.1,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "41.0",
+      "computed": "40.87",
+      "tolerance": "4.1"
+     }
     },
     {
      "check": "d = 100 nm, 500 nm: K (per mille)",
@@ -8544,7 +8972,12 @@
      "computed": 52.5189,
      "tolerance": 5.22,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "52.2",
+      "computed": "52.52",
+      "tolerance": "5.22"
+     }
     },
     {
      "check": "d = 100 nm, 525 nm: K (per mille)",
@@ -8552,7 +8985,12 @@
      "computed": 66.2832,
      "tolerance": 6.63,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "66.3",
+      "computed": "66.28",
+      "tolerance": "6.63"
+     }
     },
     {
      "check": "d = 100 nm, 550 nm: K (per mille)",
@@ -8560,7 +8998,12 @@
      "computed": 83.9473,
      "tolerance": 8.22,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "82.2",
+      "computed": "83.95",
+      "tolerance": "8.22"
+     }
     },
     {
      "check": "d = 100 nm, 600 nm: K (per mille)",
@@ -8568,7 +9011,12 @@
      "computed": 86.8478,
      "tolerance": 8.5,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "85.0",
+      "computed": "86.85",
+      "tolerance": "8.5"
+     }
     },
     {
      "check": "d = 100 nm, 650 nm: K (per mille)",
@@ -8576,7 +9024,12 @@
      "computed": 45.2447,
      "tolerance": 4.45,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "44.5",
+      "computed": "45.24",
+      "tolerance": "4.45"
+     }
     },
     {
      "check": "d = 120 nm, 420 nm: K (per mille)",
@@ -8584,7 +9037,12 @@
      "computed": 35.3391,
      "tolerance": 3.46,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "34.6",
+      "computed": "35.34",
+      "tolerance": "3.46"
+     }
     },
     {
      "check": "d = 120 nm, 450 nm: K (per mille)",
@@ -8592,7 +9050,12 @@
      "computed": 35.3425,
      "tolerance": 3.48,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "34.8",
+      "computed": "35.34",
+      "tolerance": "3.48"
+     }
     },
     {
      "check": "d = 120 nm, 500 nm: K (per mille)",
@@ -8600,7 +9063,12 @@
      "computed": 43.0303,
      "tolerance": 4.28,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "42.8",
+      "computed": "43.03",
+      "tolerance": "4.28"
+     }
     },
     {
      "check": "d = 120 nm, 525 nm: K (per mille)",
@@ -8608,7 +9076,12 @@
      "computed": 51.5678,
      "tolerance": 5.12,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "51.2",
+      "computed": "51.57",
+      "tolerance": "5.12"
+     }
     },
     {
      "check": "d = 120 nm, 550 nm: K (per mille)",
@@ -8616,7 +9089,12 @@
      "computed": 61.6223,
      "tolerance": 6.1,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "61.0",
+      "computed": "61.62",
+      "tolerance": "6.1"
+     }
     },
     {
      "check": "d = 120 nm, 600 nm: K (per mille)",
@@ -8624,7 +9102,12 @@
      "computed": 77.1298,
      "tolerance": 7.75,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "77.5",
+      "computed": "77.13",
+      "tolerance": "7.75"
+     }
     },
     {
      "check": "d = 120 nm, 650 nm: K (per mille)",
@@ -8632,7 +9115,12 @@
      "computed": 59.5084,
      "tolerance": 5.87,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "58.7",
+      "computed": "59.51",
+      "tolerance": "5.87"
+     }
     },
     {
      "check": "d = 140 nm, 420 nm: K (per mille) [a1, a2, p1]",
@@ -8640,7 +9128,12 @@
      "computed": 29.6143,
      "tolerance": 2.94,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "29.4",
+      "computed": "29.61",
+      "tolerance": "2.94"
+     }
     },
     {
      "check": "d = 140 nm, 450 nm: K (per mille) [a1, a2, p1]",
@@ -8648,7 +9141,12 @@
      "computed": 29.8183,
      "tolerance": 2.97,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "29.7",
+      "computed": "29.82",
+      "tolerance": "2.97"
+     }
     },
     {
      "check": "d = 140 nm, 500 nm: K (per mille) [a1, a2, p1]",
@@ -8656,7 +9154,12 @@
      "computed": 35.9251,
      "tolerance": 3.59,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "35.9",
+      "computed": "35.93",
+      "tolerance": "3.59"
+     }
     },
     {
      "check": "d = 140 nm, 525 nm: K (per mille) [a1, a2, p1]",
@@ -8664,7 +9167,12 @@
      "computed": 42.1308,
      "tolerance": 4.19,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "41.9",
+      "computed": "42.13",
+      "tolerance": "4.19"
+     }
     },
     {
      "check": "d = 140 nm, 550 nm: K (per mille) [a1, a2, p1]",
@@ -8672,7 +9180,12 @@
      "computed": 47.608,
      "tolerance": 4.86,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "48.6",
+      "computed": "47.61",
+      "tolerance": "4.86"
+     }
     },
     {
      "check": "d = 140 nm, 600 nm: K (per mille) [a1, a2, p1]",
@@ -8680,7 +9193,12 @@
      "computed": 57.0795,
      "tolerance": 5.7,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "57.0",
+      "computed": "57.08",
+      "tolerance": "5.7"
+     }
     },
     {
      "check": "d = 140 nm, 650 nm: K (per mille) [a1, a2, p1]",
@@ -8688,7 +9206,12 @@
      "computed": 56.5402,
      "tolerance": 5.61,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "56.1",
+      "computed": "56.54",
+      "tolerance": "5.61"
+     }
     },
     {
      "check": "d = 160 nm, 420 nm: K (per mille) [a1, a2, p1]",
@@ -8696,7 +9219,12 @@
      "computed": 25.6366,
      "tolerance": 2.57,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "25.7",
+      "computed": "25.64",
+      "tolerance": "2.57"
+     }
     },
     {
      "check": "d = 160 nm, 450 nm: K (per mille) [a1, a2, p1]",
@@ -8704,7 +9232,12 @@
      "computed": 25.9498,
      "tolerance": 2.61,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "26.1",
+      "computed": "25.95",
+      "tolerance": "2.61"
+     }
     },
     {
      "check": "d = 160 nm, 500 nm: K (per mille) [a1, a2, p1]",
@@ -8712,7 +9245,12 @@
      "computed": 31.2557,
      "tolerance": 3.08,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "30.8",
+      "computed": "31.26",
+      "tolerance": "3.08"
+     }
     },
     {
      "check": "d = 160 nm, 525 nm: K (per mille) [a1, a2, p1]",
@@ -8720,7 +9258,12 @@
      "computed": 36.7388,
      "tolerance": 3.6,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "36.0",
+      "computed": "36.74",
+      "tolerance": "3.6"
+     }
     },
     {
      "check": "d = 160 nm, 550 nm: K (per mille) [a1, a2, p1]",
@@ -8728,7 +9271,12 @@
      "computed": 40.833,
      "tolerance": 4.12,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "41.2",
+      "computed": "40.83",
+      "tolerance": "4.12"
+     }
     },
     {
      "check": "d = 160 nm, 600 nm: K (per mille) [a1, a2, p1]",
@@ -8736,7 +9284,12 @@
      "computed": 42.7923,
      "tolerance": 4.51,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "45.1",
+      "computed": "42.79",
+      "tolerance": "4.51"
+     }
     },
     {
      "check": "d = 160 nm, 650 nm: K (per mille) [a1, a2, p1]",
@@ -8744,7 +9297,12 @@
      "computed": 45.1911,
      "tolerance": 4.56,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "45.6",
+      "computed": "45.19",
+      "tolerance": "4.56"
+     }
     },
     {
      "check": "d = 180 nm, 420 nm: K (per mille) [a1, a2, p1]",
@@ -8752,7 +9310,12 @@
      "computed": 21.994,
      "tolerance": 2.4,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "24.0",
+      "computed": "21.99",
+      "tolerance": "2.4"
+     }
     },
     {
      "check": "d = 180 nm, 450 nm: K (per mille) [a1, a2, p1]",
@@ -8760,7 +9323,12 @@
      "computed": 22.6547,
      "tolerance": 2.48,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "24.8",
+      "computed": "22.65",
+      "tolerance": "2.48"
+     }
     },
     {
      "check": "d = 180 nm, 500 nm: K (per mille) [a1, a2, p1]",
@@ -8768,7 +9336,12 @@
      "computed": 27.4156,
      "tolerance": 2.8,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "28.0",
+      "computed": "27.42",
+      "tolerance": "2.8"
+     }
     },
     {
      "check": "d = 180 nm, 525 nm: K (per mille) [a1, a2, p1]",
@@ -8776,7 +9349,12 @@
      "computed": 32.5248,
      "tolerance": 3.3,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "33.0",
+      "computed": "32.52",
+      "tolerance": "3.3"
+     }
     },
     {
      "check": "d = 180 nm, 550 nm: K (per mille) [a1, a2, p1]",
@@ -8784,7 +9362,12 @@
      "computed": 37.339,
      "tolerance": 3.7,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "37.0",
+      "computed": "37.34",
+      "tolerance": "3.7"
+     }
     },
     {
      "check": "d = 180 nm, 600 nm: K (per mille) [a1, a2, p1]",
@@ -8792,7 +9375,12 @@
      "computed": 35.2265,
      "tolerance": 3.77,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "37.7",
+      "computed": "35.23",
+      "tolerance": "3.77"
+     }
     },
     {
      "check": "d = 180 nm, 650 nm: K (per mille) [a1, a2, p1]",
@@ -8800,9 +9388,23 @@
      "computed": 35.2067,
      "tolerance": 3.65,
      "pass": true,
-     "source": "table p. 438"
+     "source": "table p. 438",
+     "display": {
+      "paper": "36.5",
+      "computed": "35.21",
+      "tolerance": "3.65"
+     }
     }
-   ]
+   ],
+   "agreement": "All 56 checks agree within their tolerances.",
+   "reproduction": {
+    "file": "classics/figures/mie-1908.json",
+    "sha256": "a615fdf2092ca867b4445a8fd46a15122c8f69c006daaa5b9f96f67bef095192",
+    "panels": [
+     "Light loss K"
+    ],
+    "default": 0
+   }
   },
   {
    "id": "prodan-2003",
@@ -8815,7 +9417,7 @@
    "figure": "Fig. 4A: extinction of a concentric gold nanoshell, 80/107/135/157 nm",
    "shows": "Extinction from 500 to 1900 nm: the inner- and outer-shell plasmons mix into a bonding peak (red) and an antibonding peak (blue).",
    "inputs": "Silica core 80 nm, gold 27 nm, silica 28 nm, gold 22 nm (Fig. 4 caption). The paper prints no optical constants or host: Johnson & Christy gold, Malitson silica, host n = 1.45 (the best fit to the marked peaks).",
-   "agreement": "Peaks at 920 and 1465 nm against the marked ~900 and ~1550 nm; the shells alone peak at 913 and 1270 nm (marked ~900 and ~1280).",
+   "note": "Peaks at 920 and 1465 nm against the marked ~900 and ~1550 nm; the shells alone peak at 912.5 and 1270 nm (marked ~900 and ~1280).",
    "perturb": "Thicken the silica spacer to 236 nm (Fig. 4C): the shells decouple and the hybridized pair merges back.",
    "script": "crosscheck/classics/prodan_2003.py",
    "results": "crosscheck/classics/results/prodan_2003.json",
@@ -8913,7 +9515,12 @@
      "computed": 920.0,
      "tolerance": 60,
      "pass": true,
-     "source": "Fig. 4A mark, read"
+     "source": "Fig. 4A mark, read",
+     "display": {
+      "paper": "900",
+      "computed": "920",
+      "tolerance": "60"
+     }
     },
     {
      "check": "(3) bonding dipole peak (nm)",
@@ -8921,7 +9528,12 @@
      "computed": 1465.0,
      "tolerance": 100,
      "pass": true,
-     "source": "Fig. 4A mark, read"
+     "source": "Fig. 4A mark, read",
+     "display": {
+      "paper": "1550",
+      "computed": "1465",
+      "tolerance": "100"
+     }
     },
     {
      "check": "(2) outer shell alone (nm)",
@@ -8929,7 +9541,12 @@
      "computed": 1270.0,
      "tolerance": 60,
      "pass": true,
-     "source": "Fig. 4A mark, read"
+     "source": "Fig. 4A mark, read",
+     "display": {
+      "paper": "1280",
+      "computed": "1270",
+      "tolerance": "60"
+     }
     },
     {
      "check": "(1) inner shell alone (nm)",
@@ -8937,7 +9554,12 @@
      "computed": 912.5,
      "tolerance": 60,
      "pass": true,
-     "source": "Fig. 4A mark, read"
+     "source": "Fig. 4A mark, read",
+     "display": {
+      "paper": "900",
+      "computed": "912.5",
+      "tolerance": "60"
+     }
     },
     {
      "check": "hybridization: the bonding peak lies red of the outer shell alone",
@@ -8945,9 +9567,23 @@
      "computed": 1.0,
      "tolerance": 0,
      "pass": true,
-     "source": "hybridization, Fig. 4A"
+     "source": "hybridization, Fig. 4A",
+     "display": {
+      "paper": "1",
+      "computed": "1",
+      "tolerance": "0"
+     }
     }
-   ]
+   ],
+   "agreement": "All 5 checks agree within their tolerances.",
+   "reproduction": {
+    "file": "classics/figures/prodan-2003.json",
+    "sha256": "c66012dd1cd2ee5c2bd8f0741b9aa85c6bc83031f0772b7c9cba4f59f99b6ae7",
+    "panels": [
+     "Extinction"
+    ],
+    "default": 0
+   }
   },
   {
    "id": "kuznetsov-2012",
@@ -8960,7 +9596,7 @@
    "figure": "Fig. 3(iv): scattering of silicon spheres of 100–270 nm with the md, ed and mq peaks",
    "shows": "Extinction and scattering of a 150 nm silicon sphere in free space from 430 to 800 nm, split into its electric and magnetic multipoles.",
    "inputs": "Diameter 150 nm (Fig. 3c); free space. The paper names no silicon data: Green 2008.",
-   "agreement": "Ten md, ed and mq peaks across six sizes, all within 5 nm of Fig. 3.",
+   "note": "For the 150 nm sphere, the calculator's setup, the magnetic dipole peaks at 611 nm and the electric dipole at 497 nm, against 607 and 492 nm in Fig. 3c.",
    "perturb": "Sweep the radius from 50 to 135 nm: the magnetic dipole walks from ~470 to ~730 nm, the colours of the paper's Fig. 1.",
    "script": "crosscheck/classics/kuznetsov_2012.py",
    "results": "crosscheck/classics/results/kuznetsov_2012.json",
@@ -9023,7 +9659,12 @@
      "computed": 467.0,
      "tolerance": 15,
      "pass": true,
-     "source": "Fig. 3a(iv), read"
+     "source": "Fig. 3a(iv), read",
+     "display": {
+      "paper": "466",
+      "computed": "467",
+      "tolerance": "15"
+     }
     },
     {
      "check": "140 nm: md peak (nm)",
@@ -9031,7 +9672,12 @@
      "computed": 580.0,
      "tolerance": 15,
      "pass": true,
-     "source": "Fig. 3b(iv), read"
+     "source": "Fig. 3b(iv), read",
+     "display": {
+      "paper": "581",
+      "computed": "580",
+      "tolerance": "15"
+     }
     },
     {
      "check": "140 nm: ed peak (nm)",
@@ -9039,7 +9685,12 @@
      "computed": 477.0,
      "tolerance": 15,
      "pass": true,
-     "source": "Fig. 3b(iv), read"
+     "source": "Fig. 3b(iv), read",
+     "display": {
+      "paper": "478",
+      "computed": "477",
+      "tolerance": "15"
+     }
     },
     {
      "check": "150 nm: md peak (nm)",
@@ -9047,7 +9698,12 @@
      "computed": 611.0,
      "tolerance": 15,
      "pass": true,
-     "source": "Fig. 3c(iv), read"
+     "source": "Fig. 3c(iv), read",
+     "display": {
+      "paper": "607",
+      "computed": "611",
+      "tolerance": "15"
+     }
     },
     {
      "check": "150 nm: ed peak (nm)",
@@ -9055,7 +9711,12 @@
      "computed": 497.0,
      "tolerance": 15,
      "pass": true,
-     "source": "Fig. 3c(iv), read"
+     "source": "Fig. 3c(iv), read",
+     "display": {
+      "paper": "492",
+      "computed": "497",
+      "tolerance": "15"
+     }
     },
     {
      "check": "182 nm: ed peak (nm)",
@@ -9063,7 +9724,12 @@
      "computed": 568.0,
      "tolerance": 15,
      "pass": true,
-     "source": "Fig. 3d(iv), read"
+     "source": "Fig. 3d(iv), read",
+     "display": {
+      "paper": "568",
+      "computed": "568",
+      "tolerance": "15"
+     }
     },
     {
      "check": "182 nm: mq peak (nm)",
@@ -9071,7 +9737,12 @@
      "computed": 537.0,
      "tolerance": 15,
      "pass": true,
-     "source": "Fig. 3d(iv), read"
+     "source": "Fig. 3d(iv), read",
+     "display": {
+      "paper": "538",
+      "computed": "537",
+      "tolerance": "15"
+     }
     },
     {
      "check": "220 nm: mq peak (nm)",
@@ -9079,7 +9750,12 @@
      "computed": 616.0,
      "tolerance": 15,
      "pass": true,
-     "source": "Fig. 3e(iv), read"
+     "source": "Fig. 3e(iv), read",
+     "display": {
+      "paper": "618",
+      "computed": "616",
+      "tolerance": "15"
+     }
     },
     {
      "check": "220 nm: ed peak (nm)",
@@ -9087,7 +9763,12 @@
      "computed": 659.0,
      "tolerance": 15,
      "pass": true,
-     "source": "Fig. 3e(iv), read"
+     "source": "Fig. 3e(iv), read",
+     "display": {
+      "paper": "662",
+      "computed": "659",
+      "tolerance": "15"
+     }
     },
     {
      "check": "270 nm: mq peak (nm)",
@@ -9095,9 +9776,28 @@
      "computed": 726.0,
      "tolerance": 15,
      "pass": true,
-     "source": "Fig. 3f(iv), read"
+     "source": "Fig. 3f(iv), read",
+     "display": {
+      "paper": "728",
+      "computed": "726",
+      "tolerance": "15"
+     }
     }
-   ]
+   ],
+   "agreement": "All 10 checks agree within their tolerances.",
+   "reproduction": {
+    "file": "classics/figures/kuznetsov-2012.json",
+    "sha256": "8560c249c2d3ee8d58ad250b01eed281dd1e80d6a3ddbba704326d519aec35af",
+    "panels": [
+     "100 nm",
+     "140 nm",
+     "150 nm",
+     "182 nm",
+     "220 nm",
+     "270 nm"
+    ],
+    "default": 2
+   }
   },
   {
    "id": "fu-2013",
@@ -9110,7 +9810,7 @@
    "figure": "Fig. 1a: forward and backward scattering of a silicon sphere of radius 75 nm",
    "shows": "Scattering of a 150 nm silicon sphere from 380 to 780 nm with its multipoles, and its far-field scattering pattern: pick 660 nm, where forward scattering dominates.",
    "inputs": "Radius 75 nm, free space (Fig. 1 caption); Green 2008 silicon (the paper names none).",
-   "agreement": "Forward/backward ratio peaks at 7.5 near 659 nm (paper: ~8 at 660 nm); F = B at 499 and 604 nm (paper: 500 and 603 nm).",
+   "note": "The forward-to-backward ratio peaks at 7.46 near 659 nm (paper: ~8 at 660 nm); F = B at 499 and 604 nm (paper: 500 and 603 nm).",
    "perturb": "Change the radius to 65 nm and find the new wavelength of zero backward scattering.",
    "script": "crosscheck/classics/fu_2013.py",
    "results": "crosscheck/classics/results/fu_2013.json",
@@ -9178,7 +9878,12 @@
      "computed": 7.4629,
      "tolerance": 1.5,
      "pass": true,
-     "source": "p. 3: ~8 at 660 nm"
+     "source": "p. 3: ~8 at 660 nm",
+     "display": {
+      "paper": "8",
+      "computed": "7.46",
+      "tolerance": "1.5"
+     }
     },
     {
      "check": "wavelength of the F/B maximum (nm)",
@@ -9186,7 +9891,12 @@
      "computed": 659.0,
      "tolerance": 15,
      "pass": true,
-     "source": "p. 3"
+     "source": "p. 3",
+     "display": {
+      "paper": "660",
+      "computed": "659",
+      "tolerance": "15"
+     }
     },
     {
      "check": "F/B minimum wavelength (nm)",
@@ -9194,7 +9904,12 @@
      "computed": 565.0,
      "tolerance": 15,
      "pass": true,
-     "source": "p. 3"
+     "source": "p. 3",
+     "display": {
+      "paper": "564",
+      "computed": "565",
+      "tolerance": "15"
+     }
     },
     {
      "check": "F/B minimum value (< 0.5)",
@@ -9202,7 +9917,12 @@
      "computed": 0.4064,
      "tolerance": 0.25,
      "pass": true,
-     "source": "p. 3: below 0.5"
+     "source": "p. 3: below 0.5",
+     "display": {
+      "paper": "0.25",
+      "computed": "0.406",
+      "tolerance": "0.25"
+     }
     },
     {
      "check": "F = B, electric dipole (nm)",
@@ -9210,7 +9930,12 @@
      "computed": 499.0,
      "tolerance": 15,
      "pass": true,
-     "source": "p. 3"
+     "source": "p. 3",
+     "display": {
+      "paper": "500",
+      "computed": "499",
+      "tolerance": "15"
+     }
     },
     {
      "check": "F = B, magnetic dipole (nm)",
@@ -9218,7 +9943,12 @@
      "computed": 604.0,
      "tolerance": 15,
      "pass": true,
-     "source": "p. 3"
+     "source": "p. 3",
+     "display": {
+      "paper": "603",
+      "computed": "604",
+      "tolerance": "15"
+     }
     },
     {
      "check": "hemispheres add up to the cross section (rel. error)",
@@ -9226,9 +9956,24 @@
      "computed": 0.0029,
      "tolerance": 0.005,
      "pass": true,
-     "source": "energy check (quadrature)"
+     "source": "energy check (quadrature)",
+     "display": {
+      "paper": "0",
+      "computed": "0.0029",
+      "tolerance": "0.005"
+     }
     }
-   ]
+   ],
+   "agreement": "All 7 checks agree within their tolerances.",
+   "reproduction": {
+    "file": "classics/figures/fu-2013.json",
+    "sha256": "5c5be77a852cab006bf922a16f47af6f59954689802191e8a1f31eae48d4cf52",
+    "panels": [
+     "Forward and backward scattering",
+     "Forward-to-backward ratio"
+    ],
+    "default": 1
+   }
   },
   {
    "id": "ruppin-1982",
@@ -9241,7 +9986,7 @@
    "figure": "Figs. 1–2: lifetime of a molecule against its distance from a silver sphere of radius 10 nm",
    "shows": "Decay rates of an electric dipole at 612 nm moving away from a 10 nm silver sphere in a medium of n = 1.5, radial and tangential.",
    "inputs": "Radius 10 nm, host ε = 2.25, λ = 612 nm (printed); Johnson & Christy silver (the paper prints none), which puts the dipole plasmon at the paper's 3.05 eV.",
-   "agreement": "Lifetime (the inverse of the total rate) 0.98 at kd = 1 and no oscillation beyond; tangential maximum 1.16 at kd = 0.19 (paper ~1.12 at ~0.2).",
+   "note": "Lifetime (the inverse of the total rate) 0.981 at kd = 1 and no oscillation beyond; tangential maximum 1.157 at kd = 0.195 (paper ~1.12 at ~0.2).",
    "perturb": "Switch the axis to wavelength at a fixed 10 nm gap: the l = 1 plasmon appears at ~407 nm (3.05 eV).",
    "script": "crosscheck/classics/ruppin_1982.py",
    "results": "crosscheck/classics/results/ruppin_1982.json",
@@ -9298,7 +10043,12 @@
      "computed": 0.9037,
      "tolerance": 0.06,
      "pass": true,
-     "source": "Fig. 1, read"
+     "source": "Fig. 1, read",
+     "display": {
+      "paper": "0.86",
+      "computed": "0.904",
+      "tolerance": "0.06"
+     }
     },
     {
      "check": "radial: lifetime at d^ = 1",
@@ -9306,7 +10056,12 @@
      "computed": 0.9806,
      "tolerance": 0.04,
      "pass": true,
-     "source": "Fig. 1, read"
+     "source": "Fig. 1, read",
+     "display": {
+      "paper": "0.98",
+      "computed": "0.981",
+      "tolerance": "0.04"
+     }
     },
     {
      "check": "radial: lifetime at d^ = 3 (no oscillation)",
@@ -9314,7 +10069,12 @@
      "computed": 1.0002,
      "tolerance": 0.02,
      "pass": true,
-     "source": "Fig. 1, read; p. 1683"
+     "source": "Fig. 1, read; p. 1683",
+     "display": {
+      "paper": "1.0",
+      "computed": "1",
+      "tolerance": "0.02"
+     }
     },
     {
      "check": "tangential: maximum lifetime",
@@ -9322,7 +10082,12 @@
      "computed": 1.1565,
      "tolerance": 0.06,
      "pass": true,
-     "source": "Fig. 2, read"
+     "source": "Fig. 2, read",
+     "display": {
+      "paper": "1.12",
+      "computed": "1.157",
+      "tolerance": "0.06"
+     }
     },
     {
      "check": "tangential: d^ of the maximum",
@@ -9330,7 +10095,12 @@
      "computed": 0.1945,
      "tolerance": 0.1,
      "pass": true,
-     "source": "Fig. 2, read"
+     "source": "Fig. 2, read",
+     "display": {
+      "paper": "0.2",
+      "computed": "0.195",
+      "tolerance": "0.1"
+     }
     },
     {
      "check": "Fig. 3: l = 1 plasmon, 10 nm (eV)",
@@ -9338,7 +10108,12 @@
      "computed": 3.05,
      "tolerance": 0.08,
      "pass": true,
-     "source": "p. 1684: 'at about 3.05 eV'"
+     "source": "p. 1684: 'at about 3.05 eV'",
+     "display": {
+      "paper": "3.05",
+      "computed": "3.05",
+      "tolerance": "0.08"
+     }
     },
     {
      "check": "Fig. 3: total rate at the plasmon, 10 nm (order of magnitude, log10)",
@@ -9346,9 +10121,24 @@
      "computed": 2.3834,
      "tolerance": 0.5,
      "pass": true,
-     "source": "Fig. 3, read ~1e2"
+     "source": "Fig. 3, read ~1e2",
+     "display": {
+      "paper": "2.0",
+      "computed": "2.38",
+      "tolerance": "0.5"
+     }
     }
-   ]
+   ],
+   "agreement": "All 7 checks agree within their tolerances.",
+   "reproduction": {
+    "file": "classics/figures/ruppin-1982.json",
+    "sha256": "a62ee13083fa13f0d8a070d0450138ba1fc05eb959026ba46403b774a434c617",
+    "panels": [
+     "Lifetime against distance (Figs. 1–2)",
+     "Total rate against photon energy (Fig. 3)"
+    ],
+    "default": 0
+   }
   },
   {
    "id": "anger-2006",
@@ -9361,7 +10151,7 @@
    "figure": "Fig. 1a: quantum yield of a molecule beside an 80 nm gold sphere, against distance",
    "shows": "Decay rates and quantum yield of a radial dipole at 650 nm, 0.5–100 nm from an 80 nm gold sphere in free space: quenching at contact, radiation enhanced beyond.",
    "inputs": "Gold ε = −12.99 + 1.09i at 650 nm (printed), i.e. n + ik = 0.1511 + 3.6073i; free space; intrinsic quantum yield 1.",
-   "agreement": "Times the plane-wave intensity at the molecule (a second run, the near field along the polarization), the fluorescence peaks at 3.5 near z = 12 nm, as in Fig. 1b; 5.3, 2.2 and 1.04 for 100, 60 and 20 nm spheres.",
+   "note": "Times the plane-wave intensity at the molecule (a second run, the near field along the polarization), the fluorescence of the 80 nm sphere peaks at 3.52 near z = 12.5 nm, against Fig. 1b's 3.5 near 10 nm; 5.27, 2.2 and 1.035 for 100, 60 and 20 nm spheres.",
    "perturb": "Shrink the sphere to 20 nm: the quantum yield collapses over a much longer range, and Fig. 1b's enhancement disappears.",
    "script": "crosscheck/classics/anger_2006.py",
    "results": "crosscheck/classics/results/anger_2006.json",
@@ -9408,7 +10198,12 @@
      "computed": 3.9116,
      "tolerance": 0.3,
      "pass": true,
-     "source": "Fig. 1a, read"
+     "source": "Fig. 1a, read",
+     "display": {
+      "paper": "4.0",
+      "computed": "3.91",
+      "tolerance": "0.3"
+     }
     },
     {
      "check": "80 nm: excitation at z = 30 nm",
@@ -9416,7 +10211,12 @@
      "computed": 2.6907,
      "tolerance": 0.25,
      "pass": true,
-     "source": "Fig. 1a, read"
+     "source": "Fig. 1a, read",
+     "display": {
+      "paper": "2.8",
+      "computed": "2.69",
+      "tolerance": "0.25"
+     }
     },
     {
      "check": "80 nm: excitation at z = 60 nm",
@@ -9424,7 +10224,12 @@
      "computed": 1.5547,
      "tolerance": 0.2,
      "pass": true,
-     "source": "Fig. 1a, read"
+     "source": "Fig. 1a, read",
+     "display": {
+      "paper": "1.6",
+      "computed": "1.55",
+      "tolerance": "0.2"
+     }
     },
     {
      "check": "80 nm: quantum yield at z = 20 nm",
@@ -9432,7 +10237,12 @@
      "computed": 0.7923,
      "tolerance": 0.05,
      "pass": true,
-     "source": "Fig. 1a, read"
+     "source": "Fig. 1a, read",
+     "display": {
+      "paper": "0.8",
+      "computed": "0.792",
+      "tolerance": "0.05"
+     }
     },
     {
      "check": "80 nm: quantum yield at z = 30 nm",
@@ -9440,7 +10250,12 @@
      "computed": 0.8953,
      "tolerance": 0.04,
      "pass": true,
-     "source": "Fig. 1a, read"
+     "source": "Fig. 1a, read",
+     "display": {
+      "paper": "0.88",
+      "computed": "0.895",
+      "tolerance": "0.04"
+     }
     },
     {
      "check": "80 nm: quantum yield at z = 60 nm",
@@ -9448,7 +10263,12 @@
      "computed": 0.9775,
      "tolerance": 0.05,
      "pass": true,
-     "source": "Fig. 1a, read"
+     "source": "Fig. 1a, read",
+     "display": {
+      "paper": "0.95",
+      "computed": "0.978",
+      "tolerance": "0.05"
+     }
     },
     {
      "check": "80 nm: fluorescence maximum",
@@ -9456,7 +10276,12 @@
      "computed": 3.5249,
      "tolerance": 0.35,
      "pass": true,
-     "source": "Fig. 1b, read"
+     "source": "Fig. 1b, read",
+     "display": {
+      "paper": "3.5",
+      "computed": "3.52",
+      "tolerance": "0.35"
+     }
     },
     {
      "check": "80 nm: z of the maximum (nm)",
@@ -9464,7 +10289,12 @@
      "computed": 12.5,
      "tolerance": 4,
      "pass": true,
-     "source": "Fig. 1b, read"
+     "source": "Fig. 1b, read",
+     "display": {
+      "paper": "10",
+      "computed": "12.5",
+      "tolerance": "4"
+     }
     },
     {
      "check": "100 nm: fluorescence maximum",
@@ -9472,7 +10302,12 @@
      "computed": 5.2671,
      "tolerance": 0.5,
      "pass": true,
-     "source": "Fig. 1b, read"
+     "source": "Fig. 1b, read",
+     "display": {
+      "paper": "5.3",
+      "computed": "5.27",
+      "tolerance": "0.5"
+     }
     },
     {
      "check": "60 nm: fluorescence maximum",
@@ -9480,7 +10315,12 @@
      "computed": 2.203,
      "tolerance": 0.25,
      "pass": true,
-     "source": "Fig. 1b, read"
+     "source": "Fig. 1b, read",
+     "display": {
+      "paper": "2.3",
+      "computed": "2.2",
+      "tolerance": "0.25"
+     }
     },
     {
      "check": "20 nm: fluorescence maximum",
@@ -9488,7 +10328,12 @@
      "computed": 1.0354,
      "tolerance": 0.15,
      "pass": true,
-     "source": "Fig. 1b, read"
+     "source": "Fig. 1b, read",
+     "display": {
+      "paper": "1.05",
+      "computed": "1.035",
+      "tolerance": "0.15"
+     }
     },
     {
      "check": "80 nm: quenched at contact (z = 0.5 nm)",
@@ -9496,9 +10341,25 @@
      "computed": 0.005,
      "tolerance": 0.3,
      "pass": true,
-     "source": "Fig. 1b"
+     "source": "Fig. 1b",
+     "display": {
+      "paper": "0",
+      "computed": "0.005",
+      "tolerance": "0.3"
+     }
     }
-   ]
+   ],
+   "agreement": "All 12 checks agree within their tolerances.",
+   "reproduction": {
+    "file": "classics/figures/anger-2006.json",
+    "sha256": "220419e311dc77af3d8f38ea2b37f5492cb78e053053dd787c974b218f1549c8",
+    "panels": [
+     "Excitation, 80 nm sphere (Fig. 1a)",
+     "Quantum yield, 80 nm sphere (Fig. 1a)",
+     "Fluorescence, 20–100 nm spheres (Fig. 1b)"
+    ],
+    "default": 2
+   }
   },
   {
    "id": "mohlenhoff-2005",
@@ -9511,7 +10372,7 @@
    "figure": "Fig. 4: scattering efficiency of non-absorbing spheres of index 1.33, radius 4–10 µm",
    "shows": "Scattering efficiency of a 4 µm sphere of n = 1.33 in air from 600 to 7000 cm⁻¹: the broad oscillation that distorts infrared spectra of cells and nuclei.",
    "inputs": "n = 1.33, k = 0, radius 4 µm, air (Fig. 4 caption and Eq. 8).",
-   "agreement": "The paper plots van de Hulst's approximation (its Eq. 8, maximum 3.17 near 2470 cm⁻¹), which the script reproduces; the calculator's exact Mie peaks higher, Q = 4.0 near 2590 cm⁻¹.",
+   "note": "The paper plots van de Hulst's approximation (its Eq. 8), which the script reproduces: maximum 3.17, the first near 2460 cm⁻¹ for a = 4 µm. The calculator's exact Mie peaks higher and bluer, Q = 3.98 near 2590 cm⁻¹: the two comparisons without a tolerance.",
    "perturb": "Raise the radius to 10 µm: the first maximum moves to ~1000 cm⁻¹, right under the protein bands.",
    "script": "crosscheck/classics/mohlenhoff_2005.py",
    "results": "crosscheck/classics/results/mohlenhoff_2005.json",
@@ -9553,7 +10414,12 @@
      "computed": 2460.0,
      "tolerance": 150,
      "pass": true,
-     "source": "Fig. 4, read"
+     "source": "Fig. 4, read",
+     "display": {
+      "paper": "2470",
+      "computed": "2460",
+      "tolerance": "150"
+     }
     },
     {
      "check": "their formula, a = 10 µm: first maximum (cm-1)",
@@ -9561,7 +10427,12 @@
      "computed": 990.0,
      "tolerance": 100,
      "pass": true,
-     "source": "Fig. 4, read"
+     "source": "Fig. 4, read",
+     "display": {
+      "paper": "1000",
+      "computed": "990",
+      "tolerance": "100"
+     }
     },
     {
      "check": "their formula: maximum Q",
@@ -9569,7 +10440,12 @@
      "computed": 3.1731,
      "tolerance": 0.15,
      "pass": true,
-     "source": "Fig. 4, read"
+     "source": "Fig. 4, read",
+     "display": {
+      "paper": "3.2",
+      "computed": "3.17",
+      "tolerance": "0.15"
+     }
     },
     {
      "check": "exact Mie, a = 4 µm: first maximum (cm-1)",
@@ -9577,7 +10453,12 @@
      "computed": 2590.0,
      "tolerance": null,
      "pass": null,
-     "source": "differs: exact vs Eq. 8"
+     "source": "differs: exact vs Eq. 8",
+     "display": {
+      "paper": "2470",
+      "computed": "2590",
+      "tolerance": null
+     }
     },
     {
      "check": "exact Mie, a = 4 µm: maximum Q",
@@ -9585,9 +10466,23 @@
      "computed": 3.9824,
      "tolerance": null,
      "pass": null,
-     "source": "differs: exact vs Eq. 8"
+     "source": "differs: exact vs Eq. 8",
+     "display": {
+      "paper": "3.2",
+      "computed": "3.98",
+      "tolerance": null
+     }
     }
-   ]
+   ],
+   "agreement": "All 3 checks with a tolerance agree within it; 2 more are shown without one.",
+   "reproduction": {
+    "file": "classics/figures/mohlenhoff-2005.json",
+    "sha256": "01742304fd8fdaa41e597cd1412efea7137e03e3f86c06645ea5020443c2ef16",
+    "panels": [
+     "Scattering efficiency"
+    ],
+    "default": 0
+   }
   },
   {
    "id": "films-plane-wave-1",

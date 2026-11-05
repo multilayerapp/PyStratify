@@ -1,11 +1,14 @@
 # Classic papers, recomputed
 
 Sixteen classic works on planar, cylindrical and spherical structures, each recomputed from the inputs
-the paper prints. Every script writes a CSV, a PNG and `results/<paper>.json`. That JSON records each
-check against a number printed in, or read off, the paper, with its tolerance and source. Each paper's
-page record (text, calculator inputs, agreement line) is `docs/classics/<id>.yaml`; `python -m
-pystratify.docs build` attaches these checks to it in `docs/manifest.json`, from which multilayer.app
-builds its classics page (`classics.html`), opening the same inputs live in the calculator.
+the paper prints. Every script writes a CSV, a PNG, `results/<paper>.json` and `results/<paper>.figure.json`.
+The first JSON records each check against a number printed in, or read off, the paper, with its tolerance
+and source; the second is the reproduction figure the paper's card on multilayer.app draws (PyStratify's
+curves at plotting resolution, the paper's values marked where its checks put them). Each paper's page
+record (text, calculator inputs, a note around the generated agreement sentence) is
+`docs/classics/<id>.yaml`; `python -m pystratify.docs build` attaches the checks to it in
+`docs/manifest.json` and copies the figure to `docs/classics/figures/<id>.json`, from which multilayer.app
+builds each classic's card inside its Learn section, opening the same inputs live in the calculator.
 
 Optical constants come from the refractiveindex.info database at the commit the calculator pins
 (`a66ef88`, copied into `data/`, public domain). They are interpolated linearly, as the backend does. Where

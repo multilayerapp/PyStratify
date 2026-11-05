@@ -61,13 +61,14 @@ def main(argv=None):
         if changed:
             print("stale: run `python -m pystratify.docs build`: " + ", ".join(changed), file=sys.stderr)
             return 1
-        print(f"{target} and docs/sweeps/ are current")
+        print(f"{target}, docs/sweeps/ and docs/classics/figures/ are current")
         return 0
     write_manifest(manifest, target)
     counts = {kind: sum(r["kind"] == kind for r in manifest["records"]) for kind in ("learn", "classic", "benchmark")}
     sweeps = sum(1 for e in manifest["examples"].values() if e.get("sweep"))
     print(f"wrote {target}: {counts['learn']} learn sections, {counts['classic']} classics, {counts['benchmark']} benchmarks, "
-          f"{len(manifest['examples'])} examples, {sweeps} precomputed sweeps in docs/sweeps/")
+          f"{len(manifest['examples'])} examples, {sweeps} precomputed sweeps in docs/sweeps/, "
+          f"{len(manifest['_figures'])} classic figures in docs/classics/figures/")
     learn = [r for r in manifest["records"] if r["kind"] == "learn"]
     edited = [r["id"] for r in learn if r["reviewed"] and not r["review_current"]]
     print(f"learn: {sum(1 for r in learn if r['review_current'])} of {len(learn)} sections reviewed as they read now"
