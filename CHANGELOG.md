@@ -3,6 +3,8 @@
 Notable changes to PyStratify. Every release is on [PyPI](https://pypi.org/project/pystratify/) and
 [Zenodo](https://doi.org/10.5281/zenodo.23287561) (one DOI per version); `git log` has the full history.
 
+## Unreleased
+
 ## 0.12.0 — one stable film kernel, and one owner of the material physics
 
 One new module (`stable`), and (assurance WP07-D2, 2026-11-03) the physics that multilayer.app's API and the
