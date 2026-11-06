@@ -7,6 +7,7 @@ and compared value for value. The others are recomputed by benchmarks/verify_all
 
 import importlib
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -46,11 +47,36 @@ def test_every_circle_is_a_computed_reference_value(path):
             assert 0 < sum(v is not None for v in s["y"]) <= 41, s["key"]
 
 
+# The figures are published from the maintainer's Mac; GitHub's Linux runners reproduce them to a few eps, not bit
+# for bit (first seen on the benchmarks job, 2026-11-05: R and T to 2e-15, the agreement's `worst` 1.63e-14 there
+# against 1.88e-14 here). Floats are compared to this many eps, relative to max(1, |value|); everything else exactly.
+FIGURE_EPS = 64
+
+
+def _deviation(ours, published, path):
+    """The largest float difference in units of eps * max(1, |value|); asserts the rest is identical."""
+    if isinstance(ours, float) or isinstance(published, float):
+        assert isinstance(ours, (int, float)) and isinstance(published, (int, float)), path
+        if math.isnan(ours) and math.isnan(published):
+            return 0.0
+        return abs(ours - published) / (sys.float_info.epsilon * max(1.0, abs(ours), abs(published)))
+    if isinstance(ours, dict):
+        assert isinstance(published, dict) and ours.keys() == published.keys(), path
+        return max((_deviation(ours[k], published[k], f"{path}.{k}") for k in ours), default=0.0)
+    if isinstance(ours, (list, tuple)):
+        assert isinstance(published, list) and len(ours) == len(published), path
+        return max((_deviation(a, b, f"{path}[{i}]") for i, (a, b) in enumerate(zip(ours, published))), default=0.0)
+    assert ours == published, path
+    return 0.0
+
+
 def test_pymoosh_page_reproduces_its_figures():
     pytest.importorskip("PyMoosh")
     page = importlib.import_module("films_plane_wave_pymoosh")
     assert page.SCRIPT == "benchmarks/pages/films_plane_wave_pymoosh.py"
+    deviation = {}
     for spec in page.FIGURES:
         ours = page.record(*spec)
         published = json.loads((ROOT / "docs" / "figures" / f"{ours['id']}.json").read_text())
-        assert {k: published[k] for k in ours} == ours, ours["id"]
+        deviation[ours["id"]] = _deviation(ours, {k: published[k] for k in ours}, ours["id"])
+    assert max(deviation.values()) <= FIGURE_EPS, f"eps per figure: {deviation}"
