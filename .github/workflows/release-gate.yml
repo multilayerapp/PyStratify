@@ -1,0 +1,209 @@
+# Assurance WP09, tasks 4, 5 and 7 (umbrella docs/assurance/WP09-gates.md section 6); applied 2026-11-05 with
+# 0.12.0 on Ilia's rulings D-W9-3 (the gated release flow) and W7-D2-GO.
+#
+# The order it enforces: a version tag is pushed -> every gate runs on the TAGGED COMMIT -> only if all pass, a
+# DRAFT GitHub release is opened carrying the distributions that were tested and their SHA256SUMS -> Ilia reads
+# the draft (the prefilled form he uses today) and publishes it -> Zenodo archives it and publish.yml uploads to
+# PyPI exactly those bytes. Zenodo archives every *published* release whatever any workflow says, so the gates
+# have to run before publication; that is why the release becomes a draft here instead of being published first.
+#
+# Gates, all on one commit (github.sha of the tag push; the `provenance` job records it and every later job
+# checks it out by that id, so evidence cannot drift onto another revision):
+#   provenance  tag = pyproject version = __version__ = CITATION.cff version; CHANGELOG has the section; the
+#               tagged commit is on main
+#   suite       the full suite on 3.10 and 3.12 (extra `test`) and on 3.12 with the benchmarks extra, each through
+#               the explicit-skip gate
+#   build       sdist + wheel, twine check, SHA256SUMS
+#   wheel       a clean venv per Python, the wheel installed (not the source tree), the package's contents
+#               checked, every submodule imported, a smoke subset of the tagged tests run against the installed
+#               wheel with src/ deleted
+#   draft       the draft release, its notes naming the commit, this run and the digests
+name: release-gate
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "An existing tag to qualify again (e.g. v0.12.0); the run checks out that tag's commit"
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: release-gate-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+jobs:
+  provenance:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+          fetch-depth: 0
+      - id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - id: version
+        name: one version everywhere it is written
+        run: |
+          v=$(python3 -c 'import tomllib;print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')
+          i=$(python3 -c 'import re;print(re.search(r"^__version__\s*=\s*\"([^\"]+)\"",open("src/pystratify/__init__.py").read(),re.M).group(1))')
+          c=$(sed -n 's/^version:[[:space:]]*//p' CITATION.cff | tr -d '"')
+          echo "tag $TAG | pyproject $v | __init__ $i | CITATION.cff $c"
+          test "v$v" = "$TAG" && test "$i" = "$v" && test "$c" = "$v"
+          grep -Eq "^## ${v//./\\.}( |$)" CHANGELOG.md || { echo "::error::CHANGELOG.md has no section for $v"; exit 1; }
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - name: the tagged commit is on main
+        run: git merge-base --is-ancestor HEAD origin/main
+
+  suite:
+    needs: provenance
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {python: "3.10", extras: "test", skips: ".github/expected-skips.txt"}
+          - {python: "3.12", extras: "test", skips: ".github/expected-skips.txt"}
+          - {python: "3.12", extras: "test,benchmarks", skips: ".github/expected-skips-benchmarks.txt"}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.provenance.outputs.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -e ".[${{ matrix.extras }}]"
+      - run: pytest -q -rs --junitxml=junit.xml
+      - name: explicit skips only
+        if: always()
+        run: python .github/scripts/skip_gate.py junit.xml ${{ matrix.skips }} --summary "$GITHUB_STEP_SUMMARY"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ matrix.python }}-${{ matrix.extras }}-${{ needs.provenance.outputs.sha }}
+          path: junit.xml
+
+  build:
+    needs: provenance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.provenance.outputs.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine check dist/*
+      - name: the sdist carries the licence, the metadata and the source
+        run: |
+          tar -tzf dist/*.tar.gz > sdist.txt
+          for f in LICENSE pyproject.toml README.md src/pystratify/__init__.py src/pystratify/PLANAR-LICENSE.txt; do
+            grep -q "/$f$" sdist.txt || { echo "::error::sdist lacks $f"; exit 1; }
+          done
+      - run: (cd dist && sha256sum * > ../SHA256SUMS) && cat SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ needs.provenance.outputs.sha }}
+          path: |
+            dist/
+            SHA256SUMS
+
+  wheel:
+    needs: [provenance, build]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.provenance.outputs.sha }}
+          path: tagged
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ needs.provenance.outputs.sha }}
+          path: built
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: the wheel's contents are the package and nothing else
+        run: |
+          python - <<'EOF'
+          import pathlib, zipfile, sys
+          wheel = next(pathlib.Path("built/dist").glob("*.whl"))
+          names = set(zipfile.ZipFile(wheel).namelist())
+          src = pathlib.Path("tagged/src")
+          expected = {p.relative_to(src).as_posix() for p in src.rglob("*.py")} | {"pystratify/PLANAR-LICENSE.txt"}
+          missing = sorted(expected - names)
+          stray = sorted(n for n in names if n.split("/")[0] in ("tests", "benchmarks", "docs", "crosscheck", "examples"))
+          print(wheel.name, len(names), "files")
+          if missing or stray:
+              sys.exit(f"missing from the wheel: {missing}; not part of the package: {stray}")
+          EOF
+      - name: a clean venv with the wheel, not the source tree
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install built/dist/*.whl pytest mpmath pyyaml treams
+          rm -rf tagged/src    # nothing on disk can stand in for the installed package
+      - name: the installed package imports whole and names its version
+        working-directory: ${{ runner.temp }}
+        env:
+          VERSION: ${{ needs.provenance.outputs.version }}
+        run: |
+          "$RUNNER_TEMP/venv/bin/python" - <<'EOF'
+          import importlib, os, pkgutil, pathlib, pystratify
+          where = pathlib.Path(pystratify.__file__).resolve()
+          assert "site-packages" in where.parts, where
+          assert pystratify.__version__ == os.environ["VERSION"], pystratify.__version__
+          mods = [m.name for m in pkgutil.walk_packages(pystratify.__path__, "pystratify.")]
+          for name in mods:
+              importlib.import_module(name)
+          print(f"pystratify {pystratify.__version__} from {where}; {len(mods)} submodules import")
+          EOF
+      - name: smoke subset of the tagged tests against the installed wheel
+        working-directory: tagged
+        run: |
+          "$RUNNER_TEMP/venv/bin/python" -m pytest -q -p no:cacheprovider \
+            tests/test_physics.py tests/test_solver.py tests/test_planar_checks.py tests/test_stable.py \
+            tests/test_conventions.py tests/test_api_contract.py \
+            --junitxml="$RUNNER_TEMP/junit-wheel.xml"
+      - name: explicit skips only (the smoke subset has none to allow)
+        if: always()
+        run: |
+          printf '# the smoke subset allows only the tmm lineage leg, which needs the benchmarks extra\ntests.test_stable*\ttmm\tthe `suite` job with the benchmarks extra\n' > "$RUNNER_TEMP/smoke-skips.txt"
+          python tagged/.github/scripts/skip_gate.py "$RUNNER_TEMP/junit-wheel.xml" "$RUNNER_TEMP/smoke-skips.txt" --summary "$GITHUB_STEP_SUMMARY"
+
+  draft:
+    needs: [provenance, suite, build, wheel]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ needs.provenance.outputs.sha }}
+          path: built
+      - name: open the release as a draft, carrying the tested bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.provenance.outputs.sha }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "Qualified by release-gate run $RUN on commit $SHA."
+            echo
+            echo "Publishing this draft archives it on Zenodo and uploads these exact files to PyPI (publish.yml checks the digests):"
+            echo '```'
+            cat built/SHA256SUMS
+            echo '```'
+          } > notes.md
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "$TAG" \
+            --notes-file notes.md built/dist/* built/SHA256SUMS

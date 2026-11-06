@@ -1,28 +1,68 @@
-# Publishing a GitHub release uploads that tag to PyPI (Trusted Publishing: no token is stored
-# anywhere) and, through Zenodo's GitHub integration, mints the release's DOI.
+# Assurance WP09, task 4 (umbrella docs/assurance/WP09-gates.md section 6); applied 2026-11-05 with 0.12.0 on
+# Ilia's ruling D-W9-3. It replaces the publish.yml that built the tag and uploaded it untested.
+#
+# Today's publish.yml builds the tag and uploads it to PyPI with no test of that revision and no test of the
+# built wheel. This one uploads nothing it did not see qualified:
+#   evidence  a successful release-gate run exists for THIS commit (github.sha of the release), and the files
+#             attached to the release are byte-for-byte the files that run built and tested (SHA256SUMS from the
+#             run's own artifact, not from the release, which anyone with write access could edit)
+#   pypi      uploads that artifact, unchanged (Trusted Publishing, the `pypi` environment as today)
+# Zenodo's GitHub integration archives the release when it is published, independently of this workflow: the
+# protection against an unqualified Zenodo version is that release-gate opens the release as a draft only after
+# every gate passed (and D-W9-1's tag rule, which keeps anyone else from creating v* tags).
 name: publish
 on:
   release:
     types: [published]
+permissions:
+  contents: read
 jobs:
-  build:
+  evidence:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - id: gate
+        name: a successful release-gate run of this exact commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          run=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/release-gate.yml/runs?head_sha=$SHA&status=success&per_page=1" \
+                --jq '.workflow_runs[0].id // empty')
+          if [ -z "$run" ]; then
+            echo "::error::no successful release-gate run for $SHA ($TAG): this release was not qualified; nothing is uploaded"
+            exit 1
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "$TAG ($SHA) qualified by release-gate run $run" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/download-artifact@v4
         with:
-          python-version: "3.12"
-      - run: pip install build twine
-      - run: python -m build
-      - run: twine check dist/*
-      # The tag and the package must name the same version, or PyPI would carry a wrong one forever.
-      - run: test "v$(python -c 'import tomllib;print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')" = "${GITHUB_REF_NAME}"
+          name: dist-${{ github.sha }}
+          path: tested
+          run-id: ${{ steps.gate.outputs.run }}
+          github-token: ${{ github.token }}
+      - name: the release's files are the tested files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          mkdir attached
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir attached --pattern '*.whl' --pattern '*.tar.gz'
+          (cd tested/dist && sha256sum * | sort) > tested.sums
+          (cd attached && sha256sum * | sort) > attached.sums
+          diff tested.sums attached.sums
+          diff tested.sums <(sort tested/SHA256SUMS)
       - uses: actions/upload-artifact@v4
         with:
           name: dist
-          path: dist/
+          path: tested/dist/
   pypi:
-    needs: build
+    needs: evidence
     runs-on: ubuntu-latest
     environment:
       name: pypi
