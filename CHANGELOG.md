@@ -5,6 +5,13 @@ Notable changes to PyStratify. Every release is on [PyPI](https://pypi.org/proje
 
 ## Unreleased
 
+- **Classic papers as full content** (`pystratify.docs`): each classic script also writes its figure data (the
+  computed curves at plotting resolution and marks that each name one check), which the build copies to the tracked
+  `docs/classics/figures/<id>.json` and places every mark at its check's paper value; a record's agreement sentence is
+  generated from its checks, and the hand-written prose becomes a `note` whose numbers are filled from them.
+  `build --check` covers the figure files; 8 new tests. The site draws the figure, a checks table and the sentence on
+  every classic card.
+
 ## 0.12.0 — one stable film kernel, and one owner of the material physics
 
 One new module (`stable`), and (assurance WP07-D2, 2026-11-03) the physics that multilayer.app's API and the
