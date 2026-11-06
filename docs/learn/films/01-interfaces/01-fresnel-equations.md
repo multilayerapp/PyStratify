@@ -202,10 +202,19 @@ $$
 which is how the optical constants of most materials in the databases were first obtained, and for a film on a
 substrate $\rho$ follows from the transfer matrix and is fitted for thickness and index (Azzam and Bashara).
 
-**What the calculator and an ellipsometer report.** Neither reports this $\Delta$ as written. The calculator's Ψ and Δ
-are those of Byrnes's code, $\tan\Psi\, e^{i\Delta} = -r_p/r_s$, so a bare dielectric below its Brewster angle reads
-$\Delta = 0°$. Ellipsometer software (Woollam, SENTECH) works with $\tilde N = n - ik$, the Nebraska convention, and
-reports the complex conjugate of the ratio above, $\tan\Psi\, e^{i\Delta} = (r_p/r_s)^*$, which reads $\Delta = 180°$
-on the same sample. The two are related by $\Delta_\text{instrument} = 180° - \Delta_\text{calculator}$. To invert a
-calculator Δ with the formula above, add 180° first; an instrument's Ψ and Δ go in as they are and return $n - ik$,
-the same index in its own convention.
+**What the calculator and an ellipsometer report.** Both report the same Ψ and Δ, and neither is quite the ratio
+above. Ellipsometer software (Woollam, SENTECH, pyElli) works with $\tilde N = n - ik$, the Nebraska convention, so
+in this page's $n + ik$ what it reports is the complex conjugate,
+
+$$
+\tan\Psi\, e^{i\Delta} = \left(\frac{r_p}{r_s}\right)^{*} :
+$$
+
+Ψ is unchanged and Δ changes sign. The calculator reports Ψ and Δ in this convention too, so its values can be laid
+over a measurement as they are. On a bare dielectric $r_p/r_s$ is real, negative below the Brewster angle and positive
+above it, so Δ reads 180° below Brewster and 0° above. On an absorbing substrate it falls smoothly from 180° to 0°,
+passing 90° at the principal angle, and a film on top can carry it anywhere from 0° to 360°. Byrnes's code, whose
+interface PyStratify's planar module keeps, returns the phase of $-r_p/r_s$ instead, which reads 0° on the same glass:
+$\Delta_\text{instrument} = 180° - \Delta_\text{Byrnes}$. To invert with the formula above, put in the calculator's or
+an instrument's Ψ and Δ as they are: the formula then returns $n - ik$, the complex conjugate of the index the
+calculator lists.
