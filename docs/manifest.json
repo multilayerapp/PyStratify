@@ -3789,7 +3789,7 @@
      "computed": 973.0796,
      "tolerance": 1,
      "pass": true,
-     "source": "my calc from the printed model, as the brief",
+     "source": "ω_TO √((ε∞ + Δε) / ε∞), from the model of p. 3983",
      "display": {
       "paper": "973",
       "computed": "973.1",
