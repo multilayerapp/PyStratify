@@ -3,7 +3,7 @@
 Notable changes to PyStratify. Every release is on [PyPI](https://pypi.org/project/pystratify/) and
 [Zenodo](https://doi.org/10.5281/zenodo.23287561) (one DOI per version); `git log` has the full history.
 
-## Unreleased
+## 0.12.1 — the classic papers as full content
 
 - **Classic papers as full content** (`pystratify.docs`): each classic script also writes its figure data (the
   computed curves at plotting resolution and marks that each name one check), which the build copies to the tracked

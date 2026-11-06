@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "generator": "pystratify 0.12.1.dev0",
+ "generator": "pystratify 0.12.1",
  "records": [
   {
    "id": "fresnel-equations",
@@ -3789,7 +3789,7 @@
      "computed": 973.0796,
      "tolerance": 1,
      "pass": true,
-     "source": "ω_TO √((ε∞ + Δε) / ε∞), from the model of p. 3983",
+     "source": "my calc from the printed model, as the brief",
      "display": {
       "paper": "973",
       "computed": "973.1",
