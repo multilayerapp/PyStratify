@@ -166,24 +166,24 @@ energy balance remains a test.
   Gonçalves et al., Nat. Commun. 11, 366 (2020)); with both d⊥ and d∥ nonzero, other second-order
   readings differ by d⊥d∥ l(l+1)/R².
 
-Typical timings on one core:
+Timings on one core, measured on 2026-11-08 ([benchmarks/TIMINGS.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/TIMINGS.md): each task's setup, the machine and the versions; `python benchmarks/timings.py` reruns them):
 
 | task | time |
 |---|---|
-| 601-wavelength spectrum, Au nanoshell | 25 ms |
-| 601-wavelength spectrum, 6-interface matryoshka | 70 ms |
-| x = 500 sphere, all orders | 8 ms |
-| 300 × 300 near-field map | 1.4 s |
-| decay rates at 100 emitter positions 0.5–25 nm from an Au nanoshell | 0.15 s |
-| the same from 0.1 nm (6700 orders) | 0.85 s |
-| 601-wavelength spectrum, Au nanoshell with a chiral shell, both helicities | 46 ms |
-| scattering pattern on a 181 × 361 (θ, φ) grid | 10 ms |
-| dipole emission pattern on a 181 × 361 grid | 90 ms |
-| orientation-averaged chiral emitter inside a chiral shell, 181 × 361 grid | 0.12 s |
-| `emission_rates`, 100 positions, chiral source, orientation average, chiral + Au multilayer | 0.6 s |
-| `emission_rates`, one position 10 nm / 1 nm from gold (p + m, quadrupole) | 4 ms / 25–85 ms |
-| quadrupole emission pattern, 181 × 361 grid, emitter on / off the grid's axis | 0.15 s / 1.1 s |
-| 601-wavelength spectrum, graphene-coated sphere | 10 ms |
+| 601-wavelength spectrum, Au nanoshell | 15 ms |
+| 601-wavelength spectrum, 6-interface matryoshka | 34 ms |
+| x = 500 sphere, all orders | 5.4 ms |
+| 300 × 300 near-field map | 0.16 s |
+| decay rates at 100 emitter positions 0.5–25 nm from an Au nanoshell | 0.17 s |
+| the same from 0.1 nm (6700 orders) | 0.9 s |
+| 601-wavelength spectrum, Au nanoshell with a chiral shell, both helicities | 47 ms |
+| scattering pattern on a 181 × 361 (θ, φ) grid | 3.2 ms |
+| dipole emission pattern on a 181 × 361 grid | 49 ms |
+| orientation-averaged chiral emitter inside a chiral shell, 181 × 361 grid | 75 ms |
+| `emission_rates`, 100 positions, chiral source, orientation average, chiral + Au multilayer | 1.3 s |
+| `emission_rates`, one position 10 nm / 1 nm from gold (p + m, quadrupole) | 2.9–3 ms / 17–53 ms |
+| quadrupole emission pattern, 181 × 361 grid, emitter on / off the grid's axis | 39 ms / 53 ms |
+| 601-wavelength spectrum, graphene-coated sphere | 5.2 ms |
 
 ## Films: the stable kernel
 

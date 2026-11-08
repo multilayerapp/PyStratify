@@ -148,15 +148,15 @@ source and quantity, and the [Verification page](https://multilayer.app/verifica
 
 ## Speed
 
-Typical timings on one core:
+Timings on one core, measured on 2026-11-08 ([benchmarks/TIMINGS.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/TIMINGS.md): each task's setup, the machine and the versions; `python benchmarks/timings.py` reruns them):
 
 | task | time |
 |---|---|
-| 601-wavelength spectrum, gold nanoshell | 25 ms |
-| sphere of size parameter 500, all orders | 8 ms |
-| decay rates at 100 positions 0.5–25 nm from a gold nanoshell | 0.15 s |
-| scattering pattern on a 181 × 361 (θ, φ) grid | 10 ms |
-| 300 × 300 near-field map | 1.4 s |
+| 601-wavelength spectrum, gold nanoshell | 15 ms |
+| sphere of size parameter 500, all orders | 5.4 ms |
+| decay rates at 100 positions 0.5–25 nm from a gold nanoshell | 0.17 s |
+| scattering pattern on a 181 × 361 (θ, φ) grid | 3.2 ms |
+| 300 × 300 near-field map | 0.16 s |
 
 More, and the accuracy to expect in every regime: [docs/NUMERICS.md](https://github.com/multilayerapp/PyStratify/blob/main/docs/NUMERICS.md).
 

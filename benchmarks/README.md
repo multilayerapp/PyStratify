@@ -18,6 +18,12 @@ to 0.25-nm gaps (Majic & Le Ru 2020) and inside and outside gold nanoshells and 
 rainbow angle and the Cauchy profile (Wu & Wang 1991; Wu et al. 1997), absorbing spheres to
 x = 20000, and fields far from the particle.
 
+`python benchmarks/timings.py` times the tasks of the timing tables in the README and docs/NUMERICS.md, each written
+out from the setup of docs/GUIDE.md, `examples/` or `convergence.py`, on one thread, and writes
+[benchmarks/TIMINGS.md](https://github.com/multilayerapp/PyStratify/blob/main/benchmarks/TIMINGS.md): the date, the
+machine, the Python, NumPy, SciPy and PyStratify versions and commit, and the median of each task beside the value the
+tables gave before it. It compares with no other code: its numbers belong to the machine that ran it.
+
 The planar solver descends from Byrnes's `tmm`, so it is checked against two codes outside that
 lineage: `python benchmarks/planar_codes.py` (after `pip install -e ".[benchmarks]"`) compares it with
 [PyMoosh](https://github.com/AnMoreau/PyMoosh) (scattering matrices) and

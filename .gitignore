@@ -11,3 +11,4 @@ benchmarks/runs/
 # What a page script writes beside itself when a reader runs it (benchmarks/pages/_page.py run)
 benchmarks/pages/*.json
 benchmarks/pages/*.png
+.venv/

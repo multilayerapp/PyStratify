@@ -45,6 +45,8 @@ pytest
   scan; pyElli + lmfit when the `benchmarks` extra is installed.
 * `test_api_contract.py`: every name in `__all__` has exactly one place in `docs/API.md`
   (frozen, provisional, legacy or internal).
+* `test_timings_tables.py`: every row of the timing tables in the README and `docs/NUMERICS.md` quotes the median that
+  `benchmarks/timings.py` recorded in `benchmarks/TIMINGS.md`, under an intro naming that run's date (nothing is timed).
 * `test_focused.py`: focused illumination ([docs/GUIDE.md](https://github.com/multilayerapp/PyStratify/blob/main/docs/GUIDE.md#focused-illumination)): every semi-analytic form against plane-wave
   superpositions through the existing engines, energy balance, limits, Köhler and Parseval.
 * `test_normalized.py`: the normalized formulation (`normalized.py`: ψ'/ψ, ψξ and normalized j̄ only,

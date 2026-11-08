@@ -5,6 +5,14 @@ Notable changes to PyStratify. Every release is on [PyPI](https://pypi.org/proje
 
 ## Unreleased
 
+- **The timing tables have a run behind them**: `benchmarks/timings.py` writes each task of the README's and
+  `docs/NUMERICS.md`'s tables out from the setup of `docs/GUIDE.md`, `examples/` or `benchmarks/convergence.py`, times
+  it on one thread and writes `benchmarks/TIMINGS.md` (date, machine, versions, commit, medians); both tables now
+  quote that run, and `tests/test_timings_tables.py` keeps them quoting it. The old values, which had no run or setup
+  recorded, are in the report beside the new ones: most tasks as now defined take less than the old values said (the
+  near-field map 9x and the off-axis quadrupole pattern 21x less), and the 100-position chiral `emission_rates`, at
+  its example's tol = 1e-8, 2.2x more.
+
 ## 0.12.1 — the classic papers as full content
 
 - **Classic papers as full content** (`pystratify.docs`): each classic script also writes its figure data (the
