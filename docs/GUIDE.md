@@ -131,8 +131,8 @@ multilayer.app's oscillator dialog offers, parameter for parameter.
 ambient side down, then the substrate; `simulate(sample, wavelengths, angles)` returns Ψ, Δ, N, C, S
 and the depolarisation on the angle × wavelength grid. Ψ and Δ are in the instruments' (Nebraska)
 convention, tan Ψ e^{iΔ} = conj(r_p/r_s) in this package's n + ik fields, so a bare dielectric below its
-Brewster angle has Δ = 180° (Woollam, SENTECH and pyElli agree; `planar.ellips` and multilayer.app's
-Ellipsometry card keep the transfer-matrix phase, 180° − Δ). Δ is in [0°, 360°). Roughness is a
+Brewster angle has Δ = 180° (Woollam, SENTECH, pyElli and multilayer.app's Ellipsometry card agree;
+`planar.ellips` keeps the transfer-matrix phase, 180° − Δ). Δ is in [0°, 360°). Roughness is a
 `Bruggeman(film, 1.0, 0.5)` layer. With `substrate_thickness` set, light returned from the back of a
 finite substrate is added incoherently, which depolarises the reflection (a glass slide); N, C, S then
 have length 1 − depolarisation.

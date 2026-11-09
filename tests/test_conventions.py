@@ -2,7 +2,7 @@
 which R and T of a lossless stack cannot see.
 
 r_p = -r_s at normal incidence (Born and Wolf §1.5.2, Byrnes); r_p > 0 below Brewster for external reflection;
-planar.ellips (the calculator's card) gives Delta = arg(-r_p/r_s); the bare-substrate inversion of
+planar.ellips (the transfer-matrix phase) gives Delta = arg(-r_p/r_s); the bare-substrate inversion of
 docs/learn/films/01-interfaces/01-fresnel-equations.md takes rho = r_p/r_s and returns n + ik. The characteristic
 matrix of docs/learn/films/02-transfer-matrix/01-transfer-matrix.md carries -i with n + ik (Macleod's +i belongs to
 n - ik), and the R_N of docs/learn/films/03-periodic-stacks/01-bragg-mirrors.md takes the amplitude-basis C.
@@ -46,7 +46,7 @@ def test_rp_is_positive_below_brewster_and_changes_sign_through_it():
     assert abs(amplitudes(1.5, brewster)[1]) < 1e-14
 
 
-def test_the_card_delta_is_the_phase_of_minus_rp_over_rs():
+def test_planar_ellips_delta_is_the_phase_of_minus_rp_over_rs():
     for angle, expected in ((30.0, 0.0), (50.0, 0.0), (70.0, 180.0)):
         delta = np.degrees(planar.ellips([1.0, 1.5], [np.inf, np.inf], np.radians(angle), 500.0)["Delta"]) % 360
         assert abs((delta - expected + 180) % 360 - 180) < 1e-9
@@ -61,9 +61,9 @@ def test_the_card_delta_is_the_phase_of_minus_rp_over_rs():
 def test_bare_substrate_inversion_takes_rp_over_rs(n2, angle):
     r_s, r_p = amplitudes(n2, angle)
     assert abs(invert(r_p / r_s, angle) - n2) < 1e-9
-    card = planar.ellips([1.0, n2], [np.inf, np.inf], np.radians(angle), 500.0)
-    rho_card = np.tan(card["psi"]) * np.exp(1j * card["Delta"])
-    assert abs(invert(-rho_card, angle) - n2) < 1e-9  # the card's Delta + 180 deg
+    tm = planar.ellips([1.0, n2], [np.inf, np.inf], np.radians(angle), 500.0)
+    rho_tm = np.tan(tm["psi"]) * np.exp(1j * tm["Delta"])
+    assert abs(invert(-rho_tm, angle) - n2) < 1e-9  # planar.ellips's Delta + 180 deg
     spectra = el.simulate(el.Sample(layers=[], substrate=n2), 500.0, angle)
     rho_instrument = np.tan(np.radians(float(spectra.psi))) * np.exp(1j * np.radians(float(spectra.delta)))
     assert abs(invert(rho_instrument, angle) - np.conj(n2)) < 1e-9  # an ellipsometer's own n - ik

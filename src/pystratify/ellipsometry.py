@@ -22,8 +22,8 @@ A measurement is fitted by writing the sample as a function of the parameters to
 **Conventions.** Psi and Delta follow the instrument (Nebraska) convention that Woollam,
 Sentech and pyElli report: tan(Psi) e^{i Delta} = conj(r_p / r_s) in this package's n + ik
 fields, so a bare dielectric below its Brewster angle has Delta = 180 deg. That is
-180 deg - Delta of :func:`pystratify.planar.ellips` (and of multilayer.app's Ellipsometry card),
-which keep the transfer-matrix phase. Delta is reported in [0, 360). N = cos 2Psi,
+180 deg - Delta of :func:`pystratify.planar.ellips`, which keeps the transfer-matrix phase
+(multilayer.app's Ellipsometry card reports this module's convention). Delta is reported in [0, 360). N = cos 2Psi,
 C = sin 2Psi cos Delta, S = sin 2Psi sin Delta. Wavelengths and thicknesses in nm, angles of
 incidence in degrees, the ambient lossless.
 
